@@ -1,4 +1,9 @@
+
 import streamlit as st
 
-st.title("Test - Hello World!")
-st.write("Si vous voyez ce message, Streamlit fonctionne correctement.")
+def main():
+    st.title("Mon Application TDAH")
+    # Votre code ici
+
+if __name__ == "__main__":
+    main()
