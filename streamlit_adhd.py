@@ -3460,30 +3460,370 @@ def page_test_asrs():
     
     return {k: {"text": v, "responses": []} for k, v in questions.items()}
 
-    # Structure de réponse standard avec validation des scores
-    response_options = [
-        {"value": 0, "label": "Jamais"},
-        {"value": 1, "label": "Rarement"},
-        {"value": 2, "label": "Parfois"},
-        {"value": 3, "label": "Souvent"},
-        {"value": 4, "label": "Très souvent"}
-    ]
+ # Options de rÃ©ponse
+    options = ["Jamais", "Rarement", "Parfois", "Souvent", "TrÃ¨s souvent"]
 
-# Algorithme de scoring basé sur les critères DSM-5 [4][7][10]
-def calculate_asrs_score(answers):
-    """
-    Calcule les scores selon le protocole ASRS-v1.1 :
-    - Partie A (questions 1-6) : 4+ réponses ≥3 déclenchent une évaluation approfondie
-    - Partie B (questions 7-18) : Complément symptomatologique
-    """
-    part_a = sum(1 for q in range(1,7) if answers.get(str(q),0) >= 3)
-    total_score = sum(answers.values())
-    
-    return {
-        "part_a_positive": part_a >= 4,
-        "total_score": total_score,
-        "interpretation": "Une évaluation clinique complète est recommandée" if part_a >=4 
-                         else "Symptomatologie insuffisante pour un TDAH"
+    # Initialisation des rÃ©ponses dans le session state
+    if 'asrs_responses' not in st.session_state:
+        st.session_state.asrs_responses = {}
+
+    # Formulaire de questionnaire
+    with st.form("asrs_questionnaire"):
+        # Part A - Questions de dÃ©pistage
+        st.markdown('<h3 style="color: #1976d2;">ðŸ“‹ Partie A - Questions de dÃ©pistage principales</h3>', unsafe_allow_html=True)
+        st.markdown("*Ces 6 questions sont les plus prÃ©dictives du TDAH selon les recherches de l'OMS*")
+
+        for q_num, text in questions_part_a.items():
+            st.session_state.asrs_responses[q_num] = st.radio(
+                f"**Question {q_num}:** {text}",
+                options=options,
+                index=0,  # "Jamais" par dÃ©faut
+                key=f"q{q_num}",
+                help="Choisissez la frÃ©quence qui correspond le mieux Ã  votre expÃ©rience"
+            )
+
+        st.markdown("---")
+
+        # Part B - Questions complÃ©mentaires
+        st.markdown('<h3 style="color: #1976d2;">ðŸ“‹ Partie B - Questions complÃ©mentaires</h3>', unsafe_allow_html=True)
+        st.markdown("*Ces questions permettent une Ã©valuation plus complÃ¨te des symptÃ´mes*")
+
+        for q_num, text in questions_part_b.items():
+            st.session_state.asrs_responses[q_num] = st.radio(
+                f"**Question {q_num}:** {text}",
+                options=options,
+                index=0,  # "Jamais" par dÃ©faut
+                key=f"q{q_num}",
+                help="Choisissez la frÃ©quence qui correspond le mieux Ã  votre expÃ©rience"
+            )
+
+        submitted = st.form_submit_button("ðŸ” Calculer mon score ASRS", type="primary")
+
+    if submitted:
+        # VÃ©rification que toutes les questions ont une rÃ©ponse
+        if len(st.session_state.asrs_responses) < 18:
+            st.error("âŒ Veuillez rÃ©pondre Ã  toutes les questions avant de calculer le score.")
+            return
+
+        # Calcul des scores selon les critÃ¨res officiels ASRS
+        score_mapping = {"Jamais": 0, "Rarement": 1, "Parfois": 2, "Souvent": 3, "TrÃ¨s souvent": 4}
+
+        # Scores par partie
+        part_a_scores = [score_mapping[st.session_state.asrs_responses[i]] for i in range(1, 7)]
+        part_a_total = sum(part_a_scores)
+
+        part_b_scores = [score_mapping[st.session_state.asrs_responses[i]] for i in range(7, 19)]
+        part_b_total = sum(part_b_scores)
+
+        total_score = part_a_total + part_b_total
+
+        # CritÃ¨res de dÃ©pistage positif pour Part A (selon recherches OMS)
+        # Seuils spÃ©cifiques par question pour Part A
+        part_a_thresholds = [2, 2, 2, 2, 2, 2]  # Seuils cliniques validÃ©s
+        part_a_positive = sum([1 for i, score in enumerate(part_a_scores) if score >= part_a_thresholds[i]])
+
+        # Analyse par domaine (Inattention vs HyperactivitÃ©/ImpulsivitÃ©)
+        inattention_questions = [1, 2, 3, 4, 7, 8, 9, 10, 11]
+        hyperactivity_questions = [5, 6, 12, 13, 14, 15, 16, 17, 18]
+
+        inattention_score = sum([score_mapping[st.session_state.asrs_responses[i]] for i in inattention_questions])
+        hyperactivity_score = sum([score_mapping[st.session_state.asrs_responses[i]] for i in hyperactivity_questions])
+
+        # Affichage des rÃ©sultats
+        st.success("âœ… Questionnaire ASRS-v1.1 complÃ©tÃ©!")
+
+        # MÃ©triques principales
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric("Score Partie A", f"{part_a_total}/24", f"{part_a_positive}/6 critÃ¨res positifs")
+
+        with col2:
+            st.metric("Score Partie B", f"{part_b_total}/48")
+
+        with col3:
+            st.metric("Score Total", f"{total_score}/72", f"{(total_score/72)*100:.1f}%")
+
+        with col4:
+            risk_level = "Ã‰levÃ©" if part_a_positive >= 4 else "ModÃ©rÃ©" if part_a_positive >= 2 else "Faible"
+            st.metric("Niveau de risque", risk_level)
+
+        # InterprÃ©tation clinique officielle
+        st.subheader("ðŸŽ¯ InterprÃ©tation clinique")
+
+        if part_a_positive >= 4:
+            st.markdown("""
+            <div class="warning-box">
+            <h4>ðŸ”´ DÃ©pistage POSITIF - SymptÃ´mes hautement compatibles avec un TDAH</h4>
+            <p><strong>Signification clinique :</strong> Vos rÃ©ponses Ã  la Partie A indiquent une forte probabilitÃ©
+            de prÃ©sence de symptÃ´mes TDAH selon les critÃ¨res de l'OMS.</p>
+
+            <p><strong>Recommandations urgentes :</strong></p>
+            <ul>
+            <li>ðŸ“ž <strong>Consultez rapidement un professionnel de santÃ© spÃ©cialisÃ©</strong> (psychiatre, neurologue, mÃ©decin formÃ© au TDAH)</li>
+            <li>ðŸ“‹ Demandez une Ã©valuation diagnostique complÃ¨te incluant entretien clinique et tests neuropsychologiques</li>
+            <li>ðŸ“ PrÃ©parez un historique dÃ©taillÃ© de vos symptÃ´mes depuis l'enfance</li>
+            <li>ðŸ‘¥ Contactez des associations de patients TDAH pour support et information</li>
+            </ul>
+
+            <p><strong>âš ï¸ Important :</strong> Ce test de dÃ©pistage ne constitue pas un diagnostic.
+            Seul un professionnel de santÃ© qualifiÃ© peut poser un diagnostic de TDAH.</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        elif part_a_positive >= 2:
+            st.markdown("""
+            <div class="warning-box">
+            <h4>ðŸŸ¡ DÃ©pistage MODÃ‰RÃ‰ - Certains symptÃ´mes TDAH prÃ©sents</h4>
+            <p><strong>Signification clinique :</strong> Vos rÃ©ponses suggÃ¨rent la prÃ©sence de certains symptÃ´mes
+            compatibles avec le TDAH, nÃ©cessitant une attention particuliÃ¨re.</p>
+
+            <p><strong>Recommandations :</strong></p>
+            <ul>
+            <li>ðŸ©º Consultez votre mÃ©decin traitant pour discuter de vos prÃ©occupations</li>
+            <li>ðŸ“Š Surveillez l'Ã©volution de vos symptÃ´mes sur plusieurs semaines</li>
+            <li>ðŸ“š Tenez un journal de vos difficultÃ©s quotidiennes</li>
+            <li>ðŸ§˜ Explorez des stratÃ©gies de gestion des symptÃ´mes (organisation, mindfulness)</li>
+            <li>ðŸ‘¥ ConsidÃ©rez un suivi spÃ©cialisÃ© si les symptÃ´mes persistent ou s'aggravent</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
+        else:
+            st.markdown("""
+            <div class="success-box">
+            <h4>ðŸŸ¢ DÃ©pistage NÃ‰GATIF - Peu de symptÃ´mes TDAH dÃ©tectÃ©s</h4>
+            <p><strong>Signification clinique :</strong> Vos rÃ©ponses ne suggÃ¨rent pas la prÃ©sence
+            de symptÃ´mes TDAH significatifs selon les critÃ¨res de dÃ©pistage de l'OMS.</p>
+
+            <p><strong>Informations importantes :</strong></p>
+            <ul>
+            <li>âœ… Vos difficultÃ©s actuelles peuvent avoir d'autres causes (stress, fatigue, autres troubles)</li>
+            <li>ðŸ‘€ Continuez Ã  surveiller vos symptÃ´mes - le TDAH peut se manifester diffÃ©remment selon les pÃ©riodes</li>
+            <li>ðŸ’ª Maintenez de bonnes habitudes de vie (sommeil, exercice, organisation)</li>
+            <li>ðŸ©º N'hÃ©sitez pas Ã  consulter si vous avez d'autres prÃ©occupations de santÃ© mentale</li>
+            </ul>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Visualisations dÃ©taillÃ©es
+        st.subheader("ðŸ“Š Analyse dÃ©taillÃ©e de vos rÃ©ponses")
+
+        # Graphique des scores par domaine
+        col1, col2 = st.columns(2)
+
+        with col1:
+            domains_df = pd.DataFrame({
+                'Domaine': ['Inattention', 'HyperactivitÃ©/ImpulsivitÃ©'],
+                'Score': [inattention_score, hyperactivity_score],
+                'Score_Max': [36, 36],  # 9 questions * 4 points max chacune
+                'Pourcentage': [
+                    (inattention_score / 36) * 100,
+                    (hyperactivity_score / 36) * 100
+                ]
+            })
+
+            fig = px.bar(domains_df, x='Domaine', y='Pourcentage',
+                        title="RÃ©partition des symptÃ´mes par domaine (%)",
+                        color='Pourcentage',
+                        color_continuous_scale='RdYlBu_r',
+                        text='Pourcentage')
+            fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+            fig.update_layout(height=400, yaxis_range=[0, 100])
+            st.plotly_chart(fig, use_container_width=True)
+
+        with col2:
+            # RÃ©partition des rÃ©ponses par frÃ©quence
+            response_counts = pd.Series(list(st.session_state.asrs_responses.values())).value_counts()
+
+            fig = px.pie(values=response_counts.values, names=response_counts.index,
+                        title="RÃ©partition de vos rÃ©ponses par frÃ©quence",
+                        color_discrete_sequence=px.colors.qualitative.Set3)
+            fig.update_layout(height=400)
+            st.plotly_chart(fig, use_container_width=True)
+
+        # Graphique radar dÃ©taillÃ©
+        st.subheader("ðŸŽ¯ Profil dÃ©taillÃ© des symptÃ´mes")
+
+        # Regroupement des questions par thÃ¨me
+        themes = {
+            'Organisation': [1, 2, 10],
+            'Attention soutenue': [7, 8, 9, 11],
+            'MÃ©moire': [3],
+            'Procrastination': [4],
+            'HyperactivitÃ© motrice': [5, 12],
+            'HyperactivitÃ© mentale': [6, 13, 14],
+            'ImpulsivitÃ© verbale': [15, 16],
+            'ImpulsivitÃ© comportementale': [17, 18]
+        }
+
+        theme_scores = {}
+        for theme, questions in themes.items():
+            scores = [score_mapping[st.session_state.asrs_responses[q]] for q in questions]
+            theme_scores[theme] = np.mean(scores)
+
+        fig = go.Figure()
+
+        fig.add_trace(go.Scatterpolar(
+            r=list(theme_scores.values()),
+            theta=list(theme_scores.keys()),
+            fill='toself',
+            name='Vos scores',
+            line_color='#1976d2'
+        ))
+
+        fig.add_trace(go.Scatterpolar(
+            r=[2] * len(theme_scores),  # Seuil moyen
+            theta=list(theme_scores.keys()),
+            fill='toself',
+            name='Seuil de prÃ©occupation',
+            line_color='#ff7f0e',
+            opacity=0.3
+        ))
+
+        fig.update_layout(
+            polar=dict(
+                radialaxis=dict(
+                    visible=True,
+                    range=[0, 4],
+                    tickvals=[0, 1, 2, 3, 4],
+                    ticktext=['Jamais', 'Rarement', 'Parfois', 'Souvent', 'TrÃ¨s souvent']
+                )),
+            showlegend=True,
+            title="Profil dÃ©taillÃ© par domaine de symptÃ´mes",
+            height=600
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Recommandations spÃ©cifiques par domaine
+        st.subheader("ðŸ’¡ Recommandations spÃ©cifiques")
+
+        high_score_domains = [domain for domain, score in theme_scores.items() if score >= 2.5]
+
+        if high_score_domains:
+            st.markdown("**Domaines nÃ©cessitant une attention particuliÃ¨re :**")
+
+            recommendations = {
+                'Organisation': "ðŸ“‹ Utilisez des outils d'organisation (agenda, listes, applications), crÃ©ez des routines structurÃ©es",
+                'Attention soutenue': "ðŸŽ¯ Pratiquez des exercices de mindfulness, Ã©liminez les distractions, prenez des pauses rÃ©guliÃ¨res",
+                'MÃ©moire': "ðŸ“ Utilisez des rappels, notez tout, crÃ©ez des associations visuelles",
+                'Procrastination': "â° DÃ©coupez les tÃ¢ches en Ã©tapes, utilisez la technique Pomodoro, fixez des Ã©chÃ©ances",
+                'HyperactivitÃ© motrice': "ðŸƒâ€â™‚ï¸ IntÃ©grez de l'exercice physique rÃ©gulier, utilisez des objets anti-stress",
+                'HyperactivitÃ© mentale': "ðŸ§˜ Pratiquez la mÃ©ditation, apprenez des techniques de relaxation",
+                'ImpulsivitÃ© verbale': "ðŸ¤ Pratiquez l'Ã©coute active, comptez jusqu'Ã  3 avant de parler",
+                'ImpulsivitÃ© comportementale': "â¸ï¸ DÃ©veloppez des stratÃ©gies de pause, rÃ©flÃ©chissez avant d'agir"
+            }
+
+            for domain in high_score_domains:
+                if domain in recommendations:
+                    st.write(f"â€¢ **{domain}** : {recommendations[domain]}")
+
+        # Export des rÃ©sultats
+        st.subheader("ðŸ’¾ Sauvegarde de vos rÃ©sultats")
+
+        if st.button("ðŸ“„ GÃ©nÃ©rer un rapport PDF", type="secondary"):
+            # CrÃ©ation d'un rapport simple en text
+            report_text = f"""
+RAPPORT DE DÃ‰PISTAGE TDAH - ASRS-v1.1
+=====================================
+
+Date: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+
+SCORES:
+- Partie A: {part_a_total}/24 ({part_a_positive}/6 critÃ¨res positifs)
+- Partie B: {part_b_total}/48
+- Score Total: {total_score}/72 ({(total_score/72)*100:.1f}%)
+
+INTERPRÃ‰TATION:
+- Niveau de risque: {risk_level}
+- Domaine Inattention: {inattention_score}/36 ({(inattention_score/36)*100:.1f}%)
+- Domaine HyperactivitÃ©/ImpulsivitÃ©: {hyperactivity_score}/36 ({(hyperactivity_score/36)*100:.1f}%)
+
+RECOMMANDATION:
+{"Consultation spÃ©cialisÃ©e recommandÃ©e" if part_a_positive >= 4 else "Surveillance et consultation si symptÃ´mes persistent" if part_a_positive >= 2 else "Pas d'indication de TDAH selon ce dÃ©pistage"}
+
+IMPORTANT: Ce dÃ©pistage ne remplace pas un diagnostic mÃ©dical professionnel.
+            """
+
+            st.download_button(
+                label="TÃ©lÃ©charger le rapport",
+                data=report_text,
+                file_name=f"rapport_asrs_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                mime="text/plain"
+            )
+
+# =================== NAVIGATION PRINCIPALE ===================
+
+def main():
+    """Fonction principale avec navigation"""
+
+    # Sidebar avec style amÃ©liorÃ©
+    st.sidebar.markdown("""
+    <div style="text-align: center; padding: 1.5rem; background: linear-gradient(145deg, #e3f2fd, #bbdefb); border-radius: 10px; margin-bottom: 1rem;">
+        <h1 style="color: #1976d2; margin-bottom: 0.5rem;">ðŸ§  TDAH</h1>
+        <p style="color: #1565c0; font-size: 1rem; margin-bottom: 0;">DÃ©pistage & IA AvancÃ©e</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Menu de navigation
+    pages = {
+        "ðŸ  Accueil": page_accueil,
+        "ðŸ“Š Exploration des DonnÃ©es": page_exploration,
+        "ðŸ¤– Machine Learning": page_machine_learning,
+        "ðŸŽ¯ PrÃ©diction IA": page_prediction,
+        "ðŸ“ Test ASRS-v1.1": page_test_asrs
     }
 
+    selected_page = st.sidebar.selectbox(
+        "Navigation",
+        list(pages.keys()),
+        help="SÃ©lectionnez la section que vous souhaitez explorer"
+    )
+
+    # Informations sur les donnÃ©es dans la sidebar
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**ðŸ“Š Informations systÃ¨me**")
+
+    # Test de chargement des donnÃ©es
+    df = load_data()
+    if df is not None and not df.empty:
+        st.sidebar.success("âœ… DonnÃ©es chargÃ©es")
+        st.sidebar.info(f"ðŸ“ˆ {len(df)} Ã©chantillons")
+        st.sidebar.info(f"ðŸ“‹ {len(df.columns)} variables")
+
+        if 'TDAH' in df.columns:
+            tdah_count = (df['TDAH'] == 'Oui').sum()
+            st.sidebar.info(f"ðŸŽ¯ {tdah_count} cas TDAH")
+    else:
+        st.sidebar.error("âŒ DonnÃ©es non disponibles")
+
+    # Informations sur les modÃ¨les
+    try:
+        model_data = joblib.load('best_tdah_model.pkl')
+        st.sidebar.success("ðŸ¤– ModÃ¨le IA disponible")
+        st.sidebar.info(f"ðŸ† {model_data['model_name']}")
+    except FileNotFoundError:
+        st.sidebar.warning("âš ï¸ ModÃ¨le IA non entraÃ®nÃ©")
+
+    # Footer de la sidebar
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("""
+    <div style="text-align: center; font-size: 0.8rem; color: #666;">
+    <p>âš ï¸ Outil de recherche uniquement<br>
+    Ne remplace pas un diagnostic mÃ©dical</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Affichage de la page sÃ©lectionnÃ©e
+    try:
+        pages[selected_page]()
+    except Exception as e:
+        st.error(f"âŒ Erreur lors du chargement de la page : {str(e)}")
+        st.info("ðŸ’¡ Essayez de recharger la page ou sÃ©lectionnez une autre section.")
+
+# =================== LANCEMENT DE L'APPLICATION ===================
+
+if __name__ == "__main__":
+    main()
 
