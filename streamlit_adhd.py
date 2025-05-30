@@ -797,10 +797,13 @@ def page_machine_learning():
             st.error("❌ Variable cible 'TDAH' non trouvée")
             st.info("💡 Assurez-vous que votre fichier contient une colonne nommée 'TDAH', 'diagnosis' ou 'target'.")
             return
+     except Exception as e:
+        st.error(f"❌ Une erreur s'est produite: {str(e)}")
+        st.info("💡 Essayez de recharger la page ou de vérifier vos données.")
+            
             
     # Entraînement des modèles
     st.subheader("🚀 Entraînement et optimisation des modèles")
-
     with st.spinner("Entraînement en cours... Cela peut prendre quelques minutes."):
         results, models, scaler, test_data = train_multiple_models(df_processed)
 
