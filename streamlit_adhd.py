@@ -3077,7 +3077,7 @@ def generate_analysis_report(df, feature_info):
             Rapport d'Analyse ADHD - {datetime.now().strftime('%d/%m/%Y')}
             
             Échantillon: {len(df)} participants
-            Prévalence TDAH: {tdah_prevalence:.1f}% si 'TDAH' in df.columns else 'N/A'}
+            Prévalence TDAH: {tdah_prevalence:.1f}% si 'TDAH' in df.columns else 'N/A'
             Complétude: {(1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100:.1f}%
             """
             
