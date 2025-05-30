@@ -3442,9 +3442,7 @@ def page_documentation():
             - [Webinaires TDAH Adulte](https://www.psychiatrie-francaise.com)
             """)
 
-    except Exception as e:
-        logger.error(f"Erreur dans page_documentation: {e}")
-        st.error("❌ Erreur lors du chargement de la documentation")
+
 
 # =================== LANCEMENT DE L'APPLICATION ===================
 
