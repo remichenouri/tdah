@@ -80,7 +80,6 @@ def set_custom_theme():
         # CSS corrigé sans commentaires C-style problématiques
         custom_theme = """
         <style>
-        /* ================ Variables Globales TDAH (Orange) ================ */
         :root {
             --primary: #d84315 !important;
             --secondary: #ff5722 !important;
@@ -97,12 +96,11 @@ def set_custom_theme():
             --shadow-medium: 0 4px 16px rgba(255,87,34,0.12) !important;
         }
 
-        /* ================ Structure Principale ================ */
         [data-testid="stAppViewContainer"] {
             background-color: var(--background) !important;
         }
 
-        /* ================ Sidebar Compacte et Professionnelle ================ */
+
         [data-testid="stSidebar"] {
             width: var(--sidebar-width-collapsed) !important;
             min-width: var(--sidebar-width-collapsed) !important;
@@ -140,7 +138,6 @@ def set_custom_theme():
             padding: 16px 12px !important;
         }
 
-        /* ================ En-tête TDAH ================ */
         [data-testid="stSidebar"] h2 {
             font-size: 0 !important;
             margin: 0 0 20px 0 !important;
@@ -173,7 +170,6 @@ def set_custom_theme():
             margin-right: 8px !important;
         }
 
-        /* ================ Options de Navigation TDAH ================ */
         [data-testid="stSidebar"] .stRadio {
             padding: 0 !important;
             margin: 0 !important;
@@ -219,7 +215,6 @@ def set_custom_theme():
             text-align: center !important;
         }
 
-        /* Icônes pour le TDAH */
         [data-testid="stSidebar"] .stRadio label:nth-child(1) span::before { content: "🏠" !important; }
         [data-testid="stSidebar"] .stRadio label:nth-child(2) span::before { content: "🔍" !important; }
         [data-testid="stSidebar"] .stRadio label:nth-child(3) span::before { content: "🧠" !important; }
@@ -243,7 +238,7 @@ def set_custom_theme():
             width: auto !important;
         }
 
-        /* Effets de survol orange */
+
         [data-testid="stSidebar"] .stRadio label:hover {
             background: linear-gradient(135deg, #fff3e0, #ffe0b2) !important;
             transform: translateX(3px) !important;
@@ -261,7 +256,6 @@ def set_custom_theme():
             transform: translateX(5px) !important;
         }
 
-        /* ================ Contenu Principal Adaptatif ================ */
         .main .block-container {
             margin-left: calc(var(--sidebar-width-collapsed) + 16px) !important;
             padding: 1.5rem !important;
@@ -269,7 +263,7 @@ def set_custom_theme():
             transition: var(--sidebar-transition) !important;
         }
 
-        /* ================ Boutons TDAH ================ */
+
         .stButton > button {
             background: linear-gradient(135deg, var(--secondary), var(--accent)) !important;
             color: white !important;
@@ -287,7 +281,7 @@ def set_custom_theme():
             background: linear-gradient(135deg, var(--accent), var(--secondary)) !important;
         }
 
-        /* Styles pour les cartes modernes */
+   
         .info-card-modern {
             background: white;
             border-radius: 15px;
@@ -303,7 +297,6 @@ def set_custom_theme():
             box-shadow: 0 8px 25px rgba(255,87,34,0.15);
         }
 
-        /* Suppression des alertes indésirables */
         .stAlert, [data-testid="stAlert"] {
             border: none !important;
             background: transparent !important;
