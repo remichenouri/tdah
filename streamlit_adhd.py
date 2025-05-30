@@ -593,16 +593,14 @@ def page_accueil():
     """Page d'accueil optimisée avec chargement asynchrone"""
     st.markdown('<h1 class="main-header">🧠 Dépistage TDAH - IA Avancée</h1>', unsafe_allow_html=True)
 
-    # Avertissement médical prominent
-    st.markdown("""
-    <div class="warning-box">
+   warning_text = """
+<div class="warning-box">
     <h4>⚠️ Avertissement Médical Important</h4>
-    <p><strong>Cet outil utilise l'intelligence artificielle pour le dépistage du TDAH à des fins de recherche et d'information uniquement.</strong></p>
-    <p>Il ne remplace en aucun cas un diagnostic médical professionnel. 
-    Consultez toujours un professionnel de santé qualifié pour un diagnostic définitif.</p>
-    <p>Les résultats de cette application ne doivent pas être utilisés pour prendre des décisions médicales.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    <p><strong>Cet outil utilise l'IA pour le dépistage TDAH à des fins de recherche uniquement.</strong></p>
+    <p>Il ne remplace pas un diagnostic médical professionnel.</p>
+</div>
+"""
+    st.markdown(warning_text, unsafe_allow_html=True)
 
     # Chargement optimisé des données
     try:
