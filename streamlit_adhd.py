@@ -798,7 +798,7 @@ def show_home_page():
 def show_data_exploration():
     """Exploration des données TDAH"""
     st.title("🔍 Exploration des Données TDAH")
-    df, _, _, _, _, _, _ = load_dataset()
+    df, _, _, _, _, _, df_stats = load_dataset()
     st.dataframe(df.head())
     
     st.markdown("""
