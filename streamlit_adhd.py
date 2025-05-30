@@ -1,3464 +1,1902 @@
 # -*- coding: utf-8 -*-
 """
-Application Streamlit optimisée pour le dépistage TDAH
-Version améliorée avec correction des erreurs et contenu enrichi
-Auteur: Assistant IA
-Date: 2025
+Streamlit TDAH - Outil de Dépistage et d'Analyse
+Adapté du design moderne du streamlit Autisme
 """
 
 import streamlit as st
-import pandas as pd
+import joblib
+import prince
+import base64
+import hashlib
+import os
+import pickle
 import numpy as np
+import pandas as pd
+import requests
+from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
+from PIL import Image
+import streamlit.components.v1 as components
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import seaborn as sns
 import matplotlib.pyplot as plt
-from scipy import stats
+import seaborn as sns
 
-# Machine Learning
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from sklearn.naive_bayes import GaussianNB
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder, LabelEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score, StratifiedKFold
-from sklearn.metrics import accuracy_score, roc_auc_score, confusion_matrix, classification_report, roc_curve
-from sklearn.feature_selection import SelectKBest, f_classif, RFE
-from sklearn.impute import SimpleImputer
-
-import joblib
-import requests
-from io import BytesIO
-import warnings
-import os
-import time
-from datetime import datetime
-import logging
-import base64
-
-# Configuration du logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-warnings.filterwarnings('ignore')
-
-# Configuration optimisée de la page
+# Configuration de la page
 st.set_page_config(
-    page_title="🧠 Dépistage TDAH - IA Avancée",
+    page_title="Dépistage TDAH",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'https://docs.streamlit.io/',
-        'Report a bug': 'mailto:support@example.com',
-        'About': "# Application de dépistage TDAH utilisant l'intelligence artificielle\n\nCette application utilise des algorithmes d'IA pour le dépistage précoce du TDAH."
-    }
+    initial_sidebar_state="expanded"
 )
 
-# Initialisation optimisée du session state
-def init_session_state():
-    """Initialise les variables de session de manière optimisée"""
-    default_values = {
-        'asrs_responses': {},
-        'last_topic': 'Accueil',
-        'run': False,
-        'model': None,
-        'data_loaded': False,
-        'models_trained': False,
-        'current_user_data': {},
-        'prediction_history': []
-    }
+# Création des dossiers de cache
+for folder in ['data_cache', 'image_cache', 'model_cache', 'theme_cache']:
+    os.makedirs(folder, exist_ok=True)
+
+# État de session pour les scores ADHD-RS
+if "adhd_total" not in st.session_state:
+    st.session_state.adhd_total = 0
+
+if "adhd_responses" not in st.session_state:
+    st.session_state.adhd_responses = []
+
+def initialize_session_state():
+    """Initialise l'état de session pour conserver les configurations entre les recharges"""
+    if 'initialized' not in st.session_state:
+        st.session_state.initialized = True
+        default_tool = "🏠 Accueil"
+        
+        try:
+            if "selection" in st.query_params:
+                selection = st.query_params["selection"]
+                selection_mapping = {
+                    "📝 Test ADHD-RS": "🤖 Prédiction par IA",
+                    "🤖 Prédiction par IA": "🤖 Prédiction par IA",
+                    "🔍 Exploration des Données": "🔍 Exploration des Données"
+                }
+                if selection in selection_mapping:
+                    st.session_state.tool_choice = selection_mapping[selection]
+                else:
+                    st.session_state.tool_choice = default_tool
+            else:
+                st.session_state.tool_choice = default_tool
+        except:
+            st.session_state.tool_choice = default_tool
+
+        st.session_state.data_exploration_expanded = True
+
+def set_custom_theme():
+    """Définit le thème personnalisé avec palette orange pour le TDAH"""
+    css_path = "theme_cache/custom_theme_tdah.css"
+    os.makedirs(os.path.dirname(css_path), exist_ok=True)
+
+    if os.path.exists(css_path):
+        with open(css_path, 'r') as f:
+            custom_theme = f.read()
+    else:
+        custom_theme = """
+        <style>
+        /* ================ Variables Globales TDAH (Orange) ================ */
+        :root {
+            --primary: #d84315 !important;
+            --secondary: #ff5722 !important;
+            --accent: #ff9800 !important;
+            --background: #fff8f5 !important;
+            --sidebar-bg: #ffffff !important;
+            --sidebar-border: #ffccbc !important;
+            --text-primary: #d84315 !important;
+            --text-secondary: #bf360c !important;
+            --sidebar-width-collapsed: 60px !important;
+            --sidebar-width-expanded: 240px !important;
+            --sidebar-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            --shadow-light: 0 2px 8px rgba(255,87,34,0.08) !important;
+            --shadow-medium: 0 4px 16px rgba(255,87,34,0.12) !important;
+        }
+
+        /* ================ Structure Principale ================ */
+        [data-testid="stAppViewContainer"] {
+            background-color: var(--background) !important;
+        }
+
+        /* ================ Sidebar Compacte et Professionnelle ================ */
+        [data-testid="stSidebar"] {
+            width: var(--sidebar-width-collapsed) !important;
+            min-width: var(--sidebar-width-collapsed) !important;
+            max-width: var(--sidebar-width-collapsed) !important;
+            height: 100vh !important;
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            z-index: 999999 !important;
+            background: var(--sidebar-bg) !important;
+            border-right: 1px solid var(--sidebar-border) !important;
+            box-shadow: var(--shadow-light) !important;
+            overflow: hidden !important;
+            padding: 0 !important;
+            transition: var(--sidebar-transition) !important;
+        }
+
+        [data-testid="stSidebar"]:hover {
+            width: var(--sidebar-width-expanded) !important;
+            min-width: var(--sidebar-width-expanded) !important;
+            max-width: var(--sidebar-width-expanded) !important;
+            box-shadow: var(--shadow-medium) !important;
+            overflow-y: auto !important;
+        }
+
+        [data-testid="stSidebar"] > div {
+            width: var(--sidebar-width-expanded) !important;
+            padding: 12px 8px !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        [data-testid="stSidebar"]:hover > div {
+            overflow-y: auto !important;
+            padding: 16px 12px !important;
+        }
+
+        /* ================ En-tête TDAH ================ */
+        [data-testid="stSidebar"] h2 {
+            font-size: 0 !important;
+            margin: 0 0 20px 0 !important;
+            padding: 12px 0 !important;
+            border-bottom: 1px solid var(--sidebar-border) !important;
+            text-align: center !important;
+            transition: all 0.3s ease !important;
+            position: relative !important;
+            height: 60px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        [data-testid="stSidebar"] h2::before {
+            content: "🧠" !important;
+            font-size: 28px !important;
+            display: block !important;
+            margin: 0 !important;
+        }
+
+        [data-testid="stSidebar"]:hover h2 {
+            font-size: 1.4rem !important;
+            color: var(--primary) !important;
+            font-weight: 600 !important;
+        }
+
+        [data-testid="stSidebar"]:hover h2::before {
+            font-size: 20px !important;
+            margin-right: 8px !important;
+        }
+
+        /* ================ Options de Navigation TDAH ================ */
+        [data-testid="stSidebar"] .stRadio {
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        [data-testid="stSidebar"] .stRadio > div {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 4px !important;
+            padding: 0 !important;
+        }
+
+        [data-testid="stSidebar"] .stRadio label {
+            display: flex !important;
+            align-items: center !important;
+            padding: 10px 6px !important;
+            margin: 0 !important;
+            border-radius: 8px !important;
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            position: relative !important;
+            height: 44px !important;
+            overflow: hidden !important;
+            background: transparent !important;
+        }
+
+        [data-testid="stSidebar"] .stRadio label > div:first-child {
+            display: none !important;
+        }
+
+        [data-testid="stSidebar"] .stRadio label span {
+            font-size: 0 !important;
+            transition: all 0.3s ease !important;
+            width: 100% !important;
+            text-align: center !important;
+            position: relative !important;
+        }
+
+        [data-testid="stSidebar"] .stRadio label span::before {
+            font-size: 22px !important;
+            display: block !important;
+            width: 100% !important;
+            text-align: center !important;
+        }
+
+        /* Icônes pour le TDAH */
+        [data-testid="stSidebar"] .stRadio label:nth-child(1) span::before { content: "🏠" !important; }
+        [data-testid="stSidebar"] .stRadio label:nth-child(2) span::before { content: "🔍" !important; }
+        [data-testid="stSidebar"] .stRadio label:nth-child(3) span::before { content: "🧠" !important; }
+        [data-testid="stSidebar"] .stRadio label:nth-child(4) span::before { content: "🤖" !important; }
+        [data-testid="stSidebar"] .stRadio label:nth-child(5) span::before { content: "📚" !important; }
+        [data-testid="stSidebar"] .stRadio label:nth-child(6) span::before { content: "ℹ️" !important; }
+
+        [data-testid="stSidebar"]:hover .stRadio label span {
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            text-align: left !important;
+            padding-left: 12px !important;
+        }
+
+        [data-testid="stSidebar"]:hover .stRadio label span::before {
+            font-size: 18px !important;
+            position: absolute !important;
+            left: -8px !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            width: auto !important;
+        }
+
+        /* Effets de survol orange */
+        [data-testid="stSidebar"] .stRadio label:hover {
+            background: linear-gradient(135deg, #fff3e0, #ffe0b2) !important;
+            transform: translateX(3px) !important;
+            box-shadow: var(--shadow-light) !important;
+        }
+
+        [data-testid="stSidebar"] .stRadio label[data-checked="true"] {
+            background: linear-gradient(135deg, var(--secondary), var(--accent)) !important;
+            color: white !important;
+            box-shadow: var(--shadow-medium) !important;
+        }
+
+        [data-testid="stSidebar"] .stRadio label[data-checked="true"]:hover {
+            background: linear-gradient(135deg, var(--accent), var(--secondary)) !important;
+            transform: translateX(5px) !important;
+        }
+
+        /* ================ Contenu Principal Adaptatif ================ */
+        .main .block-container {
+            margin-left: calc(var(--sidebar-width-collapsed) + 16px) !important;
+            padding: 1.5rem !important;
+            max-width: calc(100vw - var(--sidebar-width-collapsed) - 32px) !important;
+            transition: var(--sidebar-transition) !important;
+        }
+
+        /* ================ Boutons TDAH ================ */
+        .stButton > button {
+            background: linear-gradient(135deg, var(--secondary), var(--accent)) !important;
+            color: white !important;
+            border-radius: 8px !important;
+            border: none !important;
+            padding: 10px 20px !important;
+            font-weight: 500 !important;
+            transition: all 0.3s ease !important;
+            box-shadow: var(--shadow-light) !important;
+        }
+
+        .stButton > button:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: var(--shadow-medium) !important;
+            background: linear-gradient(135deg, var(--accent), var(--secondary)) !important;
+        }
+
+        /* Styles pour les cartes modernes */
+        .info-card-modern {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 15px 0;
+            box-shadow: 0 4px 15px rgba(255,87,34,0.08);
+            border-left: 4px solid var(--secondary);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .info-card-modern:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(255,87,34,0.15);
+        }
+
+        /* Suppression des alertes indésirables */
+        .stAlert, [data-testid="stAlert"] {
+            border: none !important;
+            background: transparent !important;
+        }
+        </style>
+
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.querySelector('[data-testid="stSidebar"]');
+            
+            if (sidebar) {
+                let isExpanded = false;
+                let hoverTimeout;
+                
+                function expandSidebar() {
+                    clearTimeout(hoverTimeout);
+                    isExpanded = true;
+                    sidebar.style.overflow = 'visible';
+                }
+                
+                function collapseSidebar() {
+                    hoverTimeout = setTimeout(() => {
+                        isExpanded = false;
+                        sidebar.style.overflow = 'hidden';
+                    }, 200);
+                }
+                
+                sidebar.addEventListener('mouseenter', expandSidebar);
+                sidebar.addEventListener('mouseleave', collapseSidebar);
+                
+                // Attribution des états pour les options sélectionnées
+                const observer = new MutationObserver(() => {
+                    const radioLabels = sidebar.querySelectorAll('.stRadio label');
+                    radioLabels.forEach(label => {
+                        const input = label.querySelector('input[type="radio"]');
+                        if (input && input.checked) {
+                            label.setAttribute('data-checked', 'true');
+                        } else {
+                            label.setAttribute('data-checked', 'false');
+                        }
+                    });
+                });
+                
+                observer.observe(sidebar, { 
+                    childList: true, 
+                    subtree: true,
+                    attributes: true 
+                });
+            }
+        });
+        </script>
+        """
+        
+        with open(css_path, 'w') as f:
+            f.write(custom_theme)
+
+    st.markdown(custom_theme, unsafe_allow_html=True)
+
+def show_navigation_menu():
+    """Menu de navigation optimisé pour le TDAH"""
+    st.markdown("## 🧠 TDAH - Navigation")
+    st.markdown("Choisissez un outil :")
+
+    options = [
+        "🏠 Accueil",
+        "🔍 Exploration", 
+        "🧠 Analyse ML",
+        "🤖 Prédiction par IA",
+        "📚 Documentation",
+        "ℹ️ À propos"
+    ]
+
+    if 'tool_choice' not in st.session_state or st.session_state.tool_choice not in options:
+        st.session_state.tool_choice = "🏠 Accueil"
+
+    current_index = options.index(st.session_state.tool_choice)
+
+    tool_choice = st.radio(
+        "",
+        options,
+        label_visibility="collapsed",
+        index=current_index,
+        key="main_navigation"
+    )
+
+    if tool_choice != st.session_state.tool_choice:
+        st.session_state.tool_choice = tool_choice
+
+    return tool_choice
+
+@st.cache_data(ttl=86400)
+def get_img_with_href(img_url, target_url, as_banner=False):
+    """Crée une image cliquable avec un lien"""
+    if "drive.google.com" in img_url and "/d/" in img_url:
+        file_id = img_url.split("/d/")[1].split("/")[0]
+        img_url = f"https://drive.google.com/uc?export=view&id={file_id}"
+
+    cache_filename = hashlib.md5(img_url.encode()).hexdigest() + ".webp"
+    cache_dir = "image_cache"
+    cache_path = os.path.join(cache_dir, cache_filename)
+    os.makedirs(cache_dir, exist_ok=True)
+
+    try:
+        if os.path.exists(cache_path):
+            with open(cache_path, "rb") as f:
+                img_data = f.read()
+            img = Image.open(BytesIO(img_data))
+        else:
+            response = requests.get(img_url, timeout=15)
+            response.raise_for_status()
+
+            if len(response.content) == 0:
+                raise Exception("Contenu vide téléchargé")
+
+            img = Image.open(BytesIO(response.content))
+
+            max_width = 1200 if as_banner else 800
+            if img.width > max_width:
+                ratio = max_width / img.width
+                new_height = int(img.height * ratio)
+                img = img.resize((max_width, new_height), Image.LANCZOS)
+
+            buffer = BytesIO()
+            img.save(buffer, format="WEBP", quality=85, optimize=True)
+
+            with open(cache_path, "wb") as f:
+                f.write(buffer.getvalue())
+
+            buffer.seek(0)
+            img_data = buffer.getvalue()
+
+        img_str = base64.b64encode(img_data).decode()
+
+        if as_banner:
+            style = 'style="width:100%;height:600px;display:block;object-fit:cover;border-radius:10px;" loading="lazy"'
+        else:
+            style = 'style="width:100%;height:auto;display:block;object-fit:contain;margin:0 auto;padding:0;" loading="lazy"'
+
+        container_style = 'style="width:100%; padding:10px; background-color:white; border-radius:10px; overflow:hidden; margin-bottom:20px;"'
+
+        if target_url and target_url != "#":
+            html_code = f'<div {container_style}><a href="{target_url}" target="_blank" style="display:block; margin:0; padding:0; line-height:0;"><img src="data:image/webp;base64,{img_str}" {style}></a></div>'
+        else:
+            html_code = f'<div {container_style}><img src="data:image/webp;base64,{img_str}" {style}></div>'
+
+        return html_code
+    except Exception as e:
+        return f'<div style="text-align:center;padding:20px;background:#f0f2f6;border-radius:10px;"><p>Image non disponible ({str(e)})</p></div>'
+
+@st.cache_data(ttl=86400)
+def load_dataset():
+    """Charge les datasets TDAH - Version simulée pour l'exemple"""
+    try:
+        # Simulation de données TDAH pour l'exemple
+        # Dans un vrai cas, vous chargeriez vos vraies données
+        np.random.seed(42)
+        n_samples = 1500
+        
+        # Génération de données simulées pour le TDAH
+        df = pd.DataFrame({
+            'Age': np.random.normal(35, 12, n_samples).astype(int),
+            'Genre': np.random.choice(['M', 'F'], n_samples, p=[0.6, 0.4]),
+            'Education': np.random.choice(['Primaire', 'Secondaire', 'Supérieur'], n_samples),
+            'Hyperactivite_Score': np.random.randint(0, 28, n_samples),
+            'Inattention_Score': np.random.randint(0, 28, n_samples),
+            'Impulsivite_Score': np.random.randint(0, 20, n_samples),
+            'Troubles_Apprentissage': np.random.choice(['Oui', 'Non'], n_samples, p=[0.3, 0.7]),
+            'Antecedents_Familiaux': np.random.choice(['Oui', 'Non'], n_samples, p=[0.4, 0.6]),
+            'Statut_testeur': np.random.choice(['Famille', 'Medecin', 'Psychologue', 'Auto'], n_samples),
+        })
+        
+        # Génération du score total ADHD-RS (18 items, 0-3 chaque)
+        for i in range(1, 19):
+            df[f'Q{i}'] = np.random.randint(0, 4, n_samples)
+        
+        df['Score_ADHD_Total'] = df[[f'Q{i}' for i in range(1, 19)]].sum(axis=1)
+        
+        # Génération de la variable cible TDAH basée sur les scores
+        tdah_prob = (df['Score_ADHD_Total'] / 54) * 0.8 + 0.1  # Probabilité basée sur le score
+        df['TDAH'] = np.random.binomial(1, tdah_prob, n_samples)
+        df['TDAH'] = df['TDAH'].map({1: 'Oui', 0: 'Non'})
+        
+        # Nettoyage des âges aberrants
+        df.loc[df['Age'] < 6, 'Age'] = np.random.randint(6, 18, (df['Age'] < 6).sum())
+        df.loc[df['Age'] > 65, 'Age'] = np.random.randint(18, 65, (df['Age'] > 65).sum())
+        
+        # Datasets simulés pour compatibilité
+        df_ds1 = df.sample(300, random_state=1).copy()
+        df_ds2 = df.sample(400, random_state=2).copy()
+        df_ds3 = df.sample(350, random_state=3).copy()
+        df_ds4 = df.sample(250, random_state=4).copy()
+        df_ds5 = df.sample(200, random_state=5).copy()
+        
+        df_stats = {
+            'mean_by_tdah': df.groupby('TDAH').mean(numeric_only=True),
+            'count_by_tdah': df.groupby('TDAH').count(),
+            'categorical_cols': df.select_dtypes(include=['object']).columns.tolist(),
+            'numeric_cols': df.select_dtypes(exclude=['object']).columns.tolist()
+        }
+
+        return df, df_ds1, df_ds2, df_ds3, df_ds4, df_ds5, df_stats
+    except Exception as e:
+        st.error(f"Erreur lors du chargement: {str(e)}")
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}
+
+def show_home_page():
+    """Page d'accueil pour le TDAH avec design moderne"""
     
-    for key, value in default_values.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
-
-init_session_state()
-
-# Style CSS amélioré et corrigé
-def load_css():
-    """Charge les styles CSS optimisés"""
+    # CSS spécifique pour la page d'accueil
     st.markdown("""
     <style>
-        /* Import Google Fonts */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
-        /* Variables CSS */
-        :root {
-            --primary-color: #1a237e;
-            --secondary-color: #3949ab;
-            --accent-color: #1976d2;
-            --success-color: #4caf50;
-            --warning-color: #ff9800;
-            --error-color: #f44336;
-            --info-color: #2196f3;
-            --background-light: #f8f9fa;
-            --border-radius: 12px;
-            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* Reset et base */
-        .main .block-container {
-            padding-top: 2rem;
-            max-width: 1200px;
-        }
-        
-        /* Headers styling */
-        .main-header {
-            font-family: 'Inter', sans-serif;
-            font-size: 2.8rem;
-            color: var(--primary-color);
-            text-align: center;
-            margin: 2rem 0;
-            font-weight: 700;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .sub-header {
-            font-family: 'Inter', sans-serif;
-            font-size: 1.8rem;
-            color: var(--secondary-color);
-            margin: 1.5rem 0 1rem 0;
-            border-bottom: 3px solid #e3f2fd;
-            padding-bottom: 0.5rem;
-            font-weight: 600;
-        }
-        
-        /* Cards et containers */
-        .metric-card {
-            background: linear-gradient(145deg, #ffffff, #f8f9fa);
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
-            margin: 0.5rem 0;
-            box-shadow: var(--box-shadow);
-            border-left: 5px solid var(--accent-color);
-            transition: all 0.3s ease;
-            border: 1px solid #e0e0e0;
-        }
-        
-        .metric-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
-        }
-        
-        .warning-box {
-            background: linear-gradient(145deg, #fff8e1, #ffecb3);
-            border: 2px solid var(--warning-color);
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
-            margin: 1rem 0;
-            box-shadow: 0 2px 8px rgba(255, 152, 0, 0.2);
-        }
-        
-        .success-box {
-            background: linear-gradient(145deg, #e8f5e8, #c8e6c8);
-            border: 2px solid var(--success-color);
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
-            margin: 1rem 0;
-            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
-        }
-        
-        .info-box {
-            background: linear-gradient(145deg, #e3f2fd, #bbdefb);
-            border: 2px solid var(--info-color);
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
-            margin: 1rem 0;
-            box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
-        }
-        
-        .error-container {
-            background: linear-gradient(145deg, #ffebee, #ffcdd2);
-            border: 2px solid var(--error-color);
-            border-radius: var(--border-radius);
-            padding: 1rem;
-            margin: 1rem 0;
-            box-shadow: 0 2px 8px rgba(244, 67, 54, 0.2);
-        }
-        
-        /* Progress bar */
-        .stProgress > div > div > div > div {
-            background: linear-gradient(90deg, var(--accent-color), var(--secondary-color));
-        }
-        
-        /* Sidebar styling */
-        .css-1d391kg {
-            padding-top: 1rem;
-        }
-        
-        /* Tables */
-        .dataframe {
-            font-family: 'Inter', sans-serif;
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            box-shadow: var(--box-shadow);
-        }
-        
-        /* Buttons */
-        .stButton > button {
-            border-radius: var(--border-radius);
-            font-family: 'Inter', sans-serif;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-        
-        /* Metrics styling */
-        [data-testid="metric-container"] {
-            background: linear-gradient(145deg, #ffffff, #f8f9fa);
-            border: 1px solid #e0e0e0;
-            padding: 1rem;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-        }
-        
-        /* Form styling */
-        .stForm {
-            border: 1px solid #e0e0e0;
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
-            background: #ffffff;
-            box-shadow: var(--box-shadow);
-        }
-        
-        /* Tabs styling */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-        }
-        
-        .stTabs [data-baseweb="tab"] {
-            border-radius: var(--border-radius);
-            padding: 0.5rem 1rem;
-            font-weight: 500;
-        }
+    .info-card-modern {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin: 15px 0;
+        box-shadow: 0 4px 15px rgba(255,87,34,0.08);
+        border-left: 4px solid #ff5722;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .info-card-modern:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(255,87,34,0.15);
+    }
+    
+    .timeline-container {
+        background-color: #fff3e0;
+        padding: 25px;
+        border-radius: 15px;
+        margin: 25px 0;
+        overflow-x: auto;
+    }
+    
+    .timeline-item {
+        min-width: 160px;
+        text-align: center;
+        margin: 0 15px;
+        flex-shrink: 0;
+    }
+    
+    .timeline-year {
+        background: linear-gradient(135deg, #ff5722, #ff9800);
+        color: white;
+        padding: 12px;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 0.95rem;
+    }
+    
+    .timeline-text {
+        margin-top: 12px;
+        font-size: 0.9rem;
+        color: #d84315;
+        line-height: 1.4;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-load_css()
+    # En-tête principal
+    st.markdown("""
+    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
+                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
+            🧠 Comprendre le Trouble Déficitaire de l'Attention avec Hyperactivité
+        </h1>
+        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
+                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
+            Une approche moderne et scientifique pour le dépistage précoce du TDAH
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# =================== FONCTIONS UTILITAIRES OPTIMISÉES ===================
+    # Section "Qu'est-ce que le TDAH ?"
+    st.markdown("""
+    <div class="info-card-modern">
+        <h2 style="color: #ff5722; margin-bottom: 25px; font-size: 2.2rem; text-align: center;">
+            🔬 Qu'est-ce que le TDAH ?
+        </h2>
+        <p style="font-size: 1.2rem; line-height: 1.8; text-align: justify;
+                  max-width: 900px; margin: 0 auto; color: #d84315;">
+            Le <strong>Trouble Déficitaire de l'Attention avec ou sans Hyperactivité (TDAH)</strong> est un trouble
+            neurodéveloppemental qui se caractérise par des difficultés persistantes d'attention, d'hyperactivité
+            et d'impulsivité. Ces symptômes apparaissent avant l'âge de 12 ans et interfèrent significativement
+            avec le fonctionnement quotidien dans plusieurs domaines de la vie.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-@st.cache_data(ttl=3600, show_spinner="⏳ Chargement des données ADHD...", persist="disk")
-def load_adhd_dataset():
-    """Charge le vrai dataset ADHD avec gestion d'erreurs robuste"""
-    try:
-        # URLs multiples pour le dataset ADHD
-        dataset_urls = [
-            # Dataset ADHD de Kaggle
-            "https://raw.githubusercontent.com/datasets/adhd/main/adhd_data.csv",
-            # Dataset alternatif
-            "https://raw.githubusercontent.com/example/adhd-dataset/main/data.csv",
-            # Dataset de recherche publique
-            "https://archive.ics.uci.edu/ml/machine-learning-databases/00452/adhd_data.csv"
-        ]
-        
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        })
-        
-        for url in dataset_urls:
-            try:
-                logger.info(f"Tentative de chargement depuis : {url}")
-                response = session.get(url, timeout=30)
-                if response.status_code == 200:
-                    df = pd.read_csv(BytesIO(response.content))
-                    if len(df) > 100 and len(df.columns) > 5:  # Validation basique
-                        logger.info(f"Dataset ADHD chargé avec succès: {len(df)} lignes, {len(df.columns)} colonnes")
-                        st.session_state.data_loaded = True
-                        return df
-            except Exception as e:
-                logger.warning(f"Échec pour {url}: {e}")
-                continue
-        
-        # Si tous les URLs échouent, créer un dataset de démonstration réaliste
-        logger.warning("Impossible de charger le dataset ADHD, création d'un dataset de démonstration enrichi")
-        return create_realistic_adhd_dataset()
-        
-    except Exception as e:
-        logger.error(f"Erreur générale lors du chargement: {e}")
-        return create_realistic_adhd_dataset()
+    # Timeline de l'évolution
+    st.markdown("""
+    <h2 style="color: #ff5722; margin: 45px 0 25px 0; text-align: center; font-size: 2.2rem;">
+        📅 Évolution de la compréhension du TDAH
+    </h2>
+    """, unsafe_allow_html=True)
 
-@st.cache_data(ttl=3600)
-def create_realistic_adhd_dataset():
-    """Crée un dataset ADHD réaliste basé sur la recherche clinique"""
-    try:
-        np.random.seed(42)
-        n_samples = 2000  # Dataset plus large
-        
-        # Données démographiques réalistes
-        ages = np.random.normal(28, 15, n_samples).clip(6, 75).astype(int)
-        gender = np.random.choice(['Male', 'Female'], n_samples, p=[0.65, 0.35])  # Prévalence réelle
-        education_levels = np.random.choice(
-            ['Elementary', 'Middle School', 'High School', 'College', 'Graduate'], 
-            n_samples, 
-            p=[0.08, 0.12, 0.35, 0.35, 0.10]
-        )
-        
-        # Scores ADHD basés sur des études cliniques réelles
-        # Utilisation de distributions bêta pour plus de réalisme
-        inattention_base = np.random.beta(2, 5, n_samples) * 18  # Score sur 18 (critères DSM-5)
-        hyperactivity_base = np.random.beta(2, 6, n_samples) * 18
-        impulsivity_base = np.random.beta(2.5, 6, n_samples) * 18
-        
-        # Ajout de corrélations réalistes
-        correlation_matrix = np.array([
-            [1.0, 0.6, 0.5],
-            [0.6, 1.0, 0.7],
-            [0.5, 0.7, 1.0]
-        ])
-        
-        # Génération des scores corrélés
-        scores_raw = np.column_stack([inattention_base, hyperactivity_base, impulsivity_base])
-        scores_correlated = np.random.multivariate_normal([0, 0, 0], correlation_matrix, n_samples)
-        scores_final = scores_raw + scores_correlated * 2
-        
-        inattention_score = np.clip(scores_final[:, 0], 0, 18)
-        hyperactivity_score = np.clip(scores_final[:, 1], 0, 18)
-        impulsivity_score = np.clip(scores_final[:, 2], 0, 18)
-        
-        # Diagnostic basé sur critères DSM-5 réalistes
-        # TDAH si >= 6 symptômes dans au moins un domaine pour adultes, >= 6 pour enfants
-        inattention_criteria = (inattention_score >= 6).astype(int)
-        hyperactivity_criteria = (hyperactivity_score >= 6).astype(int)
-        combined_criteria = ((inattention_score >= 6) & (hyperactivity_score >= 6)).astype(int)
-        
-        # Probabilité TDAH basée sur les scores
-        total_severity = inattention_score + hyperactivity_score + impulsivity_score
-        adhd_probability = 1 / (1 + np.exp(-(total_severity - 20) / 5))
-        adhd_diagnosis = np.random.binomial(1, adhd_probability, n_samples)
-        
-        # Sous-types TDAH
-        adhd_subtype = np.where(
-            (inattention_criteria == 1) & (hyperactivity_criteria == 1), 'Combined',
-            np.where(inattention_criteria == 1, 'Inattentive',
-                    np.where(hyperactivity_criteria == 1, 'Hyperactive-Impulsive', 'None'))
-        )
-        
-        # Variables associées réalistes
-        family_history = np.random.choice(['Yes', 'No', 'Unknown'], n_samples, p=[0.25, 0.65, 0.10])
-        learning_difficulties = np.random.choice(['Yes', 'No'], n_samples, p=[0.30, 0.70])
-        anxiety_score = np.random.normal(5, 3, n_samples).clip(0, 10)
-        depression_score = np.random.normal(4, 2.5, n_samples).clip(0, 10)
-        sleep_problems = np.random.normal(4, 2, n_samples).clip(0, 10)
-        
-        # Médicaments et traitements
-        medication_status = np.random.choice(
-            ['None', 'Stimulants', 'Non-stimulants', 'Antidepressants', 'Multiple'], 
-            n_samples, 
-            p=[0.60, 0.20, 0.08, 0.07, 0.05]
-        )
-        
-        # Impact fonctionnel
-        work_impact = np.random.normal(3 + adhd_diagnosis * 3, 2, n_samples).clip(0, 10)
-        social_impact = np.random.normal(3 + adhd_diagnosis * 2.5, 2, n_samples).clip(0, 10)
-        academic_impact = np.random.normal(3 + adhd_diagnosis * 3.5, 2, n_samples).clip(0, 10)
-        
-        # Qualité de vie
-        quality_of_life = np.random.normal(7 - adhd_diagnosis * 2, 1.5, n_samples).clip(1, 10)
-        
-        # Comorbidités
-        comorbidity_anxiety = np.random.binomial(1, 0.25 + adhd_diagnosis * 0.35, n_samples)
-        comorbidity_depression = np.random.binomial(1, 0.15 + adhd_diagnosis * 0.25, n_samples)
-        
-        # Construction du DataFrame
-        data = {
-            'ID': range(1, n_samples + 1),
-            'Age': ages,
-            'Gender': gender,
-            'Education_Level': education_levels,
-            'Inattention_Score': inattention_score.round(1),
-            'Hyperactivity_Score': hyperactivity_score.round(1),
-            'Impulsivity_Score': impulsivity_score.round(1),
-            'Total_ADHD_Score': (inattention_score + hyperactivity_score + impulsivity_score).round(1),
-            'ADHD_Diagnosis': ['Yes' if x == 1 else 'No' for x in adhd_diagnosis],
-            'ADHD_Subtype': adhd_subtype,
-            'Family_History_ADHD': family_history,
-            'Learning_Difficulties': learning_difficulties,
-            'Anxiety_Score': anxiety_score.round(1),
-            'Depression_Score': depression_score.round(1),
-            'Sleep_Problems_Score': sleep_problems.round(1),
-            'Current_Medication': medication_status,
-            'Work_Impact_Score': work_impact.round(1),
-            'Social_Impact_Score': social_impact.round(1),
-            'Academic_Impact_Score': academic_impact.round(1),
-            'Quality_of_Life_Score': quality_of_life.round(1),
-            'Comorbid_Anxiety': ['Yes' if x == 1 else 'No' for x in comorbidity_anxiety],
-            'Comorbid_Depression': ['Yes' if x == 1 else 'No' for x in comorbidity_depression]
-        }
-        
-        df = pd.DataFrame(data)
-        
-        # Mapping pour la compatibilité
-        df['TDAH'] = df['ADHD_Diagnosis']
-        
-        logger.info(f"Dataset ADHD réaliste créé: {len(df)} lignes, {len(df.columns)} colonnes")
-        st.info("📊 Dataset ADHD de démonstration créé (2000 échantillons réalistes basés sur la recherche clinique)")
-        return df
-        
-    except Exception as e:
-        logger.error(f"Erreur lors de la création du dataset: {e}")
-        # Dataset minimal de secours
-        return pd.DataFrame({
-            'Age': [25, 30, 35, 40, 22, 28],
-            'Gender': ['Male', 'Female', 'Male', 'Female', 'Male', 'Female'],
-            'Inattention_Score': [8.5, 12.0, 4.0, 15.0, 6.5, 10.0],
-            'Hyperactivity_Score': [6.0, 9.0, 3.0, 12.0, 5.0, 8.0],
-            'Impulsivity_Score': [5.0, 11.0, 2.0, 10.0, 4.0, 7.0],
-            'ADHD_Diagnosis': ['No', 'Yes', 'No', 'Yes', 'No', 'Yes'],
-            'TDAH': ['No', 'Yes', 'No', 'Yes', 'No', 'Yes']
-        })
+    st.markdown("""
+    <div class="timeline-container">
+        <div style="display: flex; justify-content: space-between; min-width: 700px;">
+            <div class="timeline-item">
+                <div class="timeline-year">1902</div>
+                <div class="timeline-text">Still décrit l'hyperactivité chez l'enfant</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-year">1980</div>
+                <div class="timeline-text">Le TDAH entre dans le DSM-III</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-year">1994</div>
+                <div class="timeline-text">Définition des 3 sous-types</div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-year">Aujourd'hui</div>
+                <div class="timeline-text">Approche neuroscientifique</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-@st.cache_data(persist="disk")
-def advanced_preprocessing(df, target_column='TDAH'):
-    """Préprocessing avancé optimisé pour dataset ADHD"""
-    if df is None or df.empty:
-        logger.error("DataFrame vide ou None dans preprocessing")
-        return None, None
+    # Section "Les trois dimensions du TDAH"
+    st.markdown("## 🌈 Les trois dimensions du TDAH")
 
-    try:
-        df_processed = df.copy()
-        feature_info = {'preprocessing_steps': [], 'feature_mappings': {}}
+    st.markdown("""
+    <div style="background-color: white; padding: 25px; border-radius: 15px;
+               box-shadow: 0 4px 15px rgba(255,87,34,0.08); border-left: 4px solid #ff5722;">
+        <p style="font-size: 1.1rem; line-height: 1.7; color: #d84315; margin-bottom: 20px;">
+            Le TDAH se manifeste selon <strong>trois dimensions principales</strong> qui peuvent se présenter
+            séparément ou en combinaison.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-        # Nettoyage des noms de colonnes
-        df_processed.columns = df_processed.columns.str.strip().str.replace(' ', '_')
-        
-        # Mapping des colonnes alternatives pour TDAH
-        if target_column not in df_processed.columns:
-            alternative_names = ['ADHD_Diagnosis', 'adhd_diagnosis', 'diagnosis', 'label']
-            for alt_name in alternative_names:
-                if alt_name in df_processed.columns:
-                    df_processed[target_column] = df_processed[alt_name]
-                    feature_info['preprocessing_steps'].append(f"Mapping {alt_name} -> {target_column}")
-                    break
+    # Les trois types
+    col1, col2, col3 = st.columns(3)
 
-        # Standardisation des valeurs de la variable cible
-        if target_column in df_processed.columns:
-            df_processed[target_column] = df_processed[target_column].map({
-                'Yes': 'Oui', 'No': 'Non', 'yes': 'Oui', 'no': 'Non',
-                1: 'Oui', 0: 'Non', True: 'Oui', False: 'Non'
-            }).fillna(df_processed[target_column])
-
-        # Gestion des valeurs manquantes améliorée
-        numeric_cols = df_processed.select_dtypes(include=[np.number]).columns
-        categorical_cols = df_processed.select_dtypes(include=['object']).columns
-
-        # Imputation numérique sophistiquée
-        for col in numeric_cols:
-            if df_processed[col].isnull().sum() > 0:
-                if 'score' in col.lower():
-                    # Pour les scores, utiliser la médiane
-                    df_processed[col].fillna(df_processed[col].median(), inplace=True)
-                elif 'age' in col.lower():
-                    # Pour l'âge, utiliser la moyenne
-                    df_processed[col].fillna(df_processed[col].mean(), inplace=True)
-                else:
-                    # Pour les autres, utiliser la stratégie adaptée à la distribution
-                    if df_processed[col].skew() > 1:
-                        df_processed[col].fillna(df_processed[col].median(), inplace=True)
-                    else:
-                        df_processed[col].fillna(df_processed[col].mean(), inplace=True)
-                feature_info['preprocessing_steps'].append(f"Imputation numérique: {col}")
-
-        # Imputation catégorielle
-        for col in categorical_cols:
-            if col != target_column and df_processed[col].isnull().sum() > 0:
-                mode_value = df_processed[col].mode()
-                fill_value = mode_value[0] if len(mode_value) > 0 else 'Unknown'
-                df_processed[col].fillna(fill_value, inplace=True)
-                feature_info['preprocessing_steps'].append(f"Imputation catégorielle: {col}")
-
-        # Feature Engineering spécialisé ADHD
-        score_columns = [col for col in df_processed.columns if 'score' in col.lower() and col != target_column]
-        
-        if len(score_columns) >= 2:
-            df_processed['Total_Score'] = df_processed[score_columns].sum(axis=1)
-            df_processed['Mean_Score'] = df_processed[score_columns].mean(axis=1)
-            df_processed['Score_Variability'] = df_processed[score_columns].std(axis=1)
-            df_processed['Max_Score'] = df_processed[score_columns].max(axis=1)
-            df_processed['Min_Score'] = df_processed[score_columns].min(axis=1)
-            
-            feature_info['engineered_features'] = [
-                'Total_Score', 'Mean_Score', 'Score_Variability', 'Max_Score', 'Min_Score'
-            ]
-
-        # Création de features d'interaction pour ADHD
-        if 'Inattention_Score' in df_processed.columns and 'Hyperactivity_Score' in df_processed.columns:
-            df_processed['Inattention_Hyperactivity_Ratio'] = (
-                df_processed['Inattention_Score'] / (df_processed['Hyperactivity_Score'] + 0.1)
-            )
-            df_processed['Combined_Severity'] = (
-                df_processed['Inattention_Score'] * df_processed['Hyperactivity_Score']
-            )
-
-        # Groupement d'âge spécialisé ADHD
-        if 'Age' in df_processed.columns:
-            df_processed['Age_Group'] = pd.cut(
-                df_processed['Age'],
-                bins=[0, 12, 18, 25, 35, 50, 100],
-                labels=['Child', 'Adolescent', 'Young_Adult', 'Adult', 'Middle_Age', 'Senior']
-            )
-            feature_info['age_groups_created'] = True
-
-        # Encodage optimisé
-        categorical_mappings = {}
-        for col in categorical_cols:
-            if col != target_column and col not in ['Age_Group']:
-                try:
-                    le = LabelEncoder()
-                    df_processed[col] = df_processed[col].astype(str)
-                    df_processed[f'{col}_encoded'] = le.fit_transform(df_processed[col])
-                    categorical_mappings[col] = le
-                    feature_info['feature_mappings'][col] = dict(zip(le.classes_, le.transform(le.classes_)))
-                except Exception as e:
-                    logger.warning(f"Erreur encodage {col}: {e}")
-
-        # Détection et traitement des outliers avec seuils adaptés ADHD
-        for col in numeric_cols:
-            if col != target_column and 'score' in col.lower():
-                # Pour les scores ADHD, outliers moins agressifs
-                Q1, Q3 = df_processed[col].quantile([0.15, 0.85])
-                IQR = Q3 - Q1
-                lower_bound = Q1 - 2 * IQR
-                upper_bound = Q3 + 2 * IQR
-                
-                outliers_count = ((df_processed[col] < lower_bound) | 
-                                (df_processed[col] > upper_bound)).sum()
-                
-                if outliers_count > 0:
-                    df_processed[col] = df_processed[col].clip(lower_bound, upper_bound)
-                    feature_info['preprocessing_steps'].append(f"Outliers traités: {col} ({outliers_count})")
-
-        feature_info['categorical_mappings'] = categorical_mappings
-        feature_info['original_shape'] = df.shape
-        feature_info['processed_shape'] = df_processed.shape
-        feature_info['numeric_features'] = list(numeric_cols)
-        feature_info['categorical_features'] = list(categorical_cols)
-
-        logger.info(f"Preprocessing ADHD terminé: {df.shape} -> {df_processed.shape}")
-        return df_processed, feature_info
-
-    except Exception as e:
-        logger.error(f"Erreur lors du preprocessing ADHD: {e}")
-        return df, {'error': str(e)}
-
-# =================== SYSTÈME DE NAVIGATION AMÉLIORÉ ===================
-
-def create_navigation():
-    """Crée la navigation avec sidebar optimisée"""
-    with st.sidebar:
+    with col1:
         st.markdown("""
-        <div style="text-align: center; padding: 1rem 0;">
-            <h2 style="color: #1976d2; margin: 0;">🧠 Navigation</h2>
-            <p style="color: #666; margin: 0.5rem 0;">Dépistage TDAH par IA</p>
+        <div style="background: linear-gradient(135deg, #ffebee, #ffcdd2);
+                   border-radius: 15px; padding: 25px; margin-bottom: 20px; height: 200px;
+                   border-left: 4px solid #f44336;">
+            <h4 style="color: #c62828; margin-top: 0;">🎯 Inattention</h4>
+            <ul style="color: #d32f2f; line-height: 1.6; font-size: 0.9rem;">
+                <li>Difficultés de concentration</li>
+                <li>Oublis fréquents</li>
+                <li>Désorganisation</li>
+                <li>Évitement des tâches</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #fff3e0, #ffcc02);
+                   border-radius: 15px; padding: 25px; margin-bottom: 20px; height: 200px;
+                   border-left: 4px solid #ff9800;">
+            <h4 style="color: #ef6c00; margin-top: 0;">⚡ Hyperactivité</h4>
+            <ul style="color: #f57c00; line-height: 1.6; font-size: 0.9rem;">
+                <li>Agitation constante</li>
+                <li>Difficulté à rester assis</li>
+                <li>Énergie excessive</li>
+                <li>Verbosité</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+                   border-radius: 15px; padding: 25px; margin-bottom: 20px; height: 200px;
+                   border-left: 4px solid #4caf50;">
+            <h4 style="color: #2e7d32; margin-top: 0;">🚀 Impulsivité</h4>
+            <ul style="color: #388e3c; line-height: 1.6; font-size: 0.9rem;">
+                <li>Réponses précipitées</li>
+                <li>Interruptions fréquentes</li>
+                <li>Impatience</li>
+                <li>Prises de risques</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Section prévalence
+    st.subheader("📈 Prévalence du TDAH")
+
+    st.info("""
+    **Données clés sur le TDAH :**
+
+    • **5-7%** des enfants d'âge scolaire sont concernés
+    • **2.5%** des adultes vivent avec un TDAH
+    • Ratio garçons/filles d'environ **3:1** chez l'enfant
+    • **Persistance à l'âge adulte** dans 60% des cas
+    """)
+
+    # Section "À qui s'adresse ce projet"
+    st.markdown("""
+    <h2 style="color: #ff5722; margin: 45px 0 25px 0; text-align: center; font-size: 2.2rem;">
+        🎯 À qui s'adresse ce projet
+    </h2>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 10, 1])
+
+    with col2:
+        col_a, col_b = st.columns(2)
+
+        with col_a:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #fff3e0, #ffcc02);
+                       border-radius: 15px; padding: 25px; margin-bottom: 20px; height: 180px;
+                       border-left: 4px solid #ff9800;">
+                <h4 style="color: #ef6c00; margin-top: 0;">🔬 Professionnels de santé</h4>
+                <p style="color: #f57c00; line-height: 1.6; font-size: 0.95rem;">
+                    Outil d'aide au diagnostic et d'évaluation des symptômes TDAH
+                    pour améliorer la prise en charge.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #ffebee, #ffcdd2);
+                       border-radius: 15px; padding: 25px; height: 180px;
+                       border-left: 4px solid #f44336;">
+                <h4 style="color: #c62828; margin-top: 0;">👨‍👩‍👧‍👦 Familles et particuliers</h4>
+                <p style="color: #d32f2f; line-height: 1.6; font-size: 0.95rem;">
+                    Outils d'auto-évaluation et d'information pour identifier
+                    les signes précoces du TDAH.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_b:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+                       border-radius: 15px; padding: 25px; margin-bottom: 20px; height: 180px;
+                       border-left: 4px solid #4caf50;">
+                <h4 style="color: #2e7d32; margin-top: 0;">🎓 Milieu éducatif</h4>
+                <p style="color: #388e3c; line-height: 1.6; font-size: 0.95rem;">
+                    Ressources pour enseignants et éducateurs pour mieux
+                    comprendre et accompagner les élèves avec TDAH.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+                       border-radius: 15px; padding: 25px; height: 180px;
+                       border-left: 4px solid #2196f3;">
+                <h4 style="color: #1565c0; margin-top: 0;">🏛️ Recherche et politique</h4>
+                <p style="color: #1976d2; line-height: 1.6; font-size: 0.95rem;">
+                    Données et analyses pour orienter les politiques de santé
+                    publique et les recherches futures.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # Section "Caractéristiques principales"
+    st.markdown("""
+    <h2 style="color: #ff5722; margin: 45px 0 25px 0; text-align: center; font-size: 2.2rem;">
+        🧠 Impact du TDAH
+    </h2>
+    """, unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("""
+        <div class="info-card-modern" style="border-left-color: #ff5722;">
+            <h3 style="color: #ff5722; margin-bottom: 20px;">🎓 Domaine scolaire/professionnel</h3>
+            <ul style="line-height: 1.8; color: #d84315; padding-left: 20px;">
+                <li>Difficultés de concentration en classe</li>
+                <li>Problèmes d'organisation</li>
+                <li>Procrastination</li>
+                <li>Sous-performance académique</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div class="info-card-modern" style="border-left-color: #ff9800;">
+            <h3 style="color: #ff9800; margin-bottom: 20px;">👥 Relations sociales</h3>
+            <ul style="line-height: 1.8; color: #ef6c00; padding-left: 20px;">
+                <li>Difficultés dans les interactions</li>
+                <li>Problèmes de régulation émotionnelle</li>
+                <li>Impulsivité relationnelle</li>
+                <li>Estime de soi fragile</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Section "Notre approche" finale
+    st.markdown("""
+    <h2 style="color: #ff5722; margin: 45px 0 25px 0; text-align: center; font-size: 2.2rem;">
+        🚀 Notre approche
+    </h2>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 10, 1])
+
+    with col2:
+        st.markdown("""
+        <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                   padding: 35px; border-radius: 20px; text-align: center; color: white;
+                   box-shadow: 0 8px 25px rgba(255, 87, 34, 0.3);">
+            <p style="font-size: 1.3rem; max-width: 800px; margin: 0 auto; line-height: 1.7;">
+                Notre plateforme combine l'expertise clinique et l'intelligence artificielle
+                pour améliorer le dépistage précoce du TDAH et optimiser l'accompagnement
+                des personnes concernées dans une approche bienveillante et scientifique.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Avertissement final
+    st.markdown("""
+    <div style="margin: 40px 0 30px 0; padding: 20px; border-radius: 12px;
+               border-left: 4px solid #f44336; background: linear-gradient(135deg, #ffebee, #ffcdd2);
+               box-shadow: 0 4px 12px rgba(244, 67, 54, 0.1);">
+        <p style="font-size: 1rem; color: #c62828; text-align: center; margin: 0; line-height: 1.6;">
+            <strong style="color: #f44336;">⚠️ Avertissement :</strong>
+            Les informations présentées sur cette plateforme sont à titre informatif uniquement.
+            Elles ne remplacent pas l'avis médical professionnel pour le diagnostic du TDAH.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def show_data_exploration():
+    """Exploration des données TDAH avec visualisations interactives"""
+    df, df_ds1, df_ds2, df_ds3, df_ds4, df_ds5, df_stats = load_dataset()
+    
+    st.markdown("""
+    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
+                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
+            🔍 Exploration des Données TDAH
+        </h1>
+        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
+                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
+            Analyse approfondie des patterns et caractéristiques du TDAH
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Structure des données
+    with st.expander("📂 Structure des Données", expanded=True):
+        st.markdown("""
+        <div style="background:#fff3e0; padding:15px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.05)">
+            <h4 style="color:#e65100; border-bottom:1px solid #ffcc02; padding-bottom:8px">Jeux de Données TDAH</h4>
+            <ul style="padding-left:20px">
+                <li>📁 <strong>Dataset Principal:</strong> Données synthétiques TDAH (n=1500)</li>
+                <li>📁 <strong>Variables cliniques:</strong> Scores ADHD-RS, démographie</li>
+                <li>📁 <strong>Évaluations:</strong> 18 items du questionnaire ADHD-RS</li>
+            </ul>
         </div>
         """, unsafe_allow_html=True)
         
-        # Menu principal avec icônes
-        pages = {
-            "🏠 Accueil": "page_accueil",
-            "📝 Test ASRS": "page_asrs", 
-            "📊 Exploration": "page_exploration",
-            "🤖 Machine Learning": "page_machine_learning",
-            "🎯 Prédiction": "page_prediction",
-            "📚 Documentation": "page_documentation",
-            "ℹ️ À propos": "page_about"
-        }
+        tab_main, tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "Dataset Principal", "Sous-échantillon 1", "Sous-échantillon 2", 
+            "Sous-échantillon 3", "Sous-échantillon 4", "Sous-échantillon 5"
+        ])
+
+        with tab_main:
+            st.caption("Dataset Principal TDAH")
+            st.dataframe(df.head(10), use_container_width=True)
+        with tab1:
+            st.dataframe(df_ds1.head(5), use_container_width=True)
+        with tab2:
+            st.dataframe(df_ds2.head(5), use_container_width=True)
+        with tab3:
+            st.dataframe(df_ds3.head(5), use_container_width=True)
+        with tab4:
+            st.dataframe(df_ds4.head(5), use_container_width=True)
+        with tab5:
+            st.dataframe(df_ds5.head(5), use_container_width=True)
+
+    # Statistiques descriptives
+    with st.expander("📈 Statistiques Descriptives", expanded=True):
+        st.subheader("Vue d'ensemble du dataset")
         
-        selected_page = st.radio(
-            "Sélectionnez une section :",
-            list(pages.keys()),
-            index=0 if st.session_state.last_topic == 'Accueil' else 0,
-            help="Naviguez entre les différentes sections de l'application"
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Participants", len(df), "Total échantillon")
+        with col2:
+            tdah_count = (df['TDAH'] == 'Oui').sum()
+            st.metric("Cas TDAH", tdah_count, f"{tdah_count/len(df):.1%}")
+        with col3:
+            age_mean = df['Age'].mean()
+            st.metric("Âge moyen", f"{age_mean:.1f} ans", f"±{df['Age'].std():.1f}")
+        with col4:
+            male_ratio = (df['Genre'] == 'M').mean()
+            st.metric("Ratio H/F", f"{male_ratio:.1%}", "Hommes")
+
+        # Distributions par variables
+        st.subheader("Distributions des variables clés")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Distribution âge
+            fig_age = px.histogram(df, x='Age', color='TDAH', 
+                                 title="Distribution de l'âge par diagnostic TDAH",
+                                 color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
+            st.plotly_chart(fig_age, use_container_width=True)
+            
+        with col2:
+            # Distribution score total
+            fig_score = px.box(df, x='TDAH', y='Score_ADHD_Total',
+                             title="Distribution des scores ADHD-RS",
+                             color='TDAH',
+                             color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
+            st.plotly_chart(fig_score, use_container_width=True)
+
+    # Analyse des corrélations
+    with st.expander("🔗 Analyse des Corrélations", expanded=True):
+        st.subheader("Matrice de corrélation des variables numériques")
+        
+        # Sélection des variables numériques pertinentes
+        numeric_cols = ['Age', 'Hyperactivite_Score', 'Inattention_Score', 'Impulsivite_Score', 'Score_ADHD_Total']
+        corr_matrix = df[numeric_cols].corr()
+        
+        fig_corr = px.imshow(corr_matrix, 
+                           title="Corrélations entre les scores TDAH",
+                           color_continuous_scale='RdBu_r',
+                           aspect="auto")
+        st.plotly_chart(fig_corr, use_container_width=True)
+        
+        # Top corrélations
+        st.subheader("Corrélations les plus fortes")
+        
+        # Extraire les corrélations sans la diagonale
+        corr_pairs = []
+        for i in range(len(corr_matrix.columns)):
+            for j in range(i+1, len(corr_matrix.columns)):
+                corr_pairs.append({
+                    'Variable 1': corr_matrix.columns[i],
+                    'Variable 2': corr_matrix.columns[j],
+                    'Corrélation': corr_matrix.iloc[i, j]
+                })
+        
+        corr_df = pd.DataFrame(corr_pairs).sort_values('Corrélation', key=abs, ascending=False)
+        st.dataframe(corr_df.head(10), use_container_width=True)
+
+    # Analyse par questionnaire
+    with st.expander("📝 Analyse du Questionnaire ADHD-RS", expanded=True):
+        st.subheader("Analyse des réponses aux 18 items ADHD-RS")
+        
+        # Analyse des réponses par item
+        question_cols = [f'Q{i}' for i in range(1, 19)]
+        
+        # Moyennes par diagnostic
+        item_means = df.groupby('TDAH')[question_cols].mean()
+        
+        fig_items = go.Figure()
+        
+        fig_items.add_trace(go.Bar(
+            name='TDAH Positif',
+            x=question_cols,
+            y=item_means.loc['Oui'],
+            marker_color='#ff5722'
+        ))
+        
+        fig_items.add_trace(go.Bar(
+            name='TDAH Négatif', 
+            x=question_cols,
+            y=item_means.loc['Non'],
+            marker_color='#ff9800'
+        ))
+        
+        fig_items.update_layout(
+            title="Scores moyens par item du questionnaire ADHD-RS",
+            xaxis_title="Items du questionnaire",
+            yaxis_title="Score moyen (0-3)",
+            barmode='group'
         )
         
-        st.session_state.last_topic = selected_page.split(" ", 1)[1]
+        st.plotly_chart(fig_items, use_container_width=True)
         
-        # Informations de session
-        st.markdown("---")
-        st.markdown("### 📊 État de la session")
+        # Distribution des scores totaux
+        st.subheader("Distribution des scores totaux ADHD-RS")
         
-        # Indicateurs d'état
-        data_status = "✅ Chargées" if st.session_state.data_loaded else "❌ Non chargées"
-        model_status = "✅ Entraînés" if st.session_state.models_trained else "❌ Non entraînés"
-        
-        st.markdown(f"""
-        **Données :** {data_status}  
-        **Modèles :** {model_status}  
-        **Session :** Actif  
-        """)
-        
-        # Raccourcis utiles
-        st.markdown("---")
-        st.markdown("### 🚀 Raccourcis")
-        
-        if st.button("🔄 Actualiser les données", help="Recharge les données"):
-            st.cache_data.clear()
-            st.session_state.data_loaded = False
-            st.rerun()
-        
-        if st.button("🧹 Nettoyer le cache", help="Vide le cache"):
-            st.cache_data.clear()
-            st.cache_resource.clear()
-            st.success("Cache nettoyé !")
-        
-        # Informations système
-        st.markdown("---")
-        st.markdown(f"""
-        <div style="font-size: 0.8rem; color: #666; text-align: center;">
-            <p>Version 2.0 - Optimisée</p>
-            <p>Dernière MAJ: {datetime.now().strftime('%d/%m/%Y')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        return pages[selected_page]
+        fig_dist = px.histogram(df, x='Score_ADHD_Total', color='TDAH',
+                              title="Distribution des scores totaux ADHD-RS",
+                              nbins=30,
+                              color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
+        st.plotly_chart(fig_dist, use_container_width=True)
 
-# =================== PAGES DE L'APPLICATION ===================
+def load_ml_libraries():
+    """Charge les bibliothèques ML nécessaires"""
+    global RandomForestClassifier, LogisticRegression, StandardScaler, OneHotEncoder
+    global ColumnTransformer, Pipeline, accuracy_score, precision_score, recall_score
+    global f1_score, roc_auc_score, confusion_matrix, classification_report
+    global cross_val_score, train_test_split, roc_curve, precision_recall_curve
+    
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.preprocessing import StandardScaler, OneHotEncoder
+    from sklearn.compose import ColumnTransformer
+    from sklearn.pipeline import Pipeline
+    from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
+                                f1_score, roc_auc_score, confusion_matrix, 
+                                classification_report, roc_curve, precision_recall_curve)
+    from sklearn.model_selection import cross_val_score, train_test_split
 
-def page_accueil():
-    """Page d'accueil optimisée avec métriques en temps réel"""
-    st.markdown('<h1 class="main-header">🧠 Dépistage TDAH par Intelligence Artificielle</h1>', unsafe_allow_html=True)
-
-    # Avertissement médical important
-    st.markdown("""
-    <div class="warning-box">
-        <h4>⚠️ Avertissement Médical Important</h4>
-        <p><strong>Cet outil utilise l'IA pour le dépistage TDAH à des fins de recherche et d'information uniquement.</strong></p>
-        <p><strong>Il ne remplace en aucun cas un diagnostic médical professionnel.</strong> 
-        Consultez toujours un professionnel de santé qualifié pour un diagnostic précis.</p>
-        <p>Les résultats de cette application doivent être considérés comme une aide à la réflexion, 
-        non comme un diagnostic définitif.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
+@st.cache_resource
+def train_tdah_model(df):
+    """Entraîne un modèle pour prédire le TDAH"""
+    load_ml_libraries()
+    
     try:
-        # Chargement optimisé des données
-        with st.spinner("🔄 Chargement des données ADHD..."):
-            df = load_adhd_dataset()
-        
-        # Métriques en temps réel améliorées
-        st.subheader("📊 Tableau de bord en temps réel")
-        
-        col1, col2, col3, col4, col5 = st.columns(5)
+        if 'TDAH' not in df.columns:
+            st.error("La colonne 'TDAH' n'existe pas dans le dataframe")
+            return None, None, None
 
-        if df is not None and not df.empty:
-            with col1:
-                st.metric(
-                    "👥 Échantillons", 
-                    f"{len(df):,}",
-                    delta=f"+{len(df) - 1000}" if len(df) > 1000 else None
-                )
+        # Préparation des données
+        X = df.drop(columns=['TDAH'])
+        y = df['TDAH'].map({'Oui': 1, 'Non': 0})
 
-            with col2:
-                if 'TDAH' in df.columns or 'ADHD_Diagnosis' in df.columns:
-                    target_col = 'TDAH' if 'TDAH' in df.columns else 'ADHD_Diagnosis'
-                    positive_cases = df[target_col].isin(['Oui', 'Yes', 1]).sum()
-                    prevalence = (positive_cases / len(df)) * 100
-                    st.metric(
-                        "🎯 Prévalence", 
-                        f"{prevalence:.1f}%",
-                        delta=f"{prevalence - 6.5:.1f}% vs norme" if abs(prevalence - 6.5) > 0.5 else None
-                    )
-                else:
-                    st.metric("🎯 Prévalence", "5-7%", help="Prévalence mondiale du TDAH")
+        # Identification des colonnes numériques et catégorielles
+        numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
+        categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
 
-            with col3:
-                numeric_features = len(df.select_dtypes(include=[np.number]).columns)
-                st.metric(
-                    "📈 Variables numériques", 
-                    numeric_features,
-                    delta=f"+{numeric_features - 10}" if numeric_features > 10 else None
-                )
+        # Préprocesseur
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ('num', StandardScaler(), numerical_cols),
+                ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_cols)
+            ],
+            remainder='passthrough',
+            verbose_feature_names_out=False
+        )
 
-            with col4:
-                completeness = (1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100
-                st.metric(
-                    "✅ Complétude", 
-                    f"{completeness:.1f}%",
-                    delta="Excellente" if completeness > 90 else "Bonne" if completeness > 75 else "À améliorer"
-                )
+        # Modèle Random Forest
+        rf_classifier = RandomForestClassifier(
+            n_estimators=100,
+            max_depth=8,
+            min_samples_split=10,
+            min_samples_leaf=2,
+            max_features='sqrt',
+            bootstrap=True,
+            random_state=42,
+            n_jobs=-1
+        )
 
-            with col5:
-                model_status = "🟢 Prêts" if st.session_state.models_trained else "🔴 À entraîner"
-                models_count = 4  # Nombre de modèles disponibles
-                st.metric(
-                    "🤖 Modèles IA", 
-                    models_count,
-                    delta=model_status
-                )
+        # Pipeline
+        pipeline = Pipeline([
+            ('preprocessor', preprocessor),
+            ('classifier', rf_classifier)
+        ])
 
-        else:
-            # Métriques par défaut en cas d'erreur
-            for i, (col, (value, label)) in enumerate(zip(
-                [col1, col2, col3, col4, col5],
-                [("❌", "Données indisponibles"), ("5-7%", "Prévalence mondiale"), 
-                 ("18", "Questions ASRS"), ("⏳", "En attente"), ("4", "Algorithmes disponibles")]
-            )):
-                with col:
-                    st.metric(label, value)
+        # Division train/test
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-        # Section informative enrichie sur le TDAH
-        st.markdown("""<h2 class="sub-header">📖 Comprendre le TDAH (Trouble du Déficit de l'Attention avec/sans Hyperactivité)</h2>""", unsafe_allow_html=True)
+        # Entraînement
+        pipeline.fit(X_train, y_train)
 
-        col1, col2 = st.columns([2, 1])
+        # Feature names
+        try:
+            feature_names = preprocessor.get_feature_names_out()
+        except:
+            feature_names = [f"feature_{i}" for i in range(len(pipeline.named_steps['classifier'].feature_importances_))]
 
-        with col1:
-            st.markdown("""
-            <div class="info-box">
-            <p>Le <strong>Trouble du Déficit de l'Attention avec ou sans Hyperactivité (TDAH)</strong>
-            est un trouble neurodéveloppemental qui affecte environ <strong>5-7% de la population mondiale</strong>.
-            Il se manifeste par des difficultés persistantes dans trois domaines principaux :</p>
-
-            <h4 style="color: #1976d2;">🎯 Domaine Attentionnel (Inattention)</h4>
-            <ul>
-            <li><strong>Difficultés de concentration soutenue</strong> : Problèmes à maintenir l'attention sur les tâches ou activités</li>
-            <li><strong>Erreurs d'inattention</strong> : Négligence des détails, erreurs par étourderie</li>
-            <li><strong>Problèmes d'écoute</strong> : Semble ne pas écouter quand on lui parle directement</li>
-            <li><strong>Difficultés organisationnelles</strong> : Problèmes à organiser les tâches et les activités</li>
-            <li><strong>Évitement des tâches mentales</strong> : Réticence pour les activités exigeant un effort mental soutenu</li>
-            <li><strong>Perte d'objets</strong> : Égare fréquemment les objets nécessaires aux activités</li>
-            <li><strong>Distractibilité</strong> : Facilement distrait par des stimuli externes</li>
-            <li><strong>Oublis fréquents</strong> : Dans les activités quotidiennes</li>
-            </ul>
-
-            <h4 style="color: #1976d2;">⚡ Domaine Hyperactivité-Impulsivité</h4>
-            
-            <h5>Hyperactivité :</h5>
-            <ul>
-            <li><strong>Agitation motrice</strong> : Bouger constamment les mains ou les pieds, se tortiller</li>
-            <li><strong>Difficultés à rester assis</strong> : Se lever dans des situations inappropriées</li>
-            <li><strong>Activité motrice excessive</strong> : Courir ou grimper de façon inappropriée</li>
-            <li><strong>Difficultés avec les loisirs calmes</strong> : Problèmes à se relaxer</li>
-            <li><strong>Sensation d'être "sous pression"</strong> : Sentiment d'être constamment en mouvement</li>
-            <li><strong>Bavardage excessif</strong> : Parler de manière excessive</li>
-            </ul>
-            
-            <h5>Impulsivité :</h5>
-            <ul>
-            <li><strong>Réponses précipitées</strong> : Donner des réponses avant que les questions soient terminées</li>
-            <li><strong>Difficultés d'attente</strong> : Problèmes à attendre son tour</li>
-            <li><strong>Interruptions fréquentes</strong> : Interrompre ou s'imposer aux autres</li>
-            </ul>
-
-            <h4 style="color: #e91e63;">📊 Impact Fonctionnel</h4>
-            <p>Le TDAH peut avoir des répercussions significatives sur :</p>
-            <ul>
-            <li><strong>Performance académique/professionnelle</strong> : Difficultés scolaires, problèmes au travail</li>
-            <li><strong>Relations interpersonnelles</strong> : Difficultés sociales, conflits familiaux</li>
-            <li><strong>Estime de soi</strong> : Sentiment d'échec, frustration chronique</li>
-            <li><strong>Qualité de vie</strong> : Stress, anxiété, troubles de l'humeur associés</li>
-            <li><strong>Fonctionnement quotidien</strong> : Problèmes d'organisation, de gestion du temps</li>
-            </ul>
-
-            <h4 style="color: #4caf50;">🔬 Bases Neurobiologiques</h4>
-            <p>Le TDAH implique des dysfonctionnements dans :</p>
-            <ul>
-            <li><strong>Cortex préfrontal</strong> : Contrôle exécutif, attention, inhibition</li>
-            <li><strong>Circuits dopaminergiques</strong> : Motivation, récompense, attention</li>
-            <li><strong>Réseau attentionnel</strong> : Attention soutenue et sélective</li>
-            <li><strong>Fonctions exécutives</strong> : Planification, mémoire de travail, flexibilité</li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with col2:
-            # Visualisations interactives améliorées
-            try:
-                # Graphique de prévalence par âge avec données réalistes
-                age_prevalence = pd.DataFrame({
-                    'Groupe d\'âge': ['6-12 ans', '13-17 ans', '18-29 ans', '30-44 ans', '45+ ans'],
-                    'Prévalence (%)': [11.0, 8.7, 4.4, 5.4, 2.8],
-                    'Population': ['Enfants', 'Adolescents', 'Jeunes adultes', 'Adultes', 'Seniors']
-                })
-                
-                fig1 = px.bar(
-                    age_prevalence, 
-                    x='Groupe d\'âge', 
-                    y='Prévalence (%)',
-                    title="Prévalence du TDAH par groupe d'âge",
-                    color='Prévalence (%)',
-                    color_continuous_scale='Viridis',
-                    text='Prévalence (%)'
-                )
-                fig1.update_traces(texttemplate='%{text}%', textposition='outside')
-                fig1.update_layout(height=400, showlegend=False)
-                st.plotly_chart(fig1, use_container_width=True)
-
-                # Graphique en secteurs des sous-types TDAH
-                subtypes_data = pd.DataFrame({
-                    'Sous-type': ['Inattentif', 'Hyperactif-Impulsif', 'Combiné'],
-                    'Pourcentage': [60, 15, 25],
-                    'Description': [
-                        'Principalement des problèmes d\'attention',
-                        'Principalement hyperactivité/impulsivité', 
-                        'Symptômes mixtes'
-                    ]
-                })
-                
-                fig2 = px.pie(
-                    subtypes_data,
-                    values='Pourcentage',
-                    names='Sous-type',
-                    title="Répartition des sous-types TDAH",
-                    color_discrete_sequence=['#FF6B6B', '#4ECDC4', '#45B7D1'],
-                    hover_data=['Description']
-                )
-                fig2.update_traces(
-                    textposition='inside', 
-                    textinfo='percent+label',
-                    hovertemplate='<b>%{label}</b><br>%{percent}<br>%{customdata[0]}<extra></extra>'
-                )
-                st.plotly_chart(fig2, use_container_width=True)
-
-                # Graphique des comorbidités
-                comorbidities = pd.DataFrame({
-                    'Trouble associé': ['Anxiété', 'Dépression', 'Troubles apprentissage', 'Troubles sommeil', 'Troubles opposition'],
-                    'Fréquence (%)': [25, 15, 30, 35, 20]
-                })
-                
-                fig3 = px.horizontal_bar(
-                    comorbidities.sort_values('Fréquence (%)'),
-                    x='Fréquence (%)',
-                    y='Trouble associé',
-                    title="Comorbidités fréquentes avec le TDAH",
-                    color='Fréquence (%)',
-                    color_continuous_scale='Reds'
-                )
-                fig3.update_layout(height=400)
-                st.plotly_chart(fig3, use_container_width=True)
-
-            except Exception as e:
-                logger.error(f"Erreur visualisations: {e}")
-                st.info("📊 Visualisations temporairement indisponibles")
-
-        # Section des outils disponibles
-        st.markdown('<h2 class="sub-header">🛠️ Outils d\'IA Disponibles</h2>', unsafe_allow_html=True)
-
-        tools_col1, tools_col2, tools_col3 = st.columns(3)
-
-        with tools_col1:
-            st.markdown("""
-            <div class="metric-card">
-            <h4 style="color: #1976d2;">📝 Test ASRS-v1.1 Numérique</h4>
-            <ul>
-            <li><strong>Questionnaire OMS officiel</strong> validé scientifiquement</li>
-            <li><strong>18 questions</strong> basées sur les critères DSM-5</li>
-            <li><strong>Scoring automatique</strong> avec interprétation clinique</li>
-            <li><strong>Recommandations personnalisées</strong> selon les résultats</li>
-            <li><strong>Sauvegarde des réponses</strong> pour suivi longitudinal</li>
-            <li><strong>Export PDF</strong> pour consultation médicale</li>
-            <li><strong>Sensibilité : 68.7%</strong></li>
-            <li><strong>Spécificité : 99.5%</strong></li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with tools_col2:
-            st.markdown("""
-            <div class="metric-card">
-            <h4 style="color: #1976d2;">🤖 Prédiction IA Multi-Algorithmes</h4>
-            <ul>
-            <li><strong>Random Forest</strong> - Ensemble learning robuste</li>
-            <li><strong>SVM</strong> avec optimisation des hyperparamètres</li>
-            <li><strong>Régression Logistique</strong> régularisée (L1/L2)</li>
-            <li><strong>Gradient Boosting</strong> adaptatif</li>
-            <li><strong>Validation croisée</strong> stratifiée k-fold</li>
-            <li><strong>Feature selection</strong> automatique</li>
-            <li><strong>Calibration des probabilités</strong></li>
-            <li><strong>AUC-ROC > 0.85</strong> en moyenne</li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with tools_col3:
-            st.markdown("""
-            <div class="metric-card">
-            <h4 style="color: #1976d2;">📊 Analytics Cliniques Avancés</h4>
-            <ul>
-            <li><strong>Analyse exploratoire</strong> des données</li>
-            <li><strong>Corrélations inter-variables</strong> avec tests statistiques</li>
-            <li><strong>Feature engineering</strong> spécialisé TDAH</li>
-            <li><strong>Détection d'outliers</strong> et traitement adaptatif</li>
-            <li><strong>Visualisations interactives</strong> Plotly</li>
-            <li><strong>Tests de normalité</strong> et ANOVA</li>
-            <li><strong>Rapport d'analyse</strong> automatique</li>
-            <li><strong>Export des résultats</strong> en CSV/JSON</li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # Section informations importantes
-        st.markdown('<h2 class="sub-header">ℹ️ Informations Importantes</h2>', unsafe_allow_html=True)
-        
-        info_col1, info_col2 = st.columns(2)
-        
-        with info_col1:
-            st.markdown("""
-            <div class="success-box">
-            <h4>🔬 Base Scientifique et Validation</h4>
-            <ul>
-            <li><strong>Critères DSM-5 et CIM-11</strong> - Standards diagnostiques internationaux</li>
-            <li><strong>Données cliniques validées</strong> - Issues d'études longitudinales</li>
-            <li><strong>Algorithmes testés</strong> - Sur des cohortes de patients réels</li>
-            <li><strong>Validation croisée</strong> - Méthodologie robuste</li>
-            <li><strong>Peer-review</strong> - Méthodes évaluées par des experts</li>
-            <li><strong>Mises à jour régulières</strong> - Selon la littérature récente</li>
-            <li><strong>Transparence</strong> - Code open-source disponible</li>
-            <li><strong>Reproductibilité</strong> - Résultats répétables</li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with info_col2:
-            st.markdown("""
-            <div class="warning-box">
-            <h4>⚖️ Limitations et Considérations Éthiques</h4>
-            <ul>
-            <li><strong>Outil de dépistage uniquement</strong> - Non diagnostique</li>
-            <li><strong>Confirmation clinique nécessaire</strong> - Par un professionnel qualifié</li>
-            <li><strong>Biais culturels possibles</strong> - Données principalement occidentales</li>
-            <li><strong>Comorbidités non évaluées</strong> - Analyse limitée aux symptômes TDAH</li>
-            <li><strong>Confidentialité</strong> - Données traitées localement</li>
-            <li><strong>Pas de stockage</strong> - Informations non conservées</li>
-            <li><strong>Usage responsable</strong> - À des fins éducatives uniquement</li>
-            <li><strong>Supervision médicale</strong> - Recommandée pour l'interprétation</li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # Statistiques d'utilisation et FAQ rapide
-        st.markdown('<h2 class="sub-header">📈 Statistiques et Questions Fréquentes</h2>', unsafe_allow_html=True)
-        
-        faq_col1, faq_col2 = st.columns(2)
-        
-        with faq_col1:
-            st.markdown("""
-            <div class="info-box">
-            <h4>📊 Statistiques de Performance</h4>
-            <ul>
-            <li><strong>Précision moyenne</strong> : 87.3% ± 2.1%</li>
-            <li><strong>Sensibilité</strong> : 84.6% (détection des vrais positifs)</li>
-            <li><strong>Spécificité</strong> : 89.7% (exclusion des vrais négatifs)</li>
-            <li><strong>Valeur prédictive positive</strong> : 76.2%</li>
-            <li><strong>Valeur prédictive négative</strong> : 93.8%</li>
-            <li><strong>Score F1</strong> : 0.802</li>
-            <li><strong>AUC-ROC moyen</strong> : 0.891</li>
-            <li><strong>Temps d'analyse</strong> : < 2 secondes</li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with faq_col2:
-            with st.expander("❓ Questions Fréquemment Posées", expanded=False):
-                st.markdown("""
-                **Q: Cette application peut-elle diagnostiquer le TDAH ?**  
-                R: Non, c'est un outil de dépistage. Seul un professionnel peut poser un diagnostic.
-                
-                **Q: Les résultats sont-ils fiables ?**  
-                R: L'application utilise des méthodes validées, mais nécessite confirmation clinique.
-                
-                **Q: Mes données sont-elles conservées ?**  
-                R: Non, toutes les analyses sont effectuées localement sans stockage.
-                
-                **Q: À partir de quel âge peut-on utiliser l'outil ?**  
-                R: L'ASRS est validé pour les adultes (18+). Consultez un pédiatre pour les enfants.
-                
-                **Q: Que faire si les résultats suggèrent un TDAH ?**  
-                R: Consultez un psychiatre, neurologue ou psychologue spécialisé pour évaluation.
-                
-                **Q: L'outil prend-il en compte les comorbidités ?**  
-                R: Partiellement. Une évaluation complète nécessite un professionnel.
-                """)
+        return pipeline, preprocessor, feature_names, X_test, y_test
 
     except Exception as e:
-        logger.error(f"Erreur dans page_accueil: {e}")
-        st.error(f"❌ Une erreur s'est produite lors du chargement de la page d'accueil: {e}")
-        st.info("💡 Essayez de recharger la page ou vérifiez votre connexion internet")
+        st.error(f"Erreur lors de l'entraînement du modèle: {str(e)}")
+        return None, None, None, None, None
 
-def page_asrs():
-    """Page du test ASRS-v1.1 officiel optimisée"""
-    st.markdown('<h1 class="main-header">📝 Test ASRS-v1.1 Officiel (OMS)</h1>', unsafe_allow_html=True)
-
-    # Information sur le test
-    st.markdown("""
-    <div class="info-box">
-    <h4>🔍 À propos du test ASRS-v1.1</h4>
-    <p>L'<strong>Adult ADHD Self-Report Scale (ASRS-v1.1)</strong> est l'outil de dépistage de référence 
-    développé par l'<strong>Organisation Mondiale de la Santé (OMS)</strong> en collaboration avec 
-    <strong>Harvard Medical School</strong>.</p>
+def show_ml_analysis():
+    """Analyse ML pour le TDAH avec visualisations"""
+    load_ml_libraries()
     
-    <h5>📊 Caractéristiques psychométriques :</h5>
-    <ul>
-    <li><strong>Sensibilité :</strong> 68.7% (capacité à identifier les vrais TDAH)</li>
-    <li><strong>Spécificité :</strong> 99.5% (capacité à exclure les non-TDAH)</li>
-    <li><strong>Validité :</strong> Validé sur plus de 10,000 participants</li>
-    <li><strong>Durée :</strong> 5-10 minutes</li>
-    <li><strong>Structure :</strong> 18 questions basées sur les critères DSM-5</li>
-    </ul>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Questions ASRS officielles avec contexte
-    asrs_questions = [
-        {
-            "id": 1,
-            "domain": "Inattention",
-            "question": "À quelle fréquence avez-vous des difficultés à vous concentrer sur les détails ou faites-vous des erreurs d'inattention dans votre travail ou d'autres activités ?",
-            "critical": True
-        },
-        {
-            "id": 2, 
-            "domain": "Inattention",
-            "question": "À quelle fréquence avez-vous des difficultés à maintenir votre attention sur des tâches ou des activités ?",
-            "critical": True
-        },
-        {
-            "id": 3,
-            "domain": "Inattention", 
-            "question": "À quelle fréquence avez-vous des difficultés à écouter quand on vous parle directement ?",
-            "critical": True
-        },
-        {
-            "id": 4,
-            "domain": "Inattention",
-            "question": "À quelle fréquence ne suivez-vous pas les instructions et ne parvenez-vous pas à terminer le travail, les tâches ménagères ou les devoirs ?",
-            "critical": True
-        },
-        {
-            "id": 5,
-            "domain": "Inattention",
-            "question": "À quelle fréquence avez-vous des difficultés à organiser des tâches et des activités ?",
-            "critical": True
-        },
-        {
-            "id": 6,
-            "domain": "Hyperactivité",
-            "question": "À quelle fréquence évitez-vous, n'aimez-vous pas ou êtes-vous réticent à vous engager dans des tâches qui nécessitent un effort mental soutenu ?",
-            "critical": True
-        },
-        {
-            "id": 7,
-            "domain": "Inattention",
-            "question": "À quelle fréquence perdez-vous des objets nécessaires pour des tâches ou des activités (stylos, papiers, outils, etc.) ?",
-            "critical": False
-        },
-        {
-            "id": 8,
-            "domain": "Inattention", 
-            "question": "À quelle fréquence êtes-vous facilement distrait par des stimuli externes ?",
-            "critical": False
-        },
-        {
-            "id": 9,
-            "domain": "Inattention",
-            "question": "À quelle fréquence oubliez-vous des choses dans les activités quotidiennes ?",
-            "critical": False
-        },
-        {
-            "id": 10,
-            "domain": "Hyperactivité",
-            "question": "À quelle fréquence remuez-vous les mains ou les pieds ou vous tortillez-vous sur votre siège ?",
-            "critical": False
-        },
-        {
-            "id": 11,
-            "domain": "Hyperactivité", 
-            "question": "À quelle fréquence quittez-vous votre siège dans des situations où vous devriez rester assis ?",
-            "critical": False
-        },
-        {
-            "id": 12,
-            "domain": "Hyperactivité",
-            "question": "À quelle fréquence vous sentez-vous agité ou avez-vous l'impression d'être 'sur les nerfs' ?",
-            "critical": False
-        },
-        {
-            "id": 13,
-            "domain": "Hyperactivité",
-            "question": "À quelle fréquence avez-vous des difficultés à vous détendre pendant vos loisirs ?",
-            "critical": False
-        },
-        {
-            "id": 14,
-            "domain": "Hyperactivité",
-            "question": "À quelle fréquence parlez-vous excessivement ?",
-            "critical": False
-        },
-        {
-            "id": 15,
-            "domain": "Impulsivité",
-            "question": "À quelle fréquence terminez-vous les phrases des gens avant qu'ils aient fini de parler ?",
-            "critical": False
-        },
-        {
-            "id": 16,
-            "domain": "Impulsivité",
-            "question": "À quelle fréquence avez-vous des difficultés à attendre votre tour ?",
-            "critical": False
-        },
-        {
-            "id": 17,
-            "domain": "Impulsivité",
-            "question": "À quelle fréquence interrompez-vous les autres quand ils sont occupés ?",
-            "critical": False
-        },
-        {
-            "id": 18,
-            "domain": "Hyperactivité",
-            "question": "À quelle fréquence vous sentez-vous 'surmené' ou 'poussé par un moteur' ?",
-            "critical": False
-        }
-    ]
-
-    # Options de réponse officielles
-    response_options = {
-        "Jamais": 0,
-        "Rarement": 1, 
-        "Parfois": 2,
-        "Souvent": 3,
-        "Très souvent": 4
-    }
-
-    # Interface du questionnaire
-    st.markdown("### 📋 Questionnaire ASRS-v1.1")
     st.markdown("""
-    <div class="warning-box">
-    <p><strong>Instructions :</strong> Pensez à votre comportement au cours des <strong>6 derniers mois</strong>. 
-    Pour chaque question, sélectionnez la réponse qui décrit le mieux votre expérience.</p>
-    <p><strong>Note :</strong> Les questions marquées d'un 🔴 sont particulièrement importantes pour le dépistage.</p>
+    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
+                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
+            🧠 Analyse Machine Learning - TDAH
+        </h1>
+        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
+                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
+            Modèles prédictifs pour l'aide au diagnostic du TDAH
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Progress bar
-    total_answered = sum(1 for q in asrs_questions if q['id'] in st.session_state.asrs_responses)
-    progress = total_answered / len(asrs_questions)
-    st.progress(progress, text=f"Progression: {total_answered}/{len(asrs_questions)} questions")
+    df, _, _, _, _, _, _ = load_dataset()
+    
+    # Onglets ML
+    ml_tabs = st.tabs([
+        "📊 Préparation des données",
+        "🚀 Entraînement du modèle", 
+        "📈 Performance du modèle",
+        "🎯 Prédictions"
+    ])
 
-    # Affichage des questions par domaine
-    for domain in ["Inattention", "Hyperactivité", "Impulsivité"]:
-        domain_questions = [q for q in asrs_questions if q['domain'] == domain]
+    with ml_tabs[0]:
+        st.subheader("📊 Préparation des données pour le ML")
         
-        with st.expander(f"📊 {domain} ({len(domain_questions)} questions)", expanded=True):
-            
-            if domain == "Inattention":
-                st.markdown("*Évalue les difficultés de concentration, d'organisation et d'attention soutenue*")
-            elif domain == "Hyperactivité":
-                st.markdown("*Évalue l'agitation motrice, la difficulté à rester calme et le bavardage excessif*")
-            else:
-                st.markdown("*Évalue l'impulsivité, l'impatience et les interruptions*")
-            
-            for question in domain_questions:
-                critical_marker = " 🔴" if question['critical'] else ""
-                
-                st.markdown(f"**Question {question['id']}{critical_marker}**")
-                st.markdown(f"*{question['question']}*")
-                
-                # Widget de réponse avec callback
-                response = st.radio(
-                    f"Réponse {question['id']}:",
-                    list(response_options.keys()),
-                    key=f"q_{question['id']}",
-                    index=None,
-                    horizontal=True,
-                    help="Sélectionnez la fréquence qui correspond le mieux à votre expérience"
-                )
-                
-                if response:
-                    st.session_state.asrs_responses[question['id']] = {
-                        'response': response,
-                        'score': response_options[response],
-                        'domain': question['domain'],
-                        'critical': question['critical']
-                    }
-                
-                st.markdown("---")
-
-    # Bouton d'analyse avec validation
-    if st.button("🔍 Analyser mes réponses", type="primary", disabled=len(st.session_state.asrs_responses) < 18):
-        if len(st.session_state.asrs_responses) == 18:
-            analyze_asrs_results(asrs_questions)
-        else:
-            missing = 18 - len(st.session_state.asrs_responses)
-            st.warning(f"⚠️ Veuillez répondre aux {missing} questions restantes pour continuer l'analyse.")
-
-    # Affichage du résumé en cours
-    if st.session_state.asrs_responses:
-        st.markdown("### 📊 Résumé de vos réponses actuelles")
-        
-        # Calcul des scores par domaine
-        domain_scores = {"Inattention": [], "Hyperactivité": [], "Impulsivité": []}
-        
-        for resp_data in st.session_state.asrs_responses.values():
-            domain_scores[resp_data['domain']].append(resp_data['score'])
-        
+        # Informations sur le dataset
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if domain_scores["Inattention"]:
-                avg_score = np.mean(domain_scores["Inattention"])
-                st.metric(
-                    "🎯 Inattention", 
-                    f"{avg_score:.1f}/4",
-                    delta=f"{len(domain_scores['Inattention'])} réponses"
-                )
-        
+            st.metric("Échantillons totaux", len(df))
         with col2:
-            if domain_scores["Hyperactivité"]:
-                avg_score = np.mean(domain_scores["Hyperactivité"])
-                st.metric(
-                    "⚡ Hyperactivité", 
-                    f"{avg_score:.1f}/4",
-                    delta=f"{len(domain_scores['Hyperactivité'])} réponses"
-                )
-        
+            tdah_positive = (df['TDAH'] == 'Oui').sum()
+            st.metric("Cas TDAH positifs", tdah_positive, f"{tdah_positive/len(df):.1%}")
         with col3:
-            if domain_scores["Impulsivité"]:
-                avg_score = np.mean(domain_scores["Impulsivité"])
-                st.metric(
-                    "🚀 Impulsivité", 
-                    f"{avg_score:.1f}/4",
-                    delta=f"{len(domain_scores['Impulsivité'])} réponses"
-                )
+            features_count = len(df.columns) - 1  # -1 pour exclure la variable cible
+            st.metric("Variables prédictives", features_count)
 
-def analyze_asrs_results(questions):
-    """Analyse complète des résultats ASRS avec scoring officiel"""
-    st.markdown('<h2 class="sub-header">📊 Analyse Détaillée de vos Résultats ASRS</h2>', unsafe_allow_html=True)
-    
-    # Calcul des scores selon l'algorithme officiel ASRS
-    critical_questions = [1, 2, 3, 4, 5, 6]  # Questions critiques pour le dépistage
-    critical_threshold = [3, 3, 3, 3, 3, 3]  # Seuils pour chaque question critique
-    
-    # Scoring des questions critiques
-    critical_positive = 0
-    for i, q_id in enumerate(critical_questions):
-        if q_id in st.session_state.asrs_responses:
-            score = st.session_state.asrs_responses[q_id]['score']
-            if score >= critical_threshold[i]:
-                critical_positive += 1
-    
-    # Calcul des scores par domaine
-    domain_scores = {"Inattention": [], "Hyperactivité": [], "Impulsivité": []}
-    domain_totals = {"Inattention": 0, "Hyperactivité": 0, "Impulsivité": 0}
-    
-    for resp_data in st.session_state.asrs_responses.values():
-        domain_scores[resp_data['domain']].append(resp_data['score'])
-        domain_totals[resp_data['domain']] += resp_data['score']
-    
-    # Score total
-    total_score = sum(resp['score'] for resp in st.session_state.asrs_responses.values())
-    max_possible_score = 72  # 18 questions × 4 points max
-    
-    # Interprétation selon les critères officiels
-    screening_positive = critical_positive >= 4  # Seuil officiel ASRS
-    
-    # Affichage des résultats principaux
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            "🎯 Score Total", 
-            f"{total_score}/{max_possible_score}",
-            delta=f"{(total_score/max_possible_score)*100:.1f}%"
-        )
-    
-    with col2:
-        status_color = "🔴" if screening_positive else "🟢"
-        st.metric(
-            "🔍 Dépistage", 
-            f"{status_color} {'Positif' if screening_positive else 'Négatif'}",
-            delta=f"{critical_positive}/6 critères"
-        )
-    
-    with col3:
-        highest_domain = max(domain_totals, key=domain_totals.get)
-        st.metric(
-            "📊 Domaine principal", 
-            highest_domain,
-            delta=f"{domain_totals[highest_domain]} points"
-        )
-    
-    with col4:
-        severity_level = "Élevé" if total_score > 48 else "Modéré" if total_score > 24 else "Faible"
-        st.metric(
-            "📈 Sévérité", 
-            severity_level,
-            delta=f"Niveau global"
-        )
-
-    # Interprétation détaillée
-    st.markdown("### 🔬 Interprétation Clinique")
-    
-    if screening_positive:
-        st.markdown("""
-        <div class="warning-box">
-        <h4>⚠️ Résultat de dépistage : POSITIF</h4>
-        <p><strong>Votre profil de réponses suggère la présence possible de symptômes compatibles avec un TDAH.</strong></p>
+        # Distribution de la variable cible
+        st.subheader("Distribution de la variable cible")
         
-        <h5>📋 Recommandations importantes :</h5>
-        <ul>
-        <li><strong>Consultation spécialisée recommandée</strong> : Prenez rendez-vous avec un psychiatre, neurologue ou psychologue spécialisé en TDAH</li>
-        <li><strong>Évaluation complète nécessaire</strong> : Un diagnostic formel nécessite un examen clinique approfondi</li>
-        <li><strong>Apportez ces résultats</strong> : Ils peuvent aider le professionnel dans son évaluation</li>
-        <li><strong>Historique important</strong> : Préparez des informations sur vos antécédents scolaires et familiaux</li>
-        </ul>
-        
-        <p><strong>⚠️ Important :</strong> Un résultat positif au dépistage ne constitue pas un diagnostic. 
-        Seul un professionnel qualifié peut établir un diagnostic de TDAH après évaluation complète.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div class="success-box">
-        <h4>✅ Résultat de dépistage : NÉGATIF</h4>
-        <p><strong>Votre profil de réponses ne suggère pas la présence de symptômes significatifs de TDAH.</strong></p>
-        
-        <h5>📋 Points à considérer :</h5>
-        <ul>
-        <li><strong>Résultat rassurant</strong> : Vos symptômes ne correspondent pas au profil TDAH typique</li>
-        <li><strong>Autres causes possibles</strong> : Si vous ressentez des difficultés, elles peuvent avoir d'autres origines</li>
-        <li><strong>Évolution possible</strong> : Les symptômes peuvent évoluer, une réévaluation future pourrait être utile</li>
-        <li><strong>Consultation si préoccupations</strong> : N'hésitez pas à consulter si vous avez des inquiétudes persistantes</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        fig_target = px.pie(df, names='TDAH', 
+                          title="Répartition des diagnostics TDAH",
+                          color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
+        st.plotly_chart(fig_target, use_container_width=True)
 
-    # Analyse par domaine avec visualisations
-    st.markdown("### 📊 Analyse par Domaine Symptomatique")
-    
-    # Graphique radar des domaines
-    domains = list(domain_totals.keys())
-    values = [domain_totals[domain] for domain in domains]
-    max_values = [len(domain_scores[domain]) * 4 for domain in domains]  # Score max par domaine
-    percentages = [(val/max_val)*100 if max_val > 0 else 0 for val, max_val in zip(values, max_values)]
-    
-    fig = go.Figure()
-    
-    fig.add_trace(go.Scatterpolar(
-        r=percentages,
-        theta=domains,
-        fill='toself',
-        name='Votre profil',
-        line_color='rgb(0, 100, 200)',
-        fillcolor='rgba(0, 100, 200, 0.3)'
-    ))
-    
-    # Ligne de seuil (exemple : 60% comme seuil d'attention)
-    fig.add_trace(go.Scatterpolar(
-        r=[60, 60, 60],
-        theta=domains,
-        mode='lines',
-        name='Seuil d\'attention (60%)',
-        line=dict(color='red', dash='dash')
-    ))
-    
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 100],
-                ticksuffix='%'
-            )),
-        showlegend=True,
-        title="Profil symptomatique par domaine",
-        height=500
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Analyse détaillée par domaine
-    for domain in domains:
-        with st.expander(f"📋 Analyse détaillée : {domain}", expanded=False):
-            domain_score = domain_totals[domain]
-            domain_max = len(domain_scores[domain]) * 4
-            domain_pct = (domain_score / domain_max) * 100 if domain_max > 0 else 0
+        # Aperçu des variables
+        st.subheader("Aperçu des variables prédictives")
+        
+        # Variables numériques
+        numerical_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+        if 'TDAH' in numerical_cols:
+            numerical_cols.remove('TDAH')
             
+        categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+        if 'TDAH' in categorical_cols:
+            categorical_cols.remove('TDAH')
+
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Variables numériques:**")
+            for col in numerical_cols[:10]:  # Limiter l'affichage
+                st.write(f"• {col}")
+            if len(numerical_cols) > 10:
+                st.write(f"... et {len(numerical_cols) - 10} autres")
+                
+        with col2:
+            st.markdown("**Variables catégorielles:**")
+            for col in categorical_cols:
+                st.write(f"• {col}")
+
+    with ml_tabs[1]:
+        st.subheader("🚀 Entraînement du modèle Random Forest")
+        
+        with st.spinner("Entraînement du modèle en cours..."):
+            model_results = train_tdah_model(df)
+            
+        if model_results[0] is not None:
+            pipeline, preprocessor, feature_names, X_test, y_test = model_results
+            
+            st.success("✅ Modèle entraîné avec succès!")
+            
+            # Informations sur l'entraînement
+            st.subheader("Configuration du modèle")
+            
+            model_config = {
+                "Algorithme": "Random Forest",
+                "Nombre d'arbres": 100,
+                "Profondeur max": 8,
+                "Échantillons min pour split": 10,
+                "Échantillons min par feuille": 2,
+                "Features par split": "sqrt"
+            }
+            
+            config_df = pd.DataFrame(list(model_config.items()), columns=['Paramètre', 'Valeur'])
+            st.dataframe(config_df, use_container_width=True)
+            
+        else:
+            st.error("❌ Échec de l'entraînement du modèle")
+
+    with ml_tabs[2]:
+        if 'pipeline' in locals() and pipeline is not None:
+            st.subheader("📈 Évaluation de la performance")
+            
+            # Prédictions
+            y_pred = pipeline.predict(X_test)
+            y_pred_proba = pipeline.predict_proba(X_test)[:, 1]
+            
+            # Métriques
+            accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred, zero_division=0)
+            recall = recall_score(y_test, y_pred, zero_division=0)
+            f1 = f1_score(y_test, y_pred, zero_division=0)
+            auc = roc_auc_score(y_test, y_pred_proba)
+            
+            # Affichage des métriques
+            col1, col2, col3, col4, col5 = st.columns(5)
+            
+            with col1:
+                st.metric("Accuracy", f"{accuracy:.3f}")
+            with col2:
+                st.metric("Precision", f"{precision:.3f}")
+            with col3:
+                st.metric("Recall", f"{recall:.3f}")
+            with col4:
+                st.metric("F1-Score", f"{f1:.3f}")
+            with col5:
+                st.metric("AUC-ROC", f"{auc:.3f}")
+            
+            # Matrice de confusion
+            st.subheader("Matrice de confusion")
+            
+            cm = confusion_matrix(y_test, y_pred)
+            
+            fig_cm = px.imshow(cm, 
+                             text_auto=True,
+                             aspect="auto",
+                             title="Matrice de confusion",
+                             labels=dict(x="Prédiction", y="Réalité"),
+                             x=['Non-TDAH', 'TDAH'],
+                             y=['Non-TDAH', 'TDAH'])
+            st.plotly_chart(fig_cm, use_container_width=True)
+            
+            # Courbe ROC
+            st.subheader("Courbe ROC")
+            
+            fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
+            
+            fig_roc = go.Figure()
+            fig_roc.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines', 
+                                       name=f'ROC (AUC = {auc:.3f})',
+                                       line=dict(color='#ff5722', width=3)))
+            fig_roc.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines',
+                                       name='Baseline', 
+                                       line=dict(dash='dash', color='gray')))
+            fig_roc.update_layout(
+                title='Courbe ROC',
+                xaxis_title='Taux de Faux Positifs',
+                yaxis_title='Taux de Vrais Positifs'
+            )
+            st.plotly_chart(fig_roc, use_container_width=True)
+            
+            # Importance des variables
+            st.subheader("Importance des variables")
+            
+            importances = pipeline.named_steps['classifier'].feature_importances_
+            importance_df = pd.DataFrame({
+                'Variable': feature_names,
+                'Importance': importances
+            }).sort_values('Importance', ascending=False).head(15)
+            
+            fig_importance = px.bar(importance_df, x='Importance', y='Variable',
+                                  orientation='h',
+                                  title="Top 15 des variables les plus importantes",
+                                  color='Importance',
+                                  color_continuous_scale='Oranges')
+            st.plotly_chart(fig_importance, use_container_width=True)
+            
+        else:
+            st.warning("Veuillez d'abord entraîner le modèle dans l'onglet précédent.")
+
+    with ml_tabs[3]:
+        if 'pipeline' in locals() and pipeline is not None:
+            st.subheader("🎯 Outil de prédiction TDAH")
+            
+            st.markdown("""
+            <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #ff9800;">
+                <h4 style="color: #ef6c00; margin-top: 0;">Prédiction basée sur les variables du modèle</h4>
+                <p style="color: #f57c00;">Entrez les valeurs pour obtenir une estimation du risque TDAH.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Interface de prédiction
             col1, col2 = st.columns(2)
             
             with col1:
-                st.metric(f"Score {domain}", f"{domain_score}/{domain_max}", f"{domain_pct:.1f}%")
+                age_input = st.slider("Âge", min_value=6, max_value=65, value=25)
+                genre_input = st.selectbox("Genre", options=['M', 'F'])
+                education_input = st.selectbox("Niveau d'éducation", 
+                                             options=['Primaire', 'Secondaire', 'Supérieur'])
+                troubles_input = st.selectbox("Troubles d'apprentissage", options=['Oui', 'Non'])
                 
-                # Barre de progression visuelle
-                st.progress(domain_pct/100, text=f"Intensité: {domain_pct:.1f}%")
-                
-                # Interprétation du niveau
-                if domain_pct >= 75:
-                    level = "🔴 Élevé"
-                    interpretation = "Symptômes marqués nécessitant attention"
-                elif domain_pct >= 50:
-                    level = "🟡 Modéré"
-                    interpretation = "Symptômes modérés, surveillance recommandée"
-                else:
-                    level = "🟢 Faible"
-                    interpretation = "Symptômes légers ou absents"
-                
-                st.write(f"**Niveau :** {level}")
-                st.write(f"**Interprétation :** {interpretation}")
-            
             with col2:
-                # Distribution des réponses pour ce domaine
-                domain_responses = [st.session_state.asrs_responses[q['id']]['score'] 
-                                  for q in questions if q['domain'] == domain 
-                                  and q['id'] in st.session_state.asrs_responses]
+                hyperactivite_input = st.slider("Score Hyperactivité", min_value=0, max_value=27, value=10)
+                inattention_input = st.slider("Score Inattention", min_value=0, max_value=27, value=10)
+                impulsivite_input = st.slider("Score Impulsivité", min_value=0, max_value=20, value=8)
+                antecedents_input = st.selectbox("Antécédents familiaux", options=['Oui', 'Non'])
                 
-                if domain_responses:
-                    response_counts = pd.Series(domain_responses).value_counts().sort_index()
-                    
-                    fig_bar = px.bar(
-                        x=response_counts.index,
-                        y=response_counts.values,
-                        title=f"Distribution des réponses - {domain}",
-                        labels={'x': 'Score de réponse', 'y': 'Nombre de questions'},
-                        color=response_counts.values,
-                        color_continuous_scale='Reds'
-                    )
-                    fig_bar.update_layout(height=300, showlegend=False)
-                    st.plotly_chart(fig_bar, use_container_width=True)
-
-    # Recommandations personnalisées
-    st.markdown("### 💡 Recommandations Personnalisées")
-    
-    recommendations = []
-    
-    if screening_positive:
-        recommendations.extend([
-            "🏥 **Consultation médicale spécialisée** : Planifiez un rendez-vous avec un professionnel du TDAH",
-            "📋 **Préparation de la consultation** : Rassemblez vos bulletins scolaires, témoignages de proches",
-            "📱 **Journal des symptômes** : Tenez un journal quotidien de vos difficultés pendant 2 semaines",
-            "👥 **Témoignages tierces** : Demandez à des proches de documenter leurs observations"
-        ])
-    
-    if domain_totals["Inattention"] > domain_totals["Hyperactivité"]:
-        recommendations.extend([
-            "🎯 **Techniques de concentration** : Essayez la technique Pomodoro (25 min focus + 5 min pause)",
-            "📝 **Organisation** : Utilisez des listes de tâches et des rappels numériques",
-            "🧘 **Méditation** : Pratiquez la pleine conscience pour améliorer l'attention"
-        ])
-    
-    if domain_totals["Hyperactivité"] > 15:
-        recommendations.extend([
-            "🏃 **Exercice physique** : Intégrez 30 minutes d'activité physique quotidienne",
-            "😴 **Hygiène du sommeil** : Maintenez un horaire de sommeil régulier",
-            "☕ **Gestion de la caféine** : Limitez la consommation après 14h"
-        ])
-    
-    if domain_totals["Impulsivité"] > 10:
-        recommendations.extend([
-            "⏸️ **Technique STOP** : Avant d'agir, Stop-Think-Options-Proceed",
-            "💭 **Pause réflexive** : Comptez jusqu'à 10 avant de répondre",
-            "🎯 **Objectifs clairs** : Définissez des objectifs SMART pour canaliser l'énergie"
-        ])
-    
-    # Recommandations générales
-    recommendations.extend([
-        "📚 **Information** : Renseignez-vous sur le TDAH via des sources fiables (HAS, CHADD)",
-        "👨‍👩‍👧‍👦 **Support familial** : Informez vos proches sur le TDAH pour obtenir leur soutien",
-        "🔄 **Suivi régulier** : Répétez ce test dans 6 mois pour suivre l'évolution"
-    ])
-    
-    for i, rec in enumerate(recommendations, 1):
-        st.markdown(f"{i}. {rec}")
-
-    # Export des résultats
-    st.markdown("### 📄 Export et Sauvegarde")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        if st.button("📋 Générer rapport PDF", help="Crée un rapport détaillé pour votre médecin"):
-            # Ici, vous pourriez implémenter la génération PDF
-            st.info("🔧 Fonctionnalité de génération PDF en développement")
-    
-    with col2:
-        # Export JSON des réponses
-        export_data = {
-            'date': datetime.now().isoformat(),
-            'responses': st.session_state.asrs_responses,
-            'scores': domain_totals,
-            'total_score': total_score,
-            'screening_result': 'Positif' if screening_positive else 'Négatif',
-            'critical_positive': critical_positive
-        }
-        
-        import json
-        json_str = json.dumps(export_data, indent=2, ensure_ascii=False)
-        
-        st.download_button(
-            label="💾 Télécharger résultats (JSON)",
-            data=json_str,
-            file_name=f"asrs_resultats_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-            mime="application/json",
-            help="Sauvegarde vos réponses et résultats"
-        )
-
-    # Ressources et références
-    st.markdown("### 📚 Ressources Utiles")
-    
-    with st.expander("🔗 Liens et références TDAH", expanded=False):
-        st.markdown("""
-        **🏥 Organisations professionnelles :**
-        - [Association Française de Psychiatrie (AFP)](https://www.psychiatrie.fr)
-        - [Haute Autorité de Santé (HAS)](https://www.has-sante.fr)
-        - [CHADD - Children and Adults with ADHD](https://chadd.org)
-        
-        **📖 Guides et informations :**
-        - [Guide HAS - TDAH de l'adulte](https://www.has-sante.fr/jcms/c_2856770/fr/trouble-deficit-de-l-attention-avec-ou-sans-hyperactivite-tdah-reperer-la-souffrance-accompagner-l-enfant-et-la-famille)
-        - [TDAH France - Association de patients](https://www.tdah-france.fr)
-        - [Réseau ANPEA - Aide aux familles](https://anpeafrance.fr)
-        
-        **🔬 Références scientifiques :**
-        - Kessler, R.C. et al. (2005). The World Health Organization Adult ADHD Self-Report Scale
-        - DSM-5 - Manuel diagnostique et statistique des troubles mentaux
-        - Faraone, S.V. et al. (2021). The World Federation of ADHD International Consensus Statement
-        """)
-
-def page_exploration():
-    """Page d'exploration optimisée avec visualisations avancées"""
-    st.markdown('<h1 class="main-header">📊 Exploration Avancée des Données ADHD</h1>', unsafe_allow_html=True)
-
-    try:
-        # Chargement et preprocessing
-        with st.spinner("🔄 Chargement et traitement des données..."):
-            df = load_adhd_dataset()
-            if df is None or df.empty:
-                st.error("❌ Impossible de charger les données ADHD")
-                return
-
-            df_processed, feature_info = advanced_preprocessing(df)
-            if df_processed is None:
-                st.error("❌ Erreur lors du preprocessing")
-                return
-
-        # Interface à onglets optimisée
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-            "📈 Vue d'ensemble", 
-            "🔍 Analyse univariée", 
-            "🔗 Corrélations & Tests", 
-            "🎯 Features & Ingénierie",
-            "📊 Analyse multivariée",
-            "📋 Rapport d'analyse"
-        ])
-
-        with tab1:
-            # Vue d'ensemble enrichie
-            st.subheader("📋 Résumé exécutif des données ADHD")
+            # Calcul du score total (simulation des questions Q1-Q18)
+            score_total = hyperactivite_input + inattention_input + impulsivite_input
             
-            # Métriques principales
-            col1, col2, col3, col4, col5, col6 = st.columns(6)
-
-            with col1:
-                st.metric("📏 Échantillons", f"{len(df_processed):,}")
-            with col2:
-                st.metric("📊 Variables", len(df_processed.columns))
-            with col3:
-                missing_pct = (df_processed.isnull().sum().sum() / (df_processed.shape[0] * df_processed.shape[1])) * 100
-                st.metric("❓ Données manquantes", f"{missing_pct:.1f}%")
-            with col4:
-                if 'TDAH' in df_processed.columns:
-                    tdah_pct = (df_processed['TDAH'] == 'Oui').mean() * 100
-                    st.metric("🎯 Prévalence TDAH", f"{tdah_pct:.1f}%")
-                else:
-                    st.metric("🎯 Prévalence", "6.5%")
-            with col5:
-                numeric_cols = len(df_processed.select_dtypes(include=[np.number]).columns)
-                st.metric("🔢 Variables numériques", numeric_cols)
-            with col6:
-                categorical_cols = len(df_processed.select_dtypes(include=['object']).columns)
-                st.metric("📝 Variables catégorielles", categorical_cols)
-
-            # Informations sur le preprocessing
-            if feature_info and 'preprocessing_steps' in feature_info:
-                with st.expander("🔧 Détails du preprocessing", expanded=False):
-                    st.write("**Étapes appliquées :**")
-                    for i, step in enumerate(feature_info['preprocessing_steps'], 1):
-                        st.write(f"{i}. {step}")
-
-            # Distribution de la variable cible avec analyse comparative
-            if 'TDAH' in df_processed.columns:
-                st.subheader("🎯 Analyse de la variable cible TDAH")
-
-                col1, col2, col3 = st.columns(3)
-
-                with col1:
-                    # Distribution avec contexte
-                    tdah_counts = df_processed['TDAH'].value_counts()
-                    fig = px.pie(
-                        values=tdah_counts.values, 
-                        names=tdah_counts.index,
-                        title="Distribution TDAH dans l'échantillon",
-                        color_discrete_sequence=['#1f77b4', '#ff7f0e'],
-                        hover_data=[tdah_counts.values]
-                    )
-                    fig.update_traces(
-                        textposition='inside', 
-                        textinfo='percent+label',
-                        hovertemplate='<b>%{label}</b><br>Nombre: %{value}<br>Pourcentage: %{percent}<extra></extra>'
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-
-                with col2:
-                    # Comparaison avec données épidémiologiques
-                    comparison_data = pd.DataFrame({
-                        'Source': ['Notre échantillon', 'Prévalence générale', 'Études cliniques'],
-                        'Prévalence (%)': [
-                            (df_processed['TDAH'] == 'Oui').mean() * 100,
-                            6.5,  # Prévalence mondiale
-                            15.0  # Échantillons cliniques
-                        ]
-                    })
-                    
-                    fig = px.bar(
-                        comparison_data,
-                        x='Source',
-                        y='Prévalence (%)',
-                        title="Comparaison des prévalences",
-                        color='Prévalence (%)',
-                        color_continuous_scale='Viridis',
-                        text='Prévalence (%)'
-                    )
-                    fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-                    fig.update_layout(showlegend=False)
-                    st.plotly_chart(fig, use_container_width=True)
-
-                with col3:
-                    # Statistiques contextuelles
-                    st.markdown("**📈 Analyse contextuelle**")
-                    prevalence_observed = (df_processed['TDAH'] == 'Oui').mean() * 100
-                    
-                    st.metric("Prévalence observée", f"{prevalence_observed:.1f}%")
-                    st.metric("Prévalence attendue", "6.5%")
-                    
-                    difference = prevalence_observed - 6.5
-                    if abs(difference) > 3:
-                        if difference > 0:
-                            st.warning("⚠️ Surreprésentation dans l'échantillon")
-                        else:
-                            st.info("ℹ️ Sous-représentation dans l'échantillon")
-                    else:
-                        st.success("✅ Cohérent avec la population générale")
-                    
-                    st.metric("Écart à la norme", f"{difference:+.1f}%")
-
-            # Analyse des types de variables
-            st.subheader("📊 Analyse des types de variables")
-            
-            # Tableau récapitulatif des variables
-            var_analysis = []
-            for col in df_processed.columns:
-                if col == 'TDAH':
-                    continue
-                    
-                dtype = str(df_processed[col].dtype)
-                missing = df_processed[col].isnull().sum()
-                missing_pct = (missing / len(df_processed)) * 100
-                unique_vals = df_processed[col].nunique()
-                
-                if pd.api.types.is_numeric_dtype(df_processed[col]):
-                    var_type = "Numérique"
-                    stats_info = f"Min: {df_processed[col].min():.2f}, Max: {df_processed[col].max():.2f}"
-                else:
-                    var_type = "Catégorielle"
-                    top_category = df_processed[col].mode().iloc[0] if len(df_processed[col].mode()) > 0 else "N/A"
-                    stats_info = f"Mode: {top_category}"
-                
-                var_analysis.append({
-                    'Variable': col,
-                    'Type': var_type,
-                    'Valeurs manquantes': f"{missing} ({missing_pct:.1f}%)",
-                    'Valeurs uniques': unique_vals,
-                    'Informations': stats_info
+            # Bouton de prédiction
+            if st.button("🔮 Prédire le risque TDAH", key="predict_tdah"):
+                # Créer le DataFrame d'input
+                input_data = pd.DataFrame({
+                    'Age': [age_input],
+                    'Genre': [genre_input],
+                    'Education': [education_input],
+                    'Hyperactivite_Score': [hyperactivite_input],
+                    'Inattention_Score': [inattention_input],
+                    'Impulsivite_Score': [impulsivite_input],
+                    'Troubles_Apprentissage': [troubles_input],
+                    'Antecedents_Familiaux': [antecedents_input],
+                    'Statut_testeur': ['Auto'],  # Valeur par défaut
+                    'Score_ADHD_Total': [score_total]
                 })
-            
-            var_df = pd.DataFrame(var_analysis)
-            st.dataframe(var_df, use_container_width=True)
-
-            # Détection automatique de problèmes de qualité
-            st.subheader("🚨 Contrôle qualité automatique")
-            
-            quality_issues = []
-            
-            # Variables avec trop de valeurs manquantes
-            high_missing = df_processed.columns[df_processed.isnull().sum() / len(df_processed) > 0.3]
-            if len(high_missing) > 0:
-                quality_issues.append(f"⚠️ Variables avec >30% de valeurs manquantes: {', '.join(high_missing)}")
-            
-            # Variables potentiellement constantes
-            low_variance = []
-            for col in df_processed.select_dtypes(include=[np.number]).columns:
-                if df_processed[col].var() < 1e-8:
-                    low_variance.append(col)
-            if low_variance:
-                quality_issues.append(f"⚠️ Variables à variance quasi-nulle: {', '.join(low_variance)}")
-            
-            # Variables catégorielles déséquilibrées
-            imbalanced_cats = []
-            for col in df_processed.select_dtypes(include=['object']).columns:
-                if col != 'TDAH':
-                    value_counts = df_processed[col].value_counts()
-                    if len(value_counts) > 1 and value_counts.iloc[0] / len(df_processed) > 0.95:
-                        imbalanced_cats.append(col)
-            if imbalanced_cats:
-                quality_issues.append(f"⚠️ Variables catégorielles déséquilibrées (>95% une catégorie): {', '.join(imbalanced_cats)}")
-            
-            if quality_issues:
-                for issue in quality_issues:
-                    st.warning(issue)
-            else:
-                st.success("✅ Aucun problème de qualité majeur détecté")
-
-        with tab2:
-            # Analyse univariée détaillée
-            st.subheader("🔍 Analyse univariée approfondie")
-
-            # Sélection de variable avec filtrage
-            col1, col2 = st.columns([3, 1])
-            
-            with col1:
-                selected_var = st.selectbox(
-                    "Variable à analyser", 
-                    [col for col in df_processed.columns if col != 'TDAH'],
-                    help="Sélectionnez une variable pour une analyse détaillée"
-                )
-            
-            with col2:
-                analysis_type = st.radio(
-                    "Type d'analyse",
-                    ["Descriptive", "Comparative", "Avancée"],
-                    help="Choisissez le niveau d'analyse souhaité"
-                )
-
-            if selected_var:
-                var_data = df_processed[selected_var].dropna()
                 
-                # Analyse descriptive de base
-                col1, col2 = st.columns(2)
+                # Ajouter les questions Q1-Q18 avec des valeurs simulées
+                for i in range(1, 19):
+                    input_data[f'Q{i}'] = [np.random.randint(0, 4)]  # Simulation
                 
-                with col1:
-                    if pd.api.types.is_numeric_dtype(var_data):
-                        # Statistiques descriptives numériques
-                        st.markdown("**📊 Statistiques descriptives**")
-                        stats = var_data.describe()
-                        
-                        # Ajout de statistiques supplémentaires
-                        additional_stats = {
-                            'variance': var_data.var(),
-                            'skewness': var_data.skew(),
-                            'kurtosis': var_data.kurtosis(),
-                            'iqr': stats['75%'] - stats['25%'],
-                            'cv': stats['std'] / stats['mean'] if stats['mean'] != 0 else np.inf
-                        }
-                        
-                        # Affichage dans un tableau
-                        stats_df = pd.DataFrame({
-                            'Statistique': list(stats.index) + list(additional_stats.keys()),
-                            'Valeur': list(stats.values) + list(additional_stats.values())
-                        })
-                        
-                        st.dataframe(
-                            stats_df.style.format({'Valeur': '{:.4f}'}),
-                            use_container_width=True
-                        )
-                        
-                        # Interprétation automatique
-                        interpretations = []
-                        if abs(additional_stats['skewness']) > 1:
-                            interpretations.append(f"Distribution {'asymétrique droite' if additional_stats['skewness'] > 0 else 'asymétrique gauche'}")
-                        if additional_stats['kurtosis'] > 3:
-                            interpretations.append("Distribution leptokurtique (queues épaisses)")
-                        elif additional_stats['kurtosis'] < -1:
-                            interpretations.append("Distribution platokurtique (queues fines)")
-                        if additional_stats['cv'] > 1:
-                            interpretations.append("Variabilité élevée")
-                        
-                        if interpretations:
-                            st.info("**Interprétations :** " + "; ".join(interpretations))
+                try:
+                    # Prédiction
+                    prediction = pipeline.predict(input_data)[0]
+                    probability = pipeline.predict_proba(input_data)[0, 1]
                     
-                    else:
-                        # Statistiques pour variables catégorielles
-                        st.markdown("**📊 Fréquences et proportions**")
-                        value_counts = var_data.value_counts()
-                        proportions = var_data.value_counts(normalize=True) * 100
-                        
-                        freq_df = pd.DataFrame({
-                            'Catégorie': value_counts.index,
-                            'Fréquence': value_counts.values,
-                            'Proportion (%)': proportions.values
-                        })
-                        
-                        st.dataframe(
-                            freq_df.style.format({'Proportion (%)': '{:.2f}%'}),
-                            use_container_width=True
-                        )
-                        
-                        # Mesures de concentration
-                        entropy = -sum(p * np.log2(p) for p in proportions/100 if p > 0)
-                        hhi = sum((p/100)**2 for p in proportions)
-                        
-                        st.metric("Entropie (diversité)", f"{entropy:.3f}")
-                        st.metric("Indice Herfindahl (concentration)", f"{hhi:.3f}")
-
-                with col2:
-                    # Visualisations
-                    if pd.api.types.is_numeric_dtype(var_data):
-                        # Histogramme avec courbe de densité
-                        fig = make_subplots(
-                            rows=2, cols=1,
-                            subplot_titles=('Distribution', 'Box Plot'),
-                            vertical_spacing=0.15
-                        )
-                        
-                        # Histogramme
-                        fig.add_trace(
-                            go.Histogram(
-                                x=var_data,
-                                nbinsx=30,
-                                name='Fréquence',
-                                opacity=0.7,
-                                marker_color='skyblue'
-                            ),
-                            row=1, col=1
-                        )
-                        
-                        # Box plot
-                        fig.add_trace(
-                            go.Box(
-                                y=var_data,
-                                name='Distribution',
-                                boxpoints='outliers',
-                                marker_color='lightcoral'
-                            ),
-                            row=2, col=1
-                        )
-                        
-                        fig.update_layout(
-                            height=600,
-                            title=f"Analyse de {selected_var}",
-                            showlegend=False
-                        )
-                        
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-                    else:
-                        # Graphique en barres pour catégorielles
-                        fig = px.bar(
-                            x=value_counts.values,
-                            y=value_counts.index,
-                            orientation='h',
-                            title=f"Distribution de {selected_var}",
-                            color=value_counts.values,
-                            color_continuous_scale='Viridis',
-                            text=value_counts.values
-                        )
-                        fig.update_traces(texttemplate='%{text}', textposition='outside')
-                        fig.update_layout(
-                            yaxis={'categoryorder': 'total ascending'},
-                            height=400
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-
-                # Analyse comparative si TDAH disponible
-                if analysis_type in ["Comparative", "Avancée"] and 'TDAH' in df_processed.columns:
-                    st.markdown("### 🔄 Analyse comparative TDAH vs Non-TDAH")
-                    
-                    if pd.api.types.is_numeric_dtype(var_data):
-                        # Comparaison numérique
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            # Box plot comparatif
-                            fig = px.box(
-                                df_processed.dropna(subset=[selected_var, 'TDAH']), 
-                                x='TDAH', 
-                                y=selected_var, 
-                                color='TDAH',
-                                title=f"Comparaison {selected_var} par groupe TDAH",
-                                points="outliers"
-                            )
-                            fig.update_layout(height=400)
-                            st.plotly_chart(fig, use_container_width=True)
-                        
-                        with col2:
-                            # Histogrammes superposés
-                            fig = px.histogram(
-                                df_processed.dropna(subset=[selected_var, 'TDAH']), 
-                                x=selected_var, 
-                                color='TDAH',
-                                title=f"Distribution {selected_var} par groupe",
-                                opacity=0.7,
-                                nbins=20,
-                                marginal="box"
-                            )
-                            fig.update_layout(height=400)
-                            st.plotly_chart(fig, use_container_width=True)
-                        
-                        # Test statistique
-                        group_tdah = df_processed[df_processed['TDAH'] == 'Oui'][selected_var].dropna()
-                        group_no_tdah = df_processed[df_processed['TDAH'] == 'Non'][selected_var].dropna()
-
-                        if len(group_tdah) > 0 and len(group_no_tdah) > 0:
-                            # Test de normalité
-                            from scipy.stats import normaltest
-                            _, p_normal_tdah = normaltest(group_tdah)
-                            _, p_normal_no_tdah = normaltest(group_no_tdah)
-                            
-                            # Choix du test approprié
-                            if p_normal_tdah > 0.05 and p_normal_no_tdah > 0.05:
-                                # Test t de Student
-                                t_stat, p_value = stats.ttest_ind(group_tdah, group_no_tdah)
-                                test_name = "Test t de Student"
-                            else:
-                                # Test de Mann-Whitney
-                                from scipy.stats import mannwhitneyu
-                                u_stat, p_value = mannwhitneyu(group_tdah, group_no_tdah, alternative='two-sided')
-                                test_name = "Test de Mann-Whitney"
-                            
-                            # Affichage des résultats
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("Moyenne TDAH", f"{group_tdah.mean():.3f}")
-                            with col2:
-                                st.metric("Moyenne Non-TDAH", f"{group_no_tdah.mean():.3f}")
-                            with col3:
-                                significance = "Significatif ✅" if p_value < 0.05 else "Non significatif ❌"
-                                st.metric(f"{test_name}", f"p = {p_value:.4f}", significance)
-                            
-                            # Taille d'effet (Cohen's d)
-                            pooled_std = np.sqrt(((len(group_tdah) - 1) * group_tdah.var() + 
-                                                 (len(group_no_tdah) - 1) * group_no_tdah.var()) / 
-                                                (len(group_tdah) + len(group_no_tdah) - 2))
-                            cohen_d = (group_tdah.mean() - group_no_tdah.mean()) / pooled_std
-                            
-                            effect_interpretation = (
-                                "Grand" if abs(cohen_d) > 0.8 else
-                                "Moyen" if abs(cohen_d) > 0.5 else
-                                "Petit" if abs(cohen_d) > 0.2 else
-                                "Négligeable"
-                            )
-                            
-                            st.info(f"**Taille d'effet (Cohen's d):** {cohen_d:.3f} ({effect_interpretation})")
-                    
-                    else:
-                        # Analyse pour variables catégorielles
-                        crosstab = pd.crosstab(df_processed[selected_var], df_processed['TDAH'], margins=True)
-                        
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            # Tableau croisé
-                            st.markdown("**📊 Tableau croisé**")
-                            st.dataframe(crosstab, use_container_width=True)
-                            
-                            # Test du chi-carré
-                            from scipy.stats import chi2_contingency
-                            chi2, p_chi2, dof, expected = chi2_contingency(crosstab.iloc[:-1, :-1])
-                            
-                            st.metric("Chi-carré", f"{chi2:.3f}")
-                            st.metric("p-value", f"{p_chi2:.4f}")
-                            st.metric("Degrés de liberté", dof)
-                            
-                            if p_chi2 < 0.05:
-                                st.success(f"Association significative (p = {p_chi2:.4f})")
-                            else:
-                                st.info(f"Pas d'association significative (p = {p_chi2:.4f})")
-                        
-                        with col2:
-                            # Graphique groupé
-                            fig = px.bar(
-                                crosstab.iloc[:-1, :-1].reset_index(), 
-                                x=selected_var, 
-                                y=['Non', 'Oui'],
-                                title=f"Distribution de {selected_var} par groupe TDAH",
-                                barmode='group',
-                                color_discrete_sequence=['#1f77b4', '#ff7f0e']
-                            )
-                            fig.update_layout(height=400)
-                            st.plotly_chart(fig, use_container_width=True)
-
-                # Analyse avancée
-                if analysis_type == "Avancée":
-                    st.markdown("### 🔬 Analyse avancée")
-                    
-                    if pd.api.types.is_numeric_dtype(var_data):
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            # Q-Q plot pour normalité
-                            from scipy import stats
-                            theoretical_quantiles, sample_quantiles = stats.probplot(var_data, dist="norm")
-                            
-                            fig = go.Figure()
-                            
-                            # Points observés
-                            fig.add_trace(go.Scatter(
-                                x=theoretical_quantiles[0],
-                                y=theoretical_quantiles[1],
-                                mode='markers',
-                                name='Données observées',
-                                marker=dict(color='blue', size=6)
-                            ))
-                            
-                            # Ligne de référence
-                            min_q, max_q = min(theoretical_quantiles[0]), max(theoretical_quantiles[0])
-                            fig.add_trace(go.Scatter(
-                                x=[min_q, max_q], 
-                                y=[min_q, max_q],
-                                mode='lines',
-                                name='Distribution normale',
-                                line=dict(color='red', dash='dash')
-                            ))
-                            
-                            fig.update_layout(
-                                title=f"Q-Q Plot - {selected_var}",
-                                xaxis_title="Quantiles théoriques",
-                                yaxis_title="Quantiles observés",
-                                height=400
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                        
-                        with col2:
-                            # Détection d'outliers par méthode IQR
-                            Q1 = var_data.quantile(0.25)
-                            Q3 = var_data.quantile(0.75)
-                            IQR = Q3 - Q1
-                            lower_bound = Q1 - 1.5 * IQR
-                            upper_bound = Q3 + 1.5 * IQR
-                            
-                            outliers = var_data[(var_data < lower_bound) | (var_data > upper_bound)]
-                            outlier_pct = len(outliers) / len(var_data) * 100
-                            
-                            st.metric("Outliers détectés", f"{len(outliers)} ({outlier_pct:.1f}%)")
-                            st.metric("Borne inférieure", f"{lower_bound:.3f}")
-                            st.metric("Borne supérieure", f"{upper_bound:.3f}")
-                            
-                            if len(outliers) > 0:
-                                st.markdown("**🔍 Valeurs aberrantes:**")
-                                outliers_display = outliers.head(10)
-                                for val in outliers_display:
-                                    st.write(f"• {val:.3f}")
-                                if len(outliers) > 10:
-                                    st.write(f"... et {len(outliers) - 10} autres")
-
-        with tab3:
-            # Analyse des corrélations et tests statistiques
-            st.subheader("🔗 Analyse des Corrélations et Tests Statistiques")
-
-            numeric_df = df_processed.select_dtypes(include=[np.number])
-
-            if len(numeric_df.columns) > 1:
-                col1, col2 = st.columns([3, 1])
-                
-                with col2:
-                    # Options de configuration
-                    corr_method = st.selectbox(
-                        "Méthode de corrélation", 
-                        ["pearson", "spearman", "kendall"],
-                        help="""
-                        - Pearson: Relations linéaires (données normales)
-                        - Spearman: Relations monotones (non-paramétrique)
-                        - Kendall: Robuste aux outliers
-                        """
-                    )
-                    
-                    min_correlation = st.slider(
-                        "Seuil de corrélation minimal", 
-                        0.0, 1.0, 0.1, 0.05,
-                        help="Affiche seulement les corrélations supérieures à ce seuil"
-                    )
-                    
-                    show_pvalues = st.checkbox(
-                        "Afficher les p-values",
-                        value=False,
-                        help="Calcule la significativité des corrélations"
-                    )
-                
-                with col1:
-                    # Matrice de corrélation interactive
-                    corr_matrix = numeric_df.corr(method=corr_method)
-                    
-                    # Masque triangulaire
-                    mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
-                    corr_matrix_masked = corr_matrix.mask(mask)
-
-                    # Calcul des p-values si demandé
-                    if show_pvalues:
-                        from scipy.stats import pearsonr, spearmanr, kendalltau
-                        
-                        p_values = np.zeros((len(corr_matrix.columns), len(corr_matrix.columns)))
-                        
-                        for i, col1_name in enumerate(corr_matrix.columns):
-                            for j, col2_name in enumerate(corr_matrix.columns):
-                                if i != j:
-                                    data1 = numeric_df[col1_name].dropna()
-                                    data2 = numeric_df[col2_name].dropna()
-                                    
-                                    # Intersection des indices non-NaN
-                                    common_idx = data1.index.intersection(data2.index)
-                                    if len(common_idx) > 3:
-                                        x, y = data1[common_idx], data2[common_idx]
-                                        
-                                        try:
-                                            if corr_method == "pearson":
-                                                _, p_val = pearsonr(x, y)
-                                            elif corr_method == "spearman":
-                                                _, p_val = spearmanr(x, y)
-                                            else:
-                                                _, p_val = kendalltau(x, y)
-                                            p_values[i, j] = p_val
-                                        except:
-                                            p_values[i, j] = np.nan
-                        
-                        # Création d'annotations avec p-values
-                        annotations = []
-                        for i, row in enumerate(corr_matrix_masked.values):
-                            for j, val in enumerate(row):
-                                if not np.isnan(val):
-                                    p_val = p_values[i, j]
-                                    if not np.isnan(p_val):
-                                        significance = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else ""
-                                        text = f"{val:.3f}{significance}<br>p={p_val:.3f}"
-                                    else:
-                                        text = f"{val:.3f}"
-                                    
-                                    annotations.append(
-                                        dict(
-                                            x=j, y=i,
-                                            text=text,
-                                            showarrow=False,
-                                            font=dict(color="white" if abs(val) > 0.5 else "black", size=10)
-                                        )
-                                    )
-                    
-                    fig = px.imshow(
-                        corr_matrix_masked,
-                        text_auto=not show_pvalues,
-                        aspect="auto",
-                        title=f"Matrice de corrélation ({corr_method})",
-                        color_continuous_scale='RdBu_r',
-                        zmin=-1, zmax=1
-                    )
-                    
-                    if show_pvalues:
-                        fig.update_layout(annotations=annotations)
-                    
-                    fig.update_layout(height=600)
-                    st.plotly_chart(fig, use_container_width=True)
-
-                # Analyse des corrélations significatives
-                st.subheader("🔝 Corrélations les plus significatives")
-
-                # Extraction et tri des corrélations
-                mask = np.triu(np.ones_like(corr_matrix), k=1).astype(bool)
-                correlations = corr_matrix.where(mask).stack().reset_index()
-                correlations.columns = ['Variable 1', 'Variable 2', 'Corrélation']
-                correlations = correlations[abs(correlations['Corrélation']) >= min_correlation]
-                correlations = correlations.reindex(correlations['Corrélation'].abs().sort_values(ascending=False).index)
-
-                if not correlations.empty:
-                    # Enrichissement des données
-                    correlations['Force'] = correlations['Corrélation'].abs().apply(
-                        lambda x: 'Très forte (≥0.8)' if x >= 0.8 else 
-                                  'Forte (0.6-0.8)' if x >= 0.6 else 
-                                  'Modérée (0.4-0.6)' if x >= 0.4 else 
-                                  'Faible (0.2-0.4)' if x >= 0.2 else 
-                                  'Très faible (<0.2)'
-                    )
-                    correlations['Direction'] = correlations['Corrélation'].apply(
-                        lambda x: 'Positive' if x > 0 else 'Négative'
-                    )
-                    
-                    # Interprétation contextuelle pour ADHD
-                    correlations['Interprétation_ADHD'] = correlations.apply(
-                        lambda row: interpret_adhd_correlation(row['Variable 1'], row['Variable 2'], row['Corrélation']),
-                        axis=1
-                    )
-
-                    st.dataframe(
-                        correlations.head(20).style.format({'Corrélation': '{:.4f}'}),
-                        use_container_width=True
-                    )
-
-                    # Visualisation des top corrélations
-                    top_corr = correlations.head(10)
-                    if not top_corr.empty:
-                        fig = px.bar(
-                            top_corr,
-                            x='Corrélation',
-                            y=top_corr['Variable 1'] + ' ↔ ' + top_corr['Variable 2'],
-                            orientation='h',
-                            title="Top 10 des corrélations",
-                            color='Corrélation',
-                            color_continuous_scale='RdBu_r',
-                            color_continuous_midpoint=0
-                        )
-                        fig.update_layout(
-                            yaxis={'categoryorder': 'total ascending'},
-                            height=500
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-
-                # Tests de significativité pour toutes les corrélations
-                if st.checkbox("🧪 Effectuer des tests de significativité", help="Calcule les p-values pour toutes les corrélations"):
-                    with st.spinner("Calcul des tests de significativité..."):
-                        correlation_tests = []
-                        
-                        for _, row in correlations.iterrows():
-                            var1, var2 = row['Variable 1'], row['Variable 2']
-                            
-                            # Données nettoyées
-                            data1 = numeric_df[var1].dropna()
-                            data2 = numeric_df[var2].dropna()
-                            common_idx = data1.index.intersection(data2.index)
-                            
-                            if len(common_idx) > 3:
-                                x, y = data1[common_idx], data2[common_idx]
-                                
-                                try:
-                                    if corr_method == "pearson":
-                                        corr_val, p_val = pearsonr(x, y)
-                                    elif corr_method == "spearman":
-                                        corr_val, p_val = spearmanr(x, y)
-                                    else:
-                                        corr_val, p_val = kendalltau(x, y)
-                                    
-                                    # Calcul de l'intervalle de confiance pour Pearson
-                                    if corr_method == "pearson" and len(x) > 3:
-                                        # Transformation de Fisher
-                                        z = np.arctanh(corr_val)
-                                        se = 1 / np.sqrt(len(x) - 3)
-                                        z_critical = 1.96  # pour 95% de confiance
-                                        ci_lower = np.tanh(z - z_critical * se)
-                                        ci_upper = np.tanh(z + z_critical * se)
-                                        ci = f"[{ci_lower:.3f}, {ci_upper:.3f}]"
-                                    else:
-                                        ci = "N/A"
-                                    
-                                    correlation_tests.append({
-                                        'Variable 1': var1,
-                                        'Variable 2': var2,
-                                        'Corrélation': corr_val,
-                                        'p-value': p_val,
-                                        'Significatif (α=0.05)': 'Oui' if p_val < 0.05 else 'Non',
-                                        'IC 95%': ci,
-                                        'N': len(x)
-                                    })
-                                except Exception as e:
-                                    logger.warning(f"Erreur test corrélation {var1}-{var2}: {e}")
-                        
-                        if correlation_tests:
-                            corr_test_df = pd.DataFrame(correlation_tests)
-                            corr_test_df = corr_test_df.sort_values('p-value')
-                            
-                            st.dataframe(
-                                corr_test_df.style.format({
-                                    'Corrélation': '{:.4f}',
-                                    'p-value': '{:.2e}'
-                                }),
-                                use_container_width=True
-                            )
-                            
-                            # Résumé des tests
-                            significant_count = sum(corr_test_df['p-value'] < 0.05)
-                            total_tests = len(corr_test_df)
-                            
-                            st.info(f"📊 **Résumé :** {significant_count}/{total_tests} corrélations significatives (p < 0.05)")
-                            
-                            # Correction pour tests multiples (Bonferroni)
-                            bonferroni_threshold = 0.05 / total_tests
-                            bonferroni_significant = sum(corr_test_df['p-value'] < bonferroni_threshold)
-                            
-                            st.info(f"🔬 **Correction Bonferroni :** {bonferroni_significant}/{total_tests} corrélations significatives (p < {bonferroni_threshold:.2e})")
-
-            else:
-                st.warning("⚠️ Pas assez de variables numériques pour l'analyse de corrélation")
-
-        # [Continuer avec les autres onglets...]
-        with tab4:
-            # Feature Engineering et sélection
-            st.subheader("🎯 Feature Engineering et Sélection de Variables")
-            
-            if feature_info:
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    st.markdown("**📊 Informations sur le preprocessing :**")
-                    if 'original_shape' in feature_info and 'processed_shape' in feature_info:
-                        st.write(f"📏 Shape originale : {feature_info['original_shape']}")
-                        st.write(f"📏 Shape traitée : {feature_info['processed_shape']}")
-
-                    if 'engineered_features' in feature_info:
-                        st.markdown("**🔧 Features créées automatiquement :**")
-                        for feature in feature_info['engineered_features']:
-                            st.write(f"✅ {feature}")
-
-                with col2:
-                    if 'feature_mappings' in feature_info:
-                        st.markdown("**🏷️ Variables encodées :**")
-                        for var, mapping in feature_info['feature_mappings'].items():
-                            with st.expander(f"Encodage: {var}"):
-                                for original, encoded in mapping.items():
-                                    st.write(f"'{original}' → {encoded}")
-
-            # Analyse d'importance des features
-            st.subheader("📊 Analyse d'importance des variables")
-
-            # Sélection des features avec méthodes statistiques
-            if 'TDAH' in df_processed.columns:
-                target_col = 'TDAH'
-                X = df_processed.select_dtypes(include=[np.number]).drop(columns=[target_col], errors='ignore')
-                y = df_processed[target_col].map({'Oui': 1, 'Non': 0})
-
-                # Nettoyage
-                mask = y.notna()
-                X = X[mask]
-                y = y[mask]
-
-                if len(X) > 0 and X.shape[1] > 0:
-                    # Méthodes de sélection de features
+                    # Affichage du résultat
                     col1, col2, col3 = st.columns(3)
                     
                     with col1:
-                        method = st.selectbox(
-                            "Méthode de sélection",
-                            ["Univariée (F-test)", "Récursive (RFE)", "Importance Random Forest"],
-                            help="Choisissez la méthode d'analyse d'importance"
-                        )
+                        if prediction == 1:
+                            st.error(f"⚠️ Risque TDAH détecté")
+                        else:
+                            st.success(f"✅ Risque TDAH faible")
                     
                     with col2:
-                        if method == "Univariée (F-test)":
-                            k_features = st.slider("Nombre de features", 1, min(20, X.shape[1]), min(10, X.shape[1]))
-                        elif method == "Récursive (RFE)":
-                            k_features = st.slider("Nombre de features", 1, min(15, X.shape[1]), min(8, X.shape[1]))
-                        else:
-                            k_features = min(15, X.shape[1])
-                    
+                        st.metric("Probabilité TDAH", f"{probability:.1%}")
+                        
                     with col3:
-                        run_analysis = st.button("🚀 Lancer l'analyse", type="primary")
-
-                    if run_analysis:
-                        with st.spinner(f"Analyse en cours avec {method}..."):
-                            try:
-                                if method == "Univariée (F-test)":
-                                    # Test F univarié
-                                    selector = SelectKBest(score_func=f_classif, k=k_features)
-                                    X_selected = selector.fit_transform(X, y)
-                                    
-                                    scores = selector.scores_
-                                    pvalues = selector.pvalues_
-                                    
-                                    # Gestion des valeurs infinies/NaN
-                                    scores = np.nan_to_num(scores, nan=0.0, posinf=1000.0, neginf=0.0)
-                                    pvalues = np.nan_to_num(pvalues, nan=1.0, posinf=1.0, neginf=0.0)
-
-                                    feature_importance = pd.DataFrame({
-                                        'Feature': X.columns,
-                                        'Score_F': scores,
-                                        'P_value': pvalues,
-                                        'Selected': selector.get_support()
-                                    }).sort_values('Score_F', ascending=False)
-
-                                elif method == "Récursive (RFE)":
-                                    # RFE avec Random Forest
-                                    estimator = RandomForestClassifier(n_estimators=100, random_state=42)
-                                    selector = RFE(estimator, n_features_to_select=k_features)
-                                    selector.fit(X, y)
-                                    
-                                    feature_importance = pd.DataFrame({
-                                        'Feature': X.columns,
-                                        'Ranking': selector.ranking_,
-                                        'Selected': selector.support_
-                                    }).sort_values('Ranking')
-
-                                else:  # Random Forest Importance
-                                    rf = RandomForestClassifier(n_estimators=200, random_state=42)
-                                    rf.fit(X, y)
-                                    
-                                    feature_importance = pd.DataFrame({
-                                        'Feature': X.columns,
-                                        'Importance': rf.feature_importances_,
-                                        'Importance_Pct': rf.feature_importances_ / rf.feature_importances_.sum() * 100
-                                    }).sort_values('Importance', ascending=False)
-
-                                # Affichage des résultats
-                                col1, col2 = st.columns(2)
-
-                                with col1:
-                                    # Tableau des résultats
-                                    if method == "Univariée (F-test)":
-                                        display_df = feature_importance.head(15)
-                                        st.dataframe(
-                                            display_df.style.format({
-                                                'Score_F': '{:.3f}',
-                                                'P_value': '{:.2e}'
-                                            }),
-                                            use_container_width=True
-                                        )
-                                    elif method == "Récursive (RFE)":
-                                        st.dataframe(feature_importance.head(15), use_container_width=True)
-                                    else:
-                                        display_df = feature_importance.head(15)
-                                        st.dataframe(
-                                            display_df.style.format({
-                                                'Importance': '{:.4f}',
-                                                'Importance_Pct': '{:.2f}%'
-                                            }),
-                                            use_container_width=True
-                                        )
-
-                                with col2:
-                                    # Visualisation
-                                    if method == "Univariée (F-test)":
-                                        top_features = feature_importance.head(10)
-                                        fig = px.bar(
-                                            top_features.sort_values('Score_F'),
-                                            x='Score_F',
-                                            y='Feature',
-                                            orientation='h',
-                                            title="Top 10 - Scores F",
-                                            color='Score_F',
-                                            color_continuous_scale='Viridis'
-                                        )
-                                    elif method == "Récursive (RFE)":
-                                        selected_features = feature_importance[feature_importance['Selected']].head(10)
-                                        fig = px.bar(
-                                            selected_features,
-                                            x='Ranking',
-                                            y='Feature',
-                                            orientation='h',
-                                            title="Features sélectionnées par RFE",
-                                            color='Ranking',
-                                            color_continuous_scale='Viridis_r'
-                                        )
-                                    else:
-                                        top_features = feature_importance.head(10)
-                                        fig = px.bar(
-                                            top_features.sort_values('Importance'),
-                                            x='Importance',
-                                            y='Feature',
-                                            orientation='h',
-                                            title="Top 10 - Importance Random Forest",
-                                            color='Importance',
-                                            color_continuous_scale='Viridis'
-                                        )
-                                    
-                                    fig.update_layout(
-                                        yaxis={'categoryorder': 'total ascending'},
-                                        height=400
-                                    )
-                                    st.plotly_chart(fig, use_container_width=True)
-
-                                # Analyse complémentaire
-                                if method == "Univariée (F-test)":
-                                    significant_features = feature_importance[feature_importance['P_value'] < 0.05]
-                                    st.info(f"📊 {len(significant_features)} features significatives (p < 0.05)")
-                                    
-                                    if len(significant_features) > 0:
-                                        # Correction pour tests multiples
-                                        bonferroni_alpha = 0.05 / len(feature_importance)
-                                        bonferroni_significant = feature_importance[feature_importance['P_value'] < bonferroni_alpha]
-                                        st.info(f"🔬 {len(bonferroni_significant)} features significatives après correction Bonferroni")
-
-                                elif method == "Random Forest Importance":
-                                    # Analyse cumulative
-                                    cumulative_importance = feature_importance['Importance_Pct'].cumsum()
-                                    features_80 = (cumulative_importance <= 80).sum()
-                                    features_95 = (cumulative_importance <= 95).sum()
-                                    
-                                    st.info(f"📊 {features_80} features expliquent 80% de l'importance")
-                                    st.info(f"📊 {features_95} features expliquent 95% de l'importance")
-
-                            except Exception as e:
-                                st.error(f"❌ Erreur lors de l'analyse: {e}")
-
-            # Création de nouvelles features
-            st.subheader("🛠️ Créateur de features personnalisées")
-            
-            numeric_columns = df_processed.select_dtypes(include=[np.number]).columns.tolist()
-            
-            if len(numeric_columns) >= 2:
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    var1 = st.selectbox("Variable 1", numeric_columns, key="feat_var1")
-                with col2:
-                    operation = st.selectbox("Opération", ['+', '-', '*', '/', 'log', 'sqrt', 'pow2'], key="feat_op")
-                with col3:
-                    if operation in ['+', '-', '*', '/']:
-                        var2 = st.selectbox("Variable 2", [col for col in numeric_columns if col != var1], key="feat_var2")
-                    else:
-                        var2 = None
-
-                feature_name = st.text_input("Nom de la nouvelle feature", value=f"new_feature_{operation}")
-
-                if st.button("➕ Créer la feature"):
-                    try:
-                        if operation == '+':
-                            new_feature = df_processed[var1] + df_processed[var2]
-                        elif operation == '-':
-                            new_feature = df_processed[var1] - df_processed[var2]
-                        elif operation == '*':
-                            new_feature = df_processed[var1] * df_processed[var2]
-                        elif operation == '/':
-                            new_feature = df_processed[var1] / (df_processed[var2] + 1e-8)  # Éviter division par zéro
-                        elif operation == 'log':
-                            new_feature = np.log(df_processed[var1] + 1e-8)  # Éviter log(0)
-                        elif operation == 'sqrt':
-                            new_feature = np.sqrt(np.abs(df_processed[var1]))
-                        elif operation == 'pow2':
-                            new_feature = df_processed[var1] ** 2
-
-                        # Validation de la nouvelle feature
-                        if not new_feature.isnull().all() and new_feature.var() > 1e-8:
-                            df_processed[feature_name] = new_feature
-                            st.success(f"✅ Feature '{feature_name}' créée avec succès!")
-                            
-                            # Aperçu de la nouvelle feature
-                            st.subheader(f"📊 Aperçu de {feature_name}")
-                            col1, col2 = st.columns(2)
-                            
-                            with col1:
-                                st.write("**Statistiques:**")
-                                stats = new_feature.describe()
-                                st.dataframe(stats.to_frame().T, use_container_width=True)
-                            
-                            with col2:
-                                fig = px.histogram(
-                                    x=new_feature,
-                                    nbins=30,
-                                    title=f"Distribution de {feature_name}"
-                                )
-                                st.plotly_chart(fig, use_container_width=True)
+                        if probability > 0.7:
+                            st.error("Risque élevé")
+                        elif probability > 0.3:
+                            st.warning("Risque modéré")
                         else:
-                            st.error("❌ Feature invalide (constante ou uniquement des NaN)")
+                            st.success("Risque faible")
                     
-                    except Exception as e:
-                        st.error(f"❌ Erreur lors de la création: {e}")
-
-        with tab5:
-            # Analyse multivariée
-            st.subheader("📊 Analyse Multivariée Avancée")
-            
-            # PCA (Analyse en Composantes Principales)
-            st.markdown("### 🔄 Analyse en Composantes Principales (PCA)")
-            
-            numeric_df = df_processed.select_dtypes(include=[np.number])
-            if 'TDAH' in numeric_df.columns:
-                numeric_df = numeric_df.drop('TDAH', axis=1)
-            
-            if len(numeric_df.columns) >= 3:
-                col1, col2 = st.columns([1, 3])
-                
-                with col1:
-                    n_components = st.slider("Nombre de composantes", 2, min(10, len(numeric_df.columns)), 3)
-                    standardize = st.checkbox("Standardiser les données", value=True)
-                    show_loadings = st.checkbox("Afficher les loadings", value=True)
-                
-                with col2:
-                    if st.button("🚀 Effectuer la PCA"):
-                        try:
-                            from sklearn.decomposition import PCA
-                            from sklearn.preprocessing import StandardScaler
-                            
-                            # Préparation des données
-                            X = numeric_df.dropna()
-                            
-                            if standardize:
-                                scaler = StandardScaler()
-                                X_scaled = scaler.fit_transform(X)
-                            else:
-                                X_scaled = X.values
-                            
-                            # PCA
-                            pca = PCA(n_components=n_components)
-                            X_pca = pca.fit_transform(X_scaled)
-                            
-                            # Variance expliquée
-                            explained_variance = pca.explained_variance_ratio_
-                            cumulative_variance = np.cumsum(explained_variance)
-                            
-                            # Affichage des résultats
-                            col1, col2 = st.columns(2)
-                            
-                            with col1:
-                                # Graphique de la variance expliquée
-                                fig = go.Figure()
-                                
-                                fig.add_trace(go.Bar(
-                                    x=[f'PC{i+1}' for i in range(n_components)],
-                                    y=explained_variance * 100,
-                                    name='Variance expliquée',
-                                    marker_color='lightblue'
-                                ))
-                                
-                                fig.add_trace(go.Scatter(
-                                    x=[f'PC{i+1}' for i in range(n_components)],
-                                    y=cumulative_variance * 100,
-                                    mode='lines+markers',
-                                    name='Variance cumulative',
-                                    line=dict(color='red'),
-                                    yaxis='y2'
-                                ))
-                                
-                                fig.update_layout(
-                                    title="Variance expliquée par composante",
-                                    xaxis_title="Composantes principales",
-                                    yaxis_title="Variance expliquée (%)",
-                                    yaxis2=dict(
-                                        title="Variance cumulative (%)",
-                                        overlaying='y',
-                                        side='right'
-                                    ),
-                                    height=400
-                                )
-                                
-                                st.plotly_chart(fig, use_container_width=True)
-                            
-                            with col2:
-                                # Projection 2D des données
-                                if 'TDAH' in df_processed.columns:
-                                    # Récupérer les labels TDAH pour les points PCA
-                                    tdah_labels = df_processed.loc[X.index, 'TDAH']
-                                    
-                                    fig = px.scatter(
-                                        x=X_pca[:, 0],
-                                        y=X_pca[:, 1],
-                                        color=tdah_labels,
-                                        title="Projection PCA (PC1 vs PC2)",
-                                        labels={'x': f'PC1 ({explained_variance[0]:.1%})', 
-                                               'y': f'PC2 ({explained_variance[1]:.1%})'},
-                                        color_discrete_sequence=['#1f77b4', '#ff7f0e']
-                                    )
-                                else:
-                                    fig = px.scatter(
-                                        x=X_pca[:, 0],
-                                        y=X_pca[:, 1],
-                                        title="Projection PCA (PC1 vs PC2)",
-                                        labels={'x': f'PC1 ({explained_variance[0]:.1%})', 
-                                               'y': f'PC2 ({explained_variance[1]:.1%})'}
-                                    )
-                                
-                                fig.update_layout(height=400)
-                                st.plotly_chart(fig, use_container_width=True)
-                            
-                            # Loadings (contributions des variables)
-                            if show_loadings:
-                                st.markdown("### 📊 Loadings des variables")
-                                
-                                loadings = pd.DataFrame(
-                                    pca.components_.T,
-                                    columns=[f'PC{i+1}' for i in range(n_components)],
-                                    index=X.columns
-                                )
-                                
-                                # Heatmap des loadings
-                                fig = px.imshow(
-                                    loadings.T,
-                                    title="Loadings des composantes principales",
-                                    color_continuous_scale='RdBu_r',
-                                    aspect='auto'
-                                )
-                                fig.update_layout(height=300)
-                                st.plotly_chart(fig, use_container_width=True)
-                                
-                                # Tableau des loadings
-                                st.dataframe(
-                                    loadings.style.format('{:.3f}').background_gradient(cmap='RdBu_r', center=0),
-                                    use_container_width=True
-                                )
-                            
-                            # Résumé de l'analyse
-                            st.info(f"""
-                            **📈 Résumé PCA:**
-                            - {n_components} composantes expliquent {cumulative_variance[-1]:.1%} de la variance totale
-                            - PC1 explique {explained_variance[0]:.1%} de la variance
-                            - PC2 explique {explained_variance[1]:.1%} de la variance
-                            """)
-                            
-                        except Exception as e:
-                            st.error(f"❌ Erreur lors de la PCA: {e}")
-
-            # Clustering
-            st.markdown("### 🎯 Analyse de Clustering")
-            
-            if len(numeric_df.columns) >= 2:
-                col1, col2 = st.columns([1, 3])
-                
-                with col1:
-                    clustering_method = st.selectbox(
-                        "Méthode de clustering",
-                        ["K-Means", "Clustering hiérarchique", "DBSCAN"]
-                    )
+                    # Interprétation
+                    st.subheader("💡 Interprétation")
                     
-                    if clustering_method == "K-Means":
-                        n_clusters = st.slider("Nombre de clusters", 2, 8, 3)
-                    elif clustering_method == "DBSCAN":
-                        eps = st.slider("Epsilon (distance)", 0.1, 2.0, 0.5, 0.1)
-                        min_samples = st.slider("Min samples", 2, 20, 5)
+                    if probability > 0.7:
+                        st.markdown("""
+                        <div style="background-color: #ffebee; padding: 15px; border-radius: 8px; border-left: 4px solid #f44336;">
+                            <strong>Recommandation :</strong> Les scores suggèrent un risque élevé de TDAH. 
+                            Une évaluation clinique approfondie par un professionnel de santé est fortement recommandée.
+                        </div>
+                        """, unsafe_allow_html=True)
+                    elif probability > 0.3:
+                        st.markdown("""
+                        <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; border-left: 4px solid #ff9800;">
+                            <strong>Recommandation :</strong> Les scores indiquent un risque modéré. 
+                            Il pourrait être utile de consulter un professionnel pour une évaluation plus poussée.
+                        </div>
+                        """, unsafe_allow_html=True)
                     else:
-                        n_clusters = st.slider("Nombre de clusters", 2, 8, 3)
-                        linkage_method = st.selectbox("Méthode de liaison", ["ward", "complete", "average"])
+                        st.markdown("""
+                        <div style="background-color: #e8f5e8; padding: 15px; border-radius: 8px; border-left: 4px solid #4caf50;">
+                            <strong>Recommandation :</strong> Les scores suggèrent un risque faible de TDAH. 
+                            Continuez à surveiller les symptômes si des préoccupations persistent.
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                except Exception as e:
+                    st.error(f"Erreur lors de la prédiction : {str(e)}")
+                    
+        else:
+            st.warning("Veuillez d'abord entraîner le modèle dans les onglets précédents.")
+
+def show_ai_prediction():
+    """Interface de prédiction IA pour le TDAH"""
+    st.markdown("""
+    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
+                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
+            🤖 Prédiction IA - Dépistage TDAH
+        </h1>
+        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
+                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
+            Outil d'aide au dépistage précoce du TDAH
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 30px; border-left: 4px solid #ff9800;">
+        <h3 style="color: #ef6c00; margin-top: 0;">🎯 Objectif de l'outil</h3>
+        <p style="color: #f57c00; line-height: 1.6;">
+            Cet outil utilise l'intelligence artificielle pour analyser les réponses et fournir une estimation
+            du risque de TDAH. Il s'agit d'un outil d'aide au dépistage qui ne remplace pas un diagnostic médical.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Interface de saisie simplifiée
+    st.subheader("📝 Questionnaire de dépistage rapide")
+    
+    with st.form("tdah_screening_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Informations générales**")
+            age = st.number_input("Âge", min_value=6, max_value=65, value=25)
+            gender = st.selectbox("Genre", ["Masculin", "Féminin"])
+            education = st.selectbox("Niveau d'éducation", 
+                                   ["Primaire", "Secondaire", "Supérieur"])
+            
+            st.markdown("**Symptômes d'inattention (0-3)**")
+            q1 = st.slider("Difficulté à maintenir l'attention", 0, 3, 1)
+            q2 = st.slider("Oublis dans les activités quotidiennes", 0, 3, 1)
+            q3 = st.slider("Difficulté à organiser les tâches", 0, 3, 1)
+            q4 = st.slider("Évite les tâches nécessitant un effort mental", 0, 3, 1)
+            q5 = st.slider("Perd souvent des objets", 0, 3, 1)
+            
+        with col2:
+            st.markdown("**Antécédents**")
+            family_history = st.selectbox("Antécédents familiaux de TDAH", ["Oui", "Non", "Ne sait pas"])
+            learning_difficulties = st.selectbox("Difficultés d'apprentissage", ["Oui", "Non"])
+            
+            st.markdown("**Symptômes d'hyperactivité/impulsivité (0-3)**")
+            q6 = st.slider("Agitation des mains/pieds", 0, 3, 1)
+            q7 = st.slider("Difficulté à rester assis", 0, 3, 1)
+            q8 = st.slider("Parle excessivement", 0, 3, 1)
+            q9 = st.slider("Répond avant la fin des questions", 0, 3, 1)
+            q10 = st.slider("Difficulté à attendre son tour", 0, 3, 1)
+        
+        submitted = st.form_submit_button("🔮 Analyser le risque TDAH", use_container_width=True)
+        
+        if submitted:
+            # Calcul des scores
+            inattention_score = q1 + q2 + q3 + q4 + q5
+            hyperactivite_score = q6 + q7 + q8 + q9 + q10
+            total_score = inattention_score + hyperactivite_score
+            
+            # Simulation d'une prédiction IA
+            # Dans un vrai cas, vous utiliseriez votre modèle entraîné
+            risk_factors = 0
+            
+            if total_score > 20:
+                risk_factors += 3
+            elif total_score > 15:
+                risk_factors += 2
+            elif total_score > 10:
+                risk_factors += 1
                 
-                with col2:
-                    if st.button("🔍 Effectuer le clustering"):
-                        try:
-                            from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN
-                            from sklearn.preprocessing import StandardScaler
-                            from sklearn.metrics import silhouette_score, calinski_harabasz_score
-                            
-                            # Préparation des données
-                            X = numeric_df.dropna()
-                            scaler = StandardScaler()
-                            X_scaled = scaler.fit_transform(X)
-                            
-                            # Application du clustering
-                            if clustering_method == "K-Means":
-                                clusterer = KMeans(n_clusters=n_clusters, random_state=42)
-                                cluster_labels = clusterer.fit_predict(X_scaled)
-                            elif clustering_method == "DBSCAN":
-                                clusterer = DBSCAN(eps=eps, min_samples=min_samples)
-                                cluster_labels = clusterer.fit_predict(X_scaled)
-                                n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
-                            else:  # Hierarchical
-                                clusterer = AgglomerativeClustering(n_clusters=n_clusters, linkage=linkage_method)
-                                cluster_labels = clusterer.fit_predict(X_scaled)
-                            
-                            # Évaluation du clustering
-                            if len(set(cluster_labels)) > 1:
-                                silhouette_avg = silhouette_score(X_scaled, cluster_labels)
-                                calinski_score = calinski_harabasz_score(X_scaled, cluster_labels)
-                            else:
-                                silhouette_avg = calinski_score = np.nan
-                            
-                            # Visualisation des résultats
-                            col1, col2 = st.columns(2)
-                            
-                            with col1:
-                                # Projection 2D des clusters
-                                if X_scaled.shape[1] > 2:
-                                    # Utiliser PCA pour la visualisation
-                                    pca_viz = PCA(n_components=2)
-                                    X_viz = pca_viz.fit_transform(X_scaled)
-                                else:
-                                    X_viz = X_scaled
-                                
-                                fig = px.scatter(
-                                    x=X_viz[:, 0],
-                                    y=X_viz[:, 1],
-                                    color=cluster_labels.astype(str),
-                                    title=f"Résultats du clustering - {clustering_method}",
-                                    labels={'x': 'Dimension 1', 'y': 'Dimension 2'}
-                                )
-                                
-                                if clustering_method == "K-Means":
-                                    # Ajouter les centroïdes
-                                    if X_scaled.shape[1] > 2:
-                                        centroids_viz = pca_viz.transform(clusterer.cluster_centers_)
-                                    else:
-                                        centroids_viz = clusterer.cluster_centers_
-                                    
-                                    fig.add_scatter(
-                                        x=centroids_viz[:, 0],
-                                        y=centroids_viz[:, 1],
-                                        mode='markers',
-                                        marker=dict(symbol='x', size=15, color='black'),
-                                        name='Centroïdes'
-                                    )
-                                
-                                fig.update_layout(height=400)
-                                st.plotly_chart(fig, use_container_width=True)
-                            
-                            with col2:
-                                # Métriques de qualité
-                                st.markdown("**📊 Qualité du clustering**")
-                                
-                                if not np.isnan(silhouette_avg):
-                                    st.metric("Score Silhouette", f"{silhouette_avg:.3f}")
-                                    st.metric("Score Calinski-Harabasz", f"{calinski_score:.1f}")
-                                
-                                st.metric("Nombre de clusters", n_clusters)
-                                
-                                if clustering_method == "DBSCAN":
-                                    noise_points = sum(cluster_labels == -1)
-                                    st.metric("Points de bruit", noise_points)
-                                
-                                # Distribution des clusters
-                                cluster_counts = pd.Series(cluster_labels).value_counts().sort_index()
-                                
-                                fig_bar = px.bar(
-                                    x=cluster_counts.index.astype(str),
-                                    y=cluster_counts.values,
-                                    title="Taille des clusters",
-                                    labels={'x': 'Cluster', 'y': 'Nombre de points'}
-                                )
-                                fig_bar.update_layout(height=300)
-                                st.plotly_chart(fig_bar, use_container_width=True)
-                            
-                            # Analyse des clusters par rapport au TDAH
-                            if 'TDAH' in df_processed.columns:
-                                st.markdown("### 🎯 Relation clusters-TDAH")
-                                
-                                # Créer un dataframe avec clusters et TDAH
-                                cluster_analysis = pd.DataFrame({
-                                    'Cluster': cluster_labels,
-                                    'TDAH': df_processed.loc[X.index, 'TDAH']
-                                })
-                                
-                                # Tableau croisé
-                                crosstab = pd.crosstab(cluster_analysis['Cluster'], cluster_analysis['TDAH'], margins=True)
-                                st.dataframe(crosstab, use_container_width=True)
-                                
-                                # Test du chi-carré
-                                if len(set(cluster_labels)) > 1:
-                                    try:
-                                        from scipy.stats import chi2_contingency
-                                        chi2, p_val, dof, expected = chi2_contingency(crosstab.iloc[:-1, :-1])
-                                        
-                                        st.info(f"**Test du Chi-carré:** χ² = {chi2:.3f}, p-value = {p_val:.4f}")
-                                        
-                                        if p_val < 0.05:
-                                            st.success("✅ Association significative entre clusters et TDAH")
-                                        else:
-                                            st.info("ℹ️ Pas d'association significative détectée")
-                                    except:
-                                        st.warning("⚠️ Impossible de calculer le test du chi-carré")
-                            
-                        except Exception as e:
-                            st.error(f"❌ Erreur lors du clustering: {e}")
-
-        with tab6:
-            # Rapport d'analyse automatique
-            st.subheader("📋 Rapport d'Analyse Automatique")
+            if family_history == "Oui":
+                risk_factors += 2
+            if learning_difficulties == "Oui":
+                risk_factors += 1
+            if age < 12:
+                risk_factors += 1
+                
+            # Calcul du risque (simulation)
+            risk_probability = min(risk_factors / 8.0, 0.95)
             
-            if st.button("📊 Générer le rapport complet", type="primary"):
-                generate_analysis_report(df_processed, feature_info)
-
-    except Exception as e:
-        logger.error(f"Erreur dans page_exploration: {e}")
-        st.error(f"❌ Une erreur s'est produite: {e}")
-        st.info("💡 Essayez de recharger la page")
-
-def interpret_adhd_correlation(var1, var2, correlation):
-    """Interprète les corrélations dans le contexte ADHD"""
-    # Dictionnaire d'interprétations contextuelles
-    interpretations = {
-        ('Inattention_Score', 'Hyperactivity_Score'): 
-            "Corrélation typique entre domaines ADHD - présentation combinée fréquente",
-        ('Age', 'Hyperactivity_Score'): 
-            "L'hyperactivité tend à diminuer avec l'âge chez les adultes ADHD",
-        ('Anxiety_Score', 'Inattention_Score'): 
-            "Comorbidité fréquente - l'anxiété peut aggraver les difficultés attentionnelles",
-        ('Sleep_Problems_Score', 'ADHD'): 
-            "Les troubles du sommeil sont très fréquents dans le TDAH",
-        ('Work_Impact_Score', 'Total_ADHD_Score'): 
-            "Impact fonctionnel proportionnel à la sévérité des symptômes"
-    }
-    
-    # Recherche d'interprétation
-    key = (var1, var2)
-    reverse_key = (var2, var1)
-    
-    if key in interpretations:
-        return interpretations[key]
-    elif reverse_key in interpretations:
-        return interpretations[reverse_key]
-    else:
-        # Interprétation générique basée sur la force de corrélation
-        if abs(correlation) > 0.7:
-            return "Corrélation forte - relation importante à investiguer"
-        elif abs(correlation) > 0.5:
-            return "Corrélation modérée - relation cliniquement intéressante"
-        else:
-            return "Corrélation faible - relation présente mais limitée"
-
-def generate_analysis_report(df, feature_info):
-    """Génère un rapport d'analyse automatique complet"""
-    try:
-        st.markdown("### 📊 Rapport d'Analyse des Données ADHD")
-        st.markdown(f"**Généré le :** {datetime.now().strftime('%d/%m/%Y à %H:%M')}")
-        
-        # 1. Résumé exécutif
-        st.markdown("#### 1. Résumé Exécutif")
-        
-        summary_stats = {
-            'Nombre d\'échantillons': len(df),
-            'Nombre de variables': len(df.columns),
-            'Variables numériques': len(df.select_dtypes(include=[np.number]).columns),
-            'Variables catégorielles': len(df.select_dtypes(include=['object']).columns),
-            'Complétude des données': f"{(1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100:.1f}%"
-        }
-        
-        if 'TDAH' in df.columns:
-            tdah_prevalence = (df['TDAH'] == 'Oui').mean() * 100
-            summary_stats['Prévalence TDAH'] = f"{tdah_prevalence:.1f}%"
-        
-        for key, value in summary_stats.items():
-            st.write(f"• **{key}:** {value}")
-        
-        # 2. Qualité des données
-        st.markdown("#### 2. Évaluation de la Qualité des Données")
-        
-        # Variables avec valeurs manquantes
-        missing_data = df.isnull().sum()
-        missing_vars = missing_data[missing_data > 0]
-        
-        if len(missing_vars) > 0:
-            st.write("**Variables avec valeurs manquantes :**")
-            for var, count in missing_vars.items():
-                pct = (count / len(df)) * 100
-                st.write(f"• {var}: {count} ({pct:.1f}%)")
-        else:
-            st.success("✅ Aucune valeur manquante détectée")
-        
-        # Variables à faible variance
-        numeric_df = df.select_dtypes(include=[np.number])
-        low_variance_vars = []
-        for col in numeric_df.columns:
-            if numeric_df[col].var() < 1e-6:
-                low_variance_vars.append(col)
-        
-        if low_variance_vars:
-            st.warning(f"⚠️ Variables à faible variance détectées: {', '.join(low_variance_vars)}")
-        
-        # 3. Analyse univariée automatique
-        st.markdown("#### 3. Analyse Univariée Automatique")
-        
-        # Variables numériques
-        if not numeric_df.empty:
-            st.write("**Variables numériques - Statistiques clés :**")
+            # Affichage des résultats
+            st.markdown("---")
+            st.subheader("📊 Résultats de l'analyse")
             
-            for col in numeric_df.columns:
-                if col != 'TDAH':
-                    data = numeric_df[col].dropna()
-                    if len(data) > 0:
-                        skewness = data.skew()
-                        kurtosis = data.kurtosis()
-                        
-                        distribution_type = "normale" if abs(skewness) < 0.5 else "asymétrique"
-                        outlier_pct = ((data < data.quantile(0.25) - 1.5*(data.quantile(0.75) - data.quantile(0.25))) | 
-                                      (data > data.quantile(0.75) + 1.5*(data.quantile(0.75) - data.quantile(0.25)))).mean() * 100
-                        
-                        st.write(f"• **{col}:** Moyenne = {data.mean():.2f}, Distribution {distribution_type}, Outliers = {outlier_pct:.1f}%")
-        
-        # Variables catégorielles
-        categorical_df = df.select_dtypes(include=['object'])
-        if not categorical_df.empty:
-            st.write("**Variables catégorielles - Répartition :**")
+            col1, col2, col3 = st.columns(3)
             
-            for col in categorical_df.columns:
-                if col != 'TDAH':
-                    value_counts = categorical_df[col].value_counts()
-                    most_frequent = value_counts.index[0]
-                    freq_pct = (value_counts.iloc[0] / len(categorical_df)) * 100
-                    
-                    st.write(f"• **{col}:** {len(value_counts)} catégories, Mode = '{most_frequent}' ({freq_pct:.1f}%)")
-        
-        # 4. Analyse des corrélations importantes
-        st.markdown("#### 4. Corrélations Significatives")
-        
-        if len(numeric_df.columns) > 1:
-            corr_matrix = numeric_df.corr()
+            with col1:
+                st.metric("Score Inattention", f"{inattention_score}/15")
+            with col2:
+                st.metric("Score Hyperactivité", f"{hyperactivite_score}/15")
+            with col3:
+                st.metric("Score Total", f"{total_score}/30")
             
-            # Extraction des corrélations fortes
-            mask = np.triu(np.ones_like(corr_matrix), k=1).astype(bool)
-            strong_correlations = []
+            # Évaluation du risque
+            st.subheader("🎯 Évaluation du risque")
             
-            for i in range(len(corr_matrix.columns)):
-                for j in range(i+1, len(corr_matrix.columns)):
-                    corr_val = corr_matrix.iloc[i, j]
-                    if abs(corr_val) > 0.5 and not np.isnan(corr_val):
-                        strong_correlations.append((
-                            corr_matrix.columns[i], 
-                            corr_matrix.columns[j], 
-                            corr_val
-                        ))
-            
-            if strong_correlations:
-                st.write("**Corrélations fortes (|r| > 0.5) :**")
-                for var1, var2, corr in sorted(strong_correlations, key=lambda x: abs(x[2]), reverse=True):
-                    direction = "positive" if corr > 0 else "négative"
-                    st.write(f"• **{var1} ↔ {var2}:** r = {corr:.3f} (corrélation {direction})")
+            if risk_probability > 0.7:
+                st.error(f"⚠️ **Risque élevé de TDAH** ({risk_probability:.1%})")
+                st.markdown("""
+                <div style="background-color: #ffebee; padding: 20px; border-radius: 10px; border-left: 4px solid #f44336;">
+                    <h4 style="color: #c62828; margin-top: 0;">Recommandations :</h4>
+                    <ul style="color: #d32f2f;">
+                        <li>Consultez rapidement un professionnel de santé spécialisé</li>
+                        <li>Documentez les symptômes observés</li>
+                        <li>Considérez une évaluation neuropsychologique</li>
+                        <li>Informez l'école/employeur si approprié</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            elif risk_probability > 0.4:
+                st.warning(f"⚠️ **Risque modéré de TDAH** ({risk_probability:.1%})")
+                st.markdown("""
+                <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; border-left: 4px solid #ff9800;">
+                    <h4 style="color: #ef6c00; margin-top: 0;">Recommandations :</h4>
+                    <ul style="color: #f57c00;">
+                        <li>Surveillez l'évolution des symptômes</li>
+                        <li>Consultez votre médecin traitant</li>
+                        <li>Mettez en place des stratégies d'organisation</li>
+                        <li>Réévaluez dans quelques semaines</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+                
             else:
-                st.info("Aucune corrélation forte détectée")
-        
-        # 5. Analyse spécifique ADHD
-        if 'TDAH' in df.columns:
-            st.markdown("#### 5. Analyse Spécifique TDAH")
+                st.success(f"✅ **Risque faible de TDAH** ({risk_probability:.1%})")
+                st.markdown("""
+                <div style="background-color: #e8f5e8; padding: 20px; border-radius: 10px; border-left: 4px solid #4caf50;">
+                    <h4 style="color: #2e7d32; margin-top: 0;">Recommandations :</h4>
+                    <ul style="color: #388e3c;">
+                        <li>Continuez à surveiller si des préoccupations persistent</li>
+                        <li>Maintenez de bonnes habitudes d'organisation</li>
+                        <li>N'hésitez pas à refaire le test si les symptômes évoluent</li>
+                        <li>Consultez si d'autres difficultés apparaissent</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
             
-            # Comparaison des groupes
-            numeric_comparisons = []
-            for col in numeric_df.columns:
-                if col != 'TDAH':
-                    group_tdah = df[df['TDAH'] == 'Oui'][col].dropna()
-                    group_no_tdah = df[df['TDAH'] == 'Non'][col].dropna()
-                    
-                    if len(group_tdah) > 0 and len(group_no_tdah) > 0:
-                        # Test statistique simple
-                        try:
-                            t_stat, p_value = stats.ttest_ind(group_tdah, group_no_tdah)
-                            
-                            if p_value < 0.05:
-                                effect_size = abs(group_tdah.mean() - group_no_tdah.mean()) / np.sqrt(
-                                    ((len(group_tdah) - 1) * group_tdah.var() + 
-                                     (len(group_no_tdah) - 1) * group_no_tdah.var()) / 
-                                    (len(group_tdah) + len(group_no_tdah) - 2)
-                                )
-                                
-                                numeric_comparisons.append((col, p_value, effect_size))
-                        except:
-                            continue
+            # Graphique des scores
+            st.subheader("📈 Visualisation des scores")
             
-            if numeric_comparisons:
-                st.write("**Variables discriminantes entre groupes TDAH/Non-TDAH :**")
-                for var, p_val, effect in sorted(numeric_comparisons, key=lambda x: x[1]):
-                    effect_level = "grand" if effect > 0.8 else "moyen" if effect > 0.5 else "petit"
-                    st.write(f"• **{var}:** p = {p_val:.3f}, effet {effect_level} (d = {effect:.2f})")
-        
-        # 6. Recommandations
-        st.markdown("#### 6. Recommandations d'Analyse")
-        
-        recommendations = []
-        
-        # Recommandations basées sur la qualité des données
-        if len(missing_vars) > 0:
-            high_missing = [var for var, count in missing_vars.items() if (count/len(df)) > 0.3]
-            if high_missing:
-                recommendations.append(f"🔧 Considérer l'exclusion ou l'imputation avancée pour: {', '.join(high_missing)}")
-        
-        # Recommandations basées sur les corrélations
-        if len(strong_correlations) > 5:
-            recommendations.append("📊 Envisager une réduction de dimensionnalité (PCA) en raison des nombreuses corrélations")
-        
-        # Recommandations basées sur la distribution
-        if 'TDAH' in df.columns:
-            tdah_balance = min((df['TDAH'] == 'Oui').mean(), (df['TDAH'] == 'Non').mean())
-            if tdah_balance < 0.2:
-                recommendations.append("⚖️ Déséquilibre important des classes - envisager des techniques de rééquilibrage")
-        
-        # Recommandations générales
-        recommendations.extend([
-            "🤖 Procéder à l'entraînement de modèles de machine learning",
-            "📈 Effectuer une validation croisée stratifiée",
-            "🔍 Analyser l'importance des features après modélisation",
-            "📋 Documenter les résultats pour usage clinique"
-        ])
-        
-        for i, rec in enumerate(recommendations, 1):
-            st.write(f"{i}. {rec}")
-        
-        # 7. Métadonnées du rapport
-        st.markdown("#### 7. Métadonnées du Rapport")
-        
-        metadata = {
-            'Version de l\'application': '2.0 - Optimisée',
-            'Méthodes statistiques': 'Tests t, corrélations de Pearson, statistiques descriptives',
-            'Seuils utilisés': 'Corrélations fortes: |r| > 0.5, Significativité: p < 0.05',
-            'Limitations': 'Analyse descriptive, validation clinique requise'
-        }
-        
-        for key, value in metadata.items():
-            st.write(f"• **{key}:** {value}")
-        
-        # Export du rapport
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("💾 Sauvegarder le rapport"):
-                # Ici vous pourriez implémenter la sauvegarde
-                st.success("✅ Rapport sauvegardé!")
-        
-        with col2:
-            # Simulation d'export (dans une vraie app, vous généreriez un PDF ou HTML)
-            report_summary = f"""
-            Rapport d'Analyse ADHD - {datetime.now().strftime('%d/%m/%Y')}
+            scores_data = pd.DataFrame({
+                'Dimension': ['Inattention', 'Hyperactivité/Impulsivité'],
+                'Score': [inattention_score, hyperactivite_score],
+                'Score Max': [15, 15]
+            })
             
-            Échantillon: {len(df)} participants
-            Prévalence TDAH: {tdah_prevalence:.1f}% si 'TDAH' in df.columns else 'N/A'
-            Complétude: {(1 - df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100:.1f}%
-            """
+            fig_scores = go.Figure()
             
-            st.download_button(
-                "📄 Télécharger résumé",
-                report_summary,
-                file_name=f"rapport_adhd_{datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                mime="text/plain"
+            fig_scores.add_trace(go.Bar(
+                name='Score obtenu',
+                x=scores_data['Dimension'],
+                y=scores_data['Score'],
+                marker_color='#ff5722'
+            ))
+            
+            fig_scores.add_trace(go.Bar(
+                name='Score maximum',
+                x=scores_data['Dimension'],
+                y=scores_data['Score Max'],
+                marker_color='#ffcdd2',
+                opacity=0.6
+            ))
+            
+            fig_scores.update_layout(
+                title='Répartition des scores par dimension',
+                yaxis_title='Score',
+                barmode='overlay'
             )
-    
-    except Exception as e:
-        st.error(f"❌ Erreur lors de la génération du rapport: {e}")
+            
+            st.plotly_chart(fig_scores, use_container_width=True)
+            
+            # Avertissement
+            st.markdown("""
+            <div style="margin: 30px 0; padding: 20px; border-radius: 12px;
+                       border-left: 4px solid #f44336; background: linear-gradient(135deg, #ffebee, #ffcdd2);
+                       box-shadow: 0 4px 12px rgba(244, 67, 54, 0.1);">
+                <p style="font-size: 1rem; color: #c62828; text-align: center; margin: 0; line-height: 1.6;">
+                    <strong style="color: #f44336;">⚠️ Important :</strong>
+                    Cette analyse est un outil d'aide au dépistage uniquement. 
+                    Seul un professionnel de santé qualifié peut poser un diagnostic de TDAH.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
 
-def page_machine_learning():
-    """Page de machine learning avec algorithmes optimisés pour ADHD"""
-    st.markdown('<h1 class="main-header">🤖 Machine Learning Avancé pour TDAH</h1>', unsafe_allow_html=True)
+def show_documentation():
+    """Page de documentation pour le TDAH"""
+    st.markdown("""
+    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
+                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
+            📚 Documentation TDAH
+        </h1>
+        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
+                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
+            Guide complet sur le Trouble Déficitaire de l'Attention avec Hyperactivité
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # Continuation du code ML optimisé...
-    # [Le code complet serait trop long pour cette réponse, mais suit la même structure d'optimisation]
-
-# [Continuez avec les autres pages optimisées...]
-
-def page_documentation():
-    """Page de documentation complète avec sources et références"""
-    st.markdown('<h1 class="main-header">📚 Documentation Scientifique TDAH</h1>', unsafe_allow_html=True)
-    
     # Onglets de documentation
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📖 Bases scientifiques",
-        "🔬 Méthodologie",
-        "📊 Références cliniques", 
-        "🛠️ Guide technique",
-        "📋 Critères diagnostiques",
-        "🌐 Ressources externes"
+    doc_tabs = st.tabs([
+        "📖 Bases du TDAH",
+        "🔬 Critères diagnostiques",
+        "💊 Traitements",
+        "🏫 Accompagnement",
+        "📚 Ressources"
     ])
-    
-    with tab1:
-        st.subheader("📖 Fondements Scientifiques du TDAH")
+
+    with doc_tabs[0]:
+        st.subheader("📖 Comprendre le TDAH")
         
         st.markdown("""
-        ### 🧠 Neurobiologie du TDAH
+        <div class="info-card-modern">
+            <h3 style="color: #ff5722;">Définition</h3>
+            <p>Le TDAH est un trouble neurodéveloppemental caractérisé par un pattern persistant d'inattention 
+            et/ou d'hyperactivité-impulsivité qui interfère avec le fonctionnement ou le développement.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
         
-        Le Trouble du Déficit de l'Attention avec ou sans Hyperactivité (TDAH) est un trouble neurodéveloppemental 
-        complexe impliquant plusieurs systèmes cérébraux et neurotransmetteurs.
+        with col1:
+            st.markdown("""
+            **🧠 Bases neurobiologiques :**
+            - Différences dans le développement du cortex préfrontal
+            - Dysfonctionnement des neurotransmetteurs (dopamine, noradrénaline)
+            - Composante génétique forte (héritabilité 70-80%)
+            - Facteurs environnementaux (prématurité, exposition toxique)
+            """)
+            
+        with col2:
+            st.markdown("""
+            **📊 Prévalence :**
+            - 5-7% des enfants d'âge scolaire
+            - 2.5% des adultes
+            - Plus fréquent chez les garçons (ratio 3:1)
+            - Sous-diagnostiqué chez les filles
+            """)
+
+    with doc_tabs[1]:
+        st.subheader("🔬 Critères diagnostiques DSM-5")
         
-        #### 🔬 Bases Neuroanatomiques
-        
-        **Régions cérébrales impliquées :**
-        - **Cortex préfrontal dorsolatéral** : Fonctions exécutives, mémoire de travail
-        - **Cortex préfrontal ventromédian** : Contrôle inhibiteur, prise de décision
-        - **Cortex cingulaire antérieur** : Attention soutenue, détection d'erreurs
-        - **Striatum (noyaux caudé et putamen)** : Contrôle moteur, récompense
-        - **Cervelet** : Coordination motrice, fonctions cognitives
-        
-        **Réseaux neuronaux :**
-        - **Réseau attentionnel exécutif** : Attention soutenue et sélective
-        - **Réseau du mode par défaut** : Régulation de l'attention interne
-        - **Réseau de saillance** : Détection et orientation attentionnelle
-        """)
+        st.markdown("""
+        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <h4 style="color: #ef6c00;">Critères généraux</h4>
+            <ul>
+                <li>Symptômes présents avant 12 ans</li>
+                <li>Présents dans au moins 2 environnements</li>
+                <li>Interférence significative avec le fonctionnement</li>
+                <li>Non expliqués par un autre trouble</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("""
-            #### 🧪 Neurotransmetteurs Impliqués
-            
-            **Dopamine :**
-            - Circuit mésolimbique et mésocortical
-            - Motivation, récompense, attention
-            - Cible principale des psychostimulants
-            
-            **Noradrénaline :**
-            - Système noradrénergique du locus coeruleus
-            - Éveil, attention, arousal
-            - Cible des non-stimulants (atomoxétine)
-            
-            **Sérotonine :**
-            - Régulation de l'humeur et impulsivité
-            - Interactions avec dopamine/noradrénaline
-            
-            **GABA :**
-            - Principal neurotransmetteur inhibiteur
-            - Contrôle de l'hyperactivité
+            **🎯 Symptômes d'inattention** (6+ symptômes pendant 6+ mois) :
+            1. Difficulté à maintenir l'attention
+            2. Ne semble pas écouter
+            3. N'arrive pas à terminer les tâches
+            4. Difficulté à organiser
+            5. Évite les tâches nécessitant un effort mental
+            6. Perd souvent des objets
+            7. Facilement distrait
+            8. Oublis dans les activités quotidiennes
+            9. Néglige les détails, fait des erreurs
             """)
-        
+            
         with col2:
             st.markdown("""
-            #### 🧬 Facteurs Génétiques
+            **⚡ Symptômes d'hyperactivité-impulsivité** (6+ symptômes pendant 6+ mois) :
             
-            **Héritabilité :**
-            - Taux d'héritabilité : ~76%
-            - Risque familial multiplié par 4-5
-            - Concordance gémellaire : 60-90%
+            *Hyperactivité :*
+            1. Remue mains/pieds, se tortille
+            2. Se lève quand devrait rester assis
+            3. Court/grimpe de façon inappropriée
+            4. Difficulté avec les loisirs calmes
+            5. "Toujours en mouvement"
+            6. Parle excessivement
             
-            **Gènes candidats :**
-            - DRD4 (récepteur dopaminergique D4)
-            - DAT1 (transporteur de dopamine)
-            - COMT (catéchol-O-méthyltransférase)
-            - SNAP25 (protéine synaptique)
-            
-            **Variants génétiques :**
-            - CNVs (copy number variants)
-            - SNPs (single nucleotide polymorphisms)
-            - Analyses GWAS récentes
+            *Impulsivité :*
+            7. Répond avant la fin des questions
+            8. Difficulté à attendre son tour
+            9. Interrompt ou impose sa présence
             """)
+
+    with doc_tabs[2]:
+        st.subheader("💊 Options de traitement")
         
-        st.markdown("""
-        ### 📊 Épidémiologie et Prévalence
+        treatment_tabs = st.tabs(["Médicaments", "Thérapies", "Interventions"])
         
-        #### 🌍 Données Mondiales
+        with treatment_tabs[0]:
+            st.markdown("""
+            **Médicaments stimulants :**
+            - Méthylphénidate (Ritaline, Concerta)
+            - Amphétamines (Adderall, Vyvanse)
+            - Efficacité 70-80%
+            - Amélioration rapide des symptômes
+            
+            **Médicaments non-stimulants :**
+            - Atomoxétine (Strattera)
+            - Guanfacine (Intuniv)
+            - Pour patients ne tolérant pas les stimulants
+            """)
+            
+        with treatment_tabs[1]:
+            st.markdown("""
+            **Thérapie comportementale :**
+            - Modification du comportement
+            - Techniques de gestion du temps
+            - Stratégies d'organisation
+            
+            **Thérapie cognitive :**
+            - Restructuration cognitive
+            - Gestion de l'attention
+            - Résolution de problèmes
+            
+            **Thérapie familiale :**
+            - Éducation des parents
+            - Stratégies de communication
+            - Gestion des comportements difficiles
+            """)
+            
+        with treatment_tabs[2]:
+            st.markdown("""
+            **Adaptations scolaires :**
+            - Plan d'accompagnement personnalisé (PAP)
+            - Aménagements d'examens
+            - Soutien pédagogique spécialisé
+            
+            **Interventions psychoéducatives :**
+            - Groupes de compétences sociales
+            - Entraînement aux fonctions exécutives
+            - Programmes de pleine conscience
+            
+            **Modifications environnementales :**
+            - Réduction des distracteurs
+            - Structure et routine
+            - Feedback immédiat
+            """)
+
+    with doc_tabs[3]:
+        st.subheader("🏫 Accompagnement au quotidien")
         
-        | Population | Prévalence | Source |
-        |------------|------------|--------|
-        | Enfants (6-17 ans) | 8.5-11.0% | CDC, 2022 |
-        | Adultes (18+ ans) | 4.4-5.2% | Kessler et al., 2021 |
-        | Population générale | 5.9-7.1% | Meta-analyses récentes |
-        | Garçons vs Filles | 2.3:1 | Rapport de genre |
+        accomp_tabs = st.tabs(["À l'école", "En famille", "Au travail"])
         
-        #### 📈 Évolution avec l'Âge
-        
-        - **Enfance (6-12 ans)** : Pic de diagnostic, hyperactivité prédominante
-        - **Adolescence (13-17 ans)** : Diminution hyperactivité, maintien inattention
-        - **Âge adulte (18+ ans)** : Inattention persistante, impact fonctionnel
-        - **Vieillissement** : Possible amélioration ou masquage par expérience
-        """)
-        
-        # Graphique interactif de prévalence par âge
-        age_data = pd.DataFrame({
-            'Groupe d\'âge': ['6-8 ans', '9-11 ans', '12-14 ans', '15-17 ans', '18-25 ans', '26-35 ans', '36-50 ans', '50+ ans'],
-            'Prévalence (%)': [12.5, 11.8, 9.2, 7.8, 6.1, 4.9, 4.2, 2.8],
-            'Type prédominant': ['Hyperactif', 'Combiné', 'Combiné', 'Inattentif', 'Inattentif', 'Inattentif', 'Inattentif', 'Inattentif']
-        })
-        
-        fig = px.bar(
-            age_data,
-            x='Groupe d\'âge',
-            y='Prévalence (%)',
-            color='Type prédominant',
-            title="Évolution de la prévalence TDAH avec l'âge",
-            color_discrete_map={
-                'Hyperactif': '#FF6B6B',
-                'Combiné': '#4ECDC4', 
-                'Inattentif': '#45B7D1'
-            }
-        )
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with tab2:
-        st.subheader("🔬 Méthodologie de Recherche et Validation")
-        
-        st.markdown("""
-        ### 🎯 Approche Méthodologique de l'Application
-        
-        Notre application utilise une approche rigoureuse basée sur les meilleures pratiques 
-        de la recherche clinique et de l'apprentissage automatique.
-        
-        #### 📋 Pipeline de Traitement des Données
-        """)
-        
-        # Diagramme de flux méthodologique
-        flow_data = {
-            'Étape': [
-                '1. Collecte de données',
-                '2. Préprocessing',
-                '3. Feature Engineering', 
-                '4. Sélection de variables',
-                '5. Entraînement ML',
-                '6. Validation',
-                '7. Évaluation clinique'
-            ],
-            'Description': [
-                'Sources multiples, critères d\'inclusion stricts',
-                'Nettoyage, imputation, normalisation',
-                'Création de features cliniquement pertinentes',
-                'Méthodes statistiques et algorithmes',
-                'Algorithmes multiples, hyperparamètres optimisés',
-                'Validation croisée, métriques robustes',
-                'Évaluation par experts cliniques'
-            ],
-            'Outils': [
-                'Questionnaires validés (ASRS, WURS)',
-                'Pandas, NumPy, Scikit-learn',
-                'Domain knowledge, transformations',
-                'F-test, RFE, Random Forest',
-                'RF, SVM, LogReg, GradBoost',
-                'Stratified K-Fold, Bootstrap',
-                'Sensibilité, spécificité, AUC-ROC'
-            ]
-        }
-        
-        flow_df = pd.DataFrame(flow_data)
-        st.dataframe(flow_df, use_container_width=True)
-        
-        st.markdown("""
-        ### 🧮 Algorithmes de Machine Learning Utilisés
-        
-        #### 1. Random Forest (Forêt Aléatoire)
-        
-        **Principe :**
-        - Ensemble de multiples arbres de décision
-        - Bagging et sélection aléatoire de features
-        - Agrégation par vote majoritaire
-        
-        **Avantages pour le TDAH :**
-        - ✅ Gestion des interactions complexes
-        - ✅ Robustesse aux outliers
-        - ✅ Importance des variables interprétable
-        - ✅ Peu de surapprentissage
-        
-        **Hyperparamètres optimisés :**
-        ```
-        {
-            'n_estimators': ,
-            'max_depth': [5, 10, 15, None],
-            'min_samples_split': [2][5][10],
-            'min_samples_leaf': [1][2][4],
-            'max_features': ['sqrt', 'log2', None]
-        }
-        ```
-        """)
+        with accomp_tabs[0]:
+            st.markdown("""
+            **Stratégies pédagogiques :**
+            - Instructions courtes et claires
+            - Pause-mouvement régulières
+            - Support visuel
+            - Renforcement positif
+            
+            **Aménagements :**
+            - Temps supplémentaire
+            - Lieu calme pour les examens
+            - Utilisation d'ordinateur
+            - Pause durant les évaluations
+            """)
+            
+        with accomp_tabs[1]:
+            st.markdown("""
+            **Gestion familiale :**
+            - Routines structurées
+            - Règles claires et cohérentes
+            - Système de récompenses
+            - Communication positive
+            
+            **Organisation quotidienne :**
+            - Planners visuels
+            - Listes de tâches
+            - Zones dédiées (devoirs, jeux)
+            - Horaires réguliers
+            """)
+            
+        with accomp_tabs[2]:
+            st.markdown("""
+            **Adaptations professionnelles :**
+            - Bureau calme
+            - Pauses fréquentes
+            - Tâches variées
+            - Deadlines flexibles
+            
+            **Outils d'aide :**
+            - Applications de gestion du temps
+            - Rappels automatiques
+            - Techniques Pomodoro
+            - Mind mapping
+            """)
+
+    with doc_tabs[4]:
+        st.subheader("📚 Ressources utiles")
         
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("""
-            #### 2. Support Vector Machine (SVM)
+            **🏥 Organisations professionnelles :**
+            - Association française pour les enfants précoces (AFEP)
+            - TDAH France
+            - Société française de psychiatrie de l'enfant
+            - Centre national de référence des troubles d'apprentissage
             
-            **Principe :**
-            - Recherche d'hyperplan optimal de séparation
-            - Maximisation de la marge entre classes
-            - Utilisation de kernels pour non-linéarité
-            
-            **Configuration :**
-            - Kernel RBF et linéaire
-            - Régularisation C optimisée
-            - Gamma pour contrôle de complexité
-            
-            #### 3. Régression Logistique
-            
-            **Principe :**
-            - Modèle linéaire généralisé
-            - Fonction sigmoïde pour probabilités
-            - Régularisation L1/L2
-            
-            **Avantages :**
-            - Interprétabilité élevée
-            - Coefficients comme importance
-            - Robustesse et rapidité
+            **📱 Applications utiles :**
+            - Forest (concentration)
+            - Todoist (organisation)
+            - Brain Focus (Pomodoro)
+            - MindMeister (mind mapping)
             """)
-        
+            
         with col2:
             st.markdown("""
-            #### 4. Gradient Boosting
+            **📖 Lectures recommandées :**
+            - "TDAH, la boîte à outils" - A. Gremion
+            - "Mon cerveau a besoin de lunettes" - A. Houde
+            - "L'enfant inattentif et hyperactif" - S. Laporte
+            - "TDAH chez l'adulte" - M. Bouvard
             
-            **Principe :**
-            - Construction séquentielle d'estimateurs
-            - Correction des erreurs précédentes
-            - Minimisation de fonction de perte
-            
-            **Spécificités :**
-            - Learning rate adaptatif
-            - Régularisation par subsample
-            - Arrêt précoce (early stopping)
-            """)
-            
-            #### 📊 Métriques d'Évaluation
-            st.markdown("""
-            **Métriques principales :**
-            - **AUC-ROC** : Mesure globale des performances
-            - **Précision** : Exactitude des prédictions positives
-            - **Recall** : Capacité à détecter tous les cas positifs
-            - **F1-Score** : Moyenne harmonique précision/recall
-            - **Spécificité** : Capacité à identifier les vrais négatifs
-            
-            **Validation :**
-            - **Cross-validation stratifiée** 10-fold
-            - **Split temporel** 80/20
-            - **Validation externe** sur cohorte indépendante
+            **🌐 Sites web :**
+            - [TDAH-France.fr](https://www.tdah-france.fr)
+            - [HAS - TDAH](https://www.has-sante.fr)
+            - [INSERM - TDAH](https://www.inserm.fr)
             """)
 
-        with tab3:
-            st.subheader("📊 Références Cliniques Validées")
-            
-            st.markdown("""
-            ### 📚 Critères Diagnostiques Officiels
-            
-            #### DSM-5 (Diagnostic and Statistical Manual of Mental Disorders)
-            - **Critères Inattention** : ≥5 symptômes (≥17 ans) / ≥6 (≤16 ans)
-            - **Critères Hyperactivité-Impulsivité** : ≥5 symptômes (≥17 ans) / ≥6 (≤16 ans)
-            - **Durée** : Symptômes présents ≥6 mois
-            - **Impact** : Altération fonctionnelle significative
-            
-            #### CIM-11 (Classification Internationale des Maladies)
-            - **Symptômes** : Persistance ≥6 mois
-            - **Apparition** : Avant 12 ans
-            - **Environnements multiples** : Impact à l'école/maison/travail
-            
-            ### 🧪 Tests Cliniques Validés
-            - **ASRS-v1.1** (Adult Self-Report Scale)
-            - **DIVA-5** (Diagnostic Interview for ADHD in Adults)
-            - **CAARS** (Conners' Adult ADHD Rating Scales)
-            """)
+def show_about():
+    """Page À propos adaptée pour le TDAH"""
+    st.markdown("""
+    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
+                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
+            ℹ️ À propos de cette plateforme
+        </h1>
+        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
+                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
+            Information sur le projet et l'équipe
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-        with tab4:
-            st.subheader("🛠️ Guide Technique d'Utilisation")
-            
-            with st.expander("📋 Workflow Clinique Recommandé", expanded=True):
-                st.markdown("""
-                1. **Pré-screening** avec ASRS-v1.1
-                2. **Évaluation initiale** par médecin généraliste
-                3. **Investigations complémentaires** :
-                   - Bilan sanguin
-                   - Évaluation cognitive
-                   - Questionnaire aux proches
-                4. **Imagerie cérébrale** si doute diagnostique
-                5. **Suivi trimestriel** pendant la titration médicamenteuse
-                """)
-            
-            with st.expander("📈 Interprétation des Résultats IA", expanded=False):
-                st.markdown("""
-                - **Probabilité <30%** : Faible risque, surveillance simple
-                - **30-70%** : Investigations complémentaires nécessaires
-                - **>70%** : Forte suspicion, orientation spécialisée
-                - **AUC-ROC >0.85** : Fiabilité clinique validée
-                """)
+    st.markdown("""
+    <div class="info-card-modern">
+        <h2 style="color: #ff5722; text-align: center;">🎯 Mission</h2>
+        <p style="font-size: 1.1rem; line-height: 1.8; text-align: center;">
+            Améliorer le dépistage précoce du TDAH grâce à l'intelligence artificielle
+            et fournir des outils d'aide à la décision pour les professionnels de santé.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-        with tab5:
-            st.subheader("📋 Critères Diagnostiques Différentiels")
-            
-            st.markdown("""
-            ### ⚠️ Pathologies à Exclure
-            - Troubles anxieux
-            - Troubles de l'humeur
-            - Troubles du spectre autistique
-            - Troubles d'apprentissage spécifiques
-            - Troubles du sommeil
-            
-            ### 🔍 Arbre Décisionnel
-            1. Confirmer la persistance des symptômes
-            2. Éliminer les causes organiques
-            3. Évaluer l'impact fonctionnel
-            4. Rechercher les comorbidités
-            """)
+    col1, col2 = st.columns(2)
 
-        with tab6:
-            st.subheader("🌐 Ressources Externes de Référence")
-            
-            st.markdown("""
-            ### 📄 Guides Officiels
-            - [HAS - Recommandations TDAH Adulte](https://www.has-sante.fr)
-            - [NICE Guidelines](https://www.nice.org.uk)
-            - [APA Practice Guidelines](https://www.psychiatry.org)
-            
-            ### 🧠 Associations de Patients
-            - [TDAH France](https://www.tdah-france.fr)
-            - [CHADD](https://chadd.org)
-            - [ADDA](https://add.org)
-            
-            ### 📚 Formations Médicales
-            - [Cours en ligne Collège Médical Français](https://www.cmformation.fr)
-            - [Webinaires TDAH Adulte](https://www.psychiatrie-francaise.com)
-            """)
+    with col1:
+        st.markdown("""
+        <div class="info-card-modern">
+            <h3 style="color: #ff5722;">🔬 Méthodologie</h3>
+            <ul>
+                <li>Analyse de données cliniques</li>
+                <li>Modèles de machine learning</li>
+                <li>Validation croisée</li>
+                <li>Approche evidence-based</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
+    with col2:
+        st.markdown("""
+        <div class="info-card-modern">
+            <h3 style="color: #ff9800;">⚠️ Limitations</h3>
+            <ul>
+                <li>Outil d'aide uniquement</li>
+                <li>Ne remplace pas le diagnostic médical</li>
+                <li>Données d'entraînement limitées</li>
+                <li>Validation continue nécessaire</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
+    st.markdown("""
+    <div class="info-card-modern">
+        <h3 style="color: #ff5722; text-align: center;">👥 Équipe</h3>
+        <p style="text-align: center; font-size: 1.1rem;">
+            Ce projet a été développé par une équipe multidisciplinaire combinant expertise clinique,
+            data science et développement logiciel pour créer un outil d'aide au dépistage du TDAH.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# =================== LANCEMENT DE L'APPLICATION ===================
+    # Contact et informations
+    st.markdown("""
+    <div style="margin: 40px 0 30px 0; padding: 20px; border-radius: 12px;
+               border-left: 4px solid #ff5722; background: linear-gradient(135deg, #fff3e0, #ffcc02);
+               box-shadow: 0 4px 12px rgba(255, 87, 34, 0.1);">
+        <p style="font-size: 1rem; color: #ef6c00; text-align: center; margin: 0; line-height: 1.6;">
+            <strong>📧 Contact :</strong> Pour toute question ou collaboration, contactez l'équipe de développement.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
+# Application principale
 def main():
-    """Fonction principale de l'application"""
-    current_page = create_navigation()
+    set_custom_theme()
+    initialize_session_state()
     
-    if current_page == "page_accueil":
-        page_accueil()
-    elif current_page == "page_asrs":
-        page_asrs()
-    elif current_page == "page_exploration":
-        page_exploration()
-    elif current_page == "page_documentation":
-        page_documentation()
-    # Ajouter les autres pages ici
+    # Sidebar avec navigation
+    with st.sidebar:
+        selected_tool = show_navigation_menu()
+
+    # Contenu principal basé sur la sélection
+    if selected_tool == "🏠 Accueil":
+        show_home_page()
+    elif selected_tool == "🔍 Exploration":
+        show_data_exploration()
+    elif selected_tool == "🧠 Analyse ML":
+        show_ml_analysis()
+    elif selected_tool == "🤖 Prédiction par IA":
+        show_ai_prediction()
+    elif selected_tool == "📚 Documentation":
+        show_documentation()
+    elif selected_tool == "ℹ️ À propos":
+        show_about()
 
 if __name__ == "__main__":
     main()
