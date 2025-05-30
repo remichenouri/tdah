@@ -3342,10 +3342,9 @@ def page_documentation():
             - Learning rate adaptatif
             - Régularisation par subsample
             - Arrêt précoce (early stopping)
+            """)
             
             #### 📊 Métriques d'Évaluation
-            
-                        # Suite du code à partir du point spécifié
             st.markdown("""
             **Métriques principales :**
             - **AUC-ROC** : Mesure globale des performances
