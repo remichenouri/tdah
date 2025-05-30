@@ -6,7 +6,6 @@ Version corrigée avec dataset réel
 
 import streamlit as st
 import joblib
-import prince
 import base64
 import hashlib
 import os
@@ -77,7 +76,7 @@ def set_custom_theme():
         with open(css_path, 'r') as f:
             custom_theme = f.read()
     else:
-        # CSS corrigé sans commentaires C-style problématiques
+        # CSS corrigé avec chaînes de caractères correctement fermées
         custom_theme = """
         <style>
         :root {
@@ -99,7 +98,6 @@ def set_custom_theme():
         [data-testid="stAppViewContainer"] {
             background-color: var(--background) !important;
         }
-
 
         [data-testid="stSidebar"] {
             width: var(--sidebar-width-collapsed) !important;
@@ -238,7 +236,6 @@ def set_custom_theme():
             width: auto !important;
         }
 
-
         [data-testid="stSidebar"] .stRadio label:hover {
             background: linear-gradient(135deg, #fff3e0, #ffe0b2) !important;
             transform: translateX(3px) !important;
@@ -263,7 +260,6 @@ def set_custom_theme():
             transition: var(--sidebar-transition) !important;
         }
 
-
         .stButton > button {
             background: linear-gradient(135deg, var(--secondary), var(--accent)) !important;
             color: white !important;
@@ -281,7 +277,6 @@ def set_custom_theme():
             background: linear-gradient(135deg, var(--accent), var(--secondary)) !important;
         }
 
-   
         .info-card-modern {
             background: white;
             border-radius: 15px;
@@ -327,7 +322,6 @@ def set_custom_theme():
                 sidebar.addEventListener('mouseenter', expandSidebar);
                 sidebar.addEventListener('mouseleave', collapseSidebar);
                 
-                // Attribution des états pour les options sélectionnées
                 const observer = new MutationObserver(() => {
                     const radioLabels = sidebar.querySelectorAll('.stRadio label');
                     radioLabels.forEach(label => {
@@ -388,65 +382,6 @@ def show_navigation_menu():
     return tool_choice
 
 @st.cache_data(ttl=86400)
-def get_img_with_href(img_url, target_url, as_banner=False):
-    """Crée une image cliquable avec un lien"""
-    if "drive.google.com" in img_url and "/d/" in img_url:
-        file_id = img_url.split("/d/")[1].split("/")[0]
-        img_url = f"https://drive.google.com/uc?export=view&id={file_id}"
-
-    cache_filename = hashlib.md5(img_url.encode()).hexdigest() + ".webp"
-    cache_dir = "image_cache"
-    cache_path = os.path.join(cache_dir, cache_filename)
-    os.makedirs(cache_dir, exist_ok=True)
-
-    try:
-        if os.path.exists(cache_path):
-            with open(cache_path, "rb") as f:
-                img_data = f.read()
-            img = Image.open(BytesIO(img_data))
-        else:
-            response = requests.get(img_url, timeout=15)
-            response.raise_for_status()
-
-            if len(response.content) == 0:
-                raise Exception("Contenu vide téléchargé")
-
-            img = Image.open(BytesIO(response.content))
-
-            max_width = 1200 if as_banner else 800
-            if img.width > max_width:
-                ratio = max_width / img.width
-                new_height = int(img.height * ratio)
-                img = img.resize((max_width, new_height), Image.LANCZOS)
-
-            buffer = BytesIO()
-            img.save(buffer, format="WEBP", quality=85, optimize=True)
-
-            with open(cache_path, "wb") as f:
-                f.write(buffer.getvalue())
-
-            buffer.seek(0)
-            img_data = buffer.getvalue()
-
-        img_str = base64.b64encode(img_data).decode()
-
-        if as_banner:
-            style = 'style="width:100%;height:600px;display:block;object-fit:cover;border-radius:10px;" loading="lazy"'
-        else:
-            style = 'style="width:100%;height:auto;display:block;object-fit:contain;margin:0 auto;padding:0;" loading="lazy"'
-
-        container_style = 'style="width:100%; padding:10px; background-color:white; border-radius:10px; overflow:hidden; margin-bottom:20px;"'
-
-        if target_url and target_url != "#":
-            html_code = f'<div {container_style}><a href="{target_url}" target="_blank" style="display:block; margin:0; padding:0; line-height:0;"><img src="data:image/webp;base64,{img_str}" {style}></a></div>'
-        else:
-            html_code = f'<div {container_style}><img src="data:image/webp;base64,{img_str}" {style}></div>'
-
-        return html_code
-    except Exception as e:
-        return f'<div style="text-align:center;padding:20px;background:#f0f2f6;border-radius:10px;"><p>Image non disponible ({str(e)})</p></div>'
-
-@st.cache_data(ttl=86400)
 def load_dataset():
     """Charge le dataset TDAH depuis Google Drive"""
     try:
@@ -459,7 +394,6 @@ def load_dataset():
         df = pd.read_csv(download_url)
         
         # Nettoyage et préparation des données
-        # Supprimer les colonnes inutiles si elles existent
         columns_to_drop = ['Unnamed: 0'] if 'Unnamed: 0' in df.columns else []
         if columns_to_drop:
             df = df.drop(columns=columns_to_drop)
@@ -470,7 +404,6 @@ def load_dataset():
         
         if missing_columns:
             st.error(f"Colonnes manquantes dans le dataset : {missing_columns}")
-            # Fallback sur des données simulées
             return create_simulated_dataset()
         
         # Création de sous-échantillons pour l'exploration
@@ -520,7 +453,7 @@ def create_simulated_dataset():
     df['Score_ADHD_Total'] = df[[f'Q{i}' for i in range(1, 19)]].sum(axis=1)
     
     # Génération de la variable cible TDAH basée sur les scores
-    tdah_prob = (df['Score_ADHD_Total'] / 54) * 0.8 + 0.1  # Probabilité basée sur le score
+    tdah_prob = (df['Score_ADHD_Total'] / 54) * 0.8 + 0.1
     df['TDAH'] = np.random.binomial(1, tdah_prob, n_samples)
     df['TDAH'] = df['TDAH'].map({1: 'Oui', 0: 'Non'})
     
@@ -863,10 +796,11 @@ def show_home_page():
         </p>
     </div>
     """, unsafe_allow_html=True)
-
 def show_data_exploration():
-    """Exploration des données TDAH avec visualisations interactives"""
-    df, df_ds1, df_ds2, df_ds3, df_ds4, df_ds5, df_stats = load_dataset()
+    """Exploration des données TDAH"""
+    st.title("🔍 Exploration des Données TDAH")
+    df, _, _, _, _, _, _ = load_dataset()
+    st.dataframe(df.head())
     
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
@@ -1106,7 +1040,9 @@ def train_tdah_model(df):
         return None, None, None, None, None
 
 def show_ml_analysis():
-    """Analyse ML pour le TDAH avec visualisations"""
+    """Analyse ML pour le TDAH"""
+    st.title("🧠 Analyse Machine Learning - TDAH")
+    st.info("Fonctionnalité d'analyse ML en cours de développement.")
     load_ml_libraries()
     
     st.markdown("""
@@ -1422,6 +1358,7 @@ def show_ml_analysis():
 
 def show_ai_prediction():
     """Interface de prédiction IA pour le TDAH"""
+    st.info("Outil de prédiction IA en cours de développement.")
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
