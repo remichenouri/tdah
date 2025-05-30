@@ -55,6 +55,12 @@ if 'last_topic' not in st.session_state:
 
 if 'run' not in st.session_state:
     st.session_state.run = False
+    
+if 'asrs_responses' not in st.session_state:
+    st.session_state.asrs_responses = {}
+
+if 'model' not in st.session_state:
+    st.session_state.model = None
 
 # Style CSS amélioré
 st.markdown("""
@@ -108,66 +114,40 @@ st.markdown("""
 
 # =================== FONCTIONS DE CHARGEMENT ET PREPROCESSING ===================
 
-@st.cache_data(ttl=3600, show_spinner="Chargement des données...")
-def load_data(file_id=None, local_file=None):
-    """Charge le dataset TDAH avec gestion d'erreur robuste"""
+@st.cache_resource(ttl=3600, show_spinner="Chargement des données...")
+def load_data():
     try:
-        # Tentative de chargement depuis Google Drive
-        if file_id is not None:
+        file_id = '1FYfOf9VT9lymHxlxjiGvuy-UdoddcV8P'
+        url = f'https://drive.google.com/uc?export=download&id={file_id}'
+        
+        # Gestion des fichiers volumineux
+        session = requests.Session()
+        response = session.get(url, stream=True)
+        
+        # Vérification des avertissements de téléchargement
+        for key, value in response.cookies.items():
+            if key.startswith('download_warning'):
+                confirm_token = value
+                response = session.get(f'{url}&confirm={confirm_token}')
+        
+        # Réinitialisation du pointeur après écriture
+        content = BytesIO(response.content)
+        content.seek(0)
+        
+        # Tentative de lecture avec différents encodages
+        for encoding in ['utf-8-sig', 'latin-1', 'ISO-8859-1']:
             try:
-                url = f'https://drive.google.com/uc?export=download&id={file_id}'
-                response = requests.get(url, timeout=30)
-                response.raise_for_status()
+                return pd.read_csv(content, encoding=encoding, sep=None, engine='python')
+            except Exception:
+                content.seek(0)
+                continue
                 
-                # Essayer différentes options de parsing
-                for encoding in ['utf-8', 'latin-1', 'ISO-8859-1']:
-                    for sep in [',', ';', '\t']:
-                        try:
-                            df = pd.read_csv(BytesIO(response.content), encoding=encoding, sep=sep)
-                            if not df.empty and len(df.columns) > 1:
-                                return df
-                        except Exception:
-                            continue
-            except Exception as e:
-                st.warning(f"⚠️ Erreur de chargement depuis Drive: {str(e)}")
+        raise ValueError("Aucun encodage valide trouvé")
         
-        # Tentative de chargement depuis un fichier local
-        if local_file is not None:
-            try:
-                for encoding in ['utf-8', 'latin-1', 'ISO-8859-1']:
-                    for sep in [',', ';', '\t']:
-                        try:
-                            df = pd.read_csv(local_file, encoding=encoding, sep=sep)
-                            if not df.empty and len(df.columns) > 1:
-                                return df
-                        except Exception:
-                            continue
-            except Exception as e:
-                st.warning(f"⚠️ Erreur de chargement du fichier local: {str(e)}")
-        
-        # Upload de fichier par l'utilisateur
-        uploaded_file = st.file_uploader("Choisir un fichier CSV", type="csv")
-        if uploaded_file is not None:
-            try:
-                for encoding in ['utf-8', 'latin-1', 'ISO-8859-1']:
-                    for sep in [',', ';', '\t']:
-                        try:
-                            df = pd.read_csv(uploaded_file, encoding=encoding, sep=sep)
-                            if not df.empty and len(df.columns) > 1:
-                                return df
-                        except Exception:
-                            continue
-            except Exception as e:
-                st.warning(f"⚠️ Erreur de chargement du fichier uploadé: {str(e)}")
-        
-        # Si tout échoue, créer un jeu de données de démonstration
-        st.warning("⚠️ Utilisation d'un jeu de données de démonstration")
-        return create_demo_dataset()
-    
     except Exception as e:
-        st.error(f"❌ Erreur critique: {str(e)}")
+        st.error(f"Erreur de chargement : {str(e)}")
         return create_demo_dataset()
-        
+
 def create_demo_dataset():
     """Crée un jeu de données de démonstration pour le TDAH"""
     np.random.seed(42)
