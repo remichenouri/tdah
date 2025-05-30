@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Streamlit TDAH - Outil de Dépistage et d'Analyse
-Adapté du design moderne du streamlit Autisme
+Version corrigée avec dataset réel
 """
 
 import streamlit as st
@@ -77,6 +77,7 @@ def set_custom_theme():
         with open(css_path, 'r') as f:
             custom_theme = f.read()
     else:
+        # CSS corrigé sans commentaires C-style problématiques
         custom_theme = """
         <style>
         /* ================ Variables Globales TDAH (Orange) ================ */
@@ -454,59 +455,101 @@ def get_img_with_href(img_url, target_url, as_banner=False):
 
 @st.cache_data(ttl=86400)
 def load_dataset():
-    """Charge les datasets TDAH - Version simulée pour l'exemple"""
+    """Charge le dataset TDAH depuis Google Drive"""
     try:
-        # Simulation de données TDAH pour l'exemple
-        # Dans un vrai cas, vous chargeriez vos vraies données
-        np.random.seed(42)
-        n_samples = 1500
+        # URL du dataset Google Drive fourni
+        url = 'https://drive.google.com/file/d/191cQ9ATj9HJKWKWDlNKnQOTz9SQk-uiz/view?usp=drive_link'
+        file_id = url.split('/d/')[1].split('/')[0]
+        download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
         
-        # Génération de données simulées pour le TDAH
-        df = pd.DataFrame({
-            'Age': np.random.normal(35, 12, n_samples).astype(int),
-            'Genre': np.random.choice(['M', 'F'], n_samples, p=[0.6, 0.4]),
-            'Education': np.random.choice(['Primaire', 'Secondaire', 'Supérieur'], n_samples),
-            'Hyperactivite_Score': np.random.randint(0, 28, n_samples),
-            'Inattention_Score': np.random.randint(0, 28, n_samples),
-            'Impulsivite_Score': np.random.randint(0, 20, n_samples),
-            'Troubles_Apprentissage': np.random.choice(['Oui', 'Non'], n_samples, p=[0.3, 0.7]),
-            'Antecedents_Familiaux': np.random.choice(['Oui', 'Non'], n_samples, p=[0.4, 0.6]),
-            'Statut_testeur': np.random.choice(['Famille', 'Medecin', 'Psychologue', 'Auto'], n_samples),
-        })
+        # Chargement du dataset
+        df = pd.read_csv(download_url)
         
-        # Génération du score total ADHD-RS (18 items, 0-3 chaque)
-        for i in range(1, 19):
-            df[f'Q{i}'] = np.random.randint(0, 4, n_samples)
+        # Nettoyage et préparation des données
+        # Supprimer les colonnes inutiles si elles existent
+        columns_to_drop = ['Unnamed: 0'] if 'Unnamed: 0' in df.columns else []
+        if columns_to_drop:
+            df = df.drop(columns=columns_to_drop)
         
-        df['Score_ADHD_Total'] = df[[f'Q{i}' for i in range(1, 19)]].sum(axis=1)
+        # Vérification des colonnes nécessaires
+        required_columns = ['Age', 'Genre', 'TDAH']
+        missing_columns = [col for col in required_columns if col not in df.columns]
         
-        # Génération de la variable cible TDAH basée sur les scores
-        tdah_prob = (df['Score_ADHD_Total'] / 54) * 0.8 + 0.1  # Probabilité basée sur le score
-        df['TDAH'] = np.random.binomial(1, tdah_prob, n_samples)
-        df['TDAH'] = df['TDAH'].map({1: 'Oui', 0: 'Non'})
+        if missing_columns:
+            st.error(f"Colonnes manquantes dans le dataset : {missing_columns}")
+            # Fallback sur des données simulées
+            return create_simulated_dataset()
         
-        # Nettoyage des âges aberrants
-        df.loc[df['Age'] < 6, 'Age'] = np.random.randint(6, 18, (df['Age'] < 6).sum())
-        df.loc[df['Age'] > 65, 'Age'] = np.random.randint(18, 65, (df['Age'] > 65).sum())
+        # Création de sous-échantillons pour l'exploration
+        df_ds1 = df.sample(min(300, len(df)), random_state=1).copy()
+        df_ds2 = df.sample(min(400, len(df)), random_state=2).copy()
+        df_ds3 = df.sample(min(350, len(df)), random_state=3).copy()
+        df_ds4 = df.sample(min(250, len(df)), random_state=4).copy()
+        df_ds5 = df.sample(min(200, len(df)), random_state=5).copy()
         
-        # Datasets simulés pour compatibilité
-        df_ds1 = df.sample(300, random_state=1).copy()
-        df_ds2 = df.sample(400, random_state=2).copy()
-        df_ds3 = df.sample(350, random_state=3).copy()
-        df_ds4 = df.sample(250, random_state=4).copy()
-        df_ds5 = df.sample(200, random_state=5).copy()
-        
+        # Calcul des statistiques
         df_stats = {
-            'mean_by_tdah': df.groupby('TDAH').mean(numeric_only=True),
-            'count_by_tdah': df.groupby('TDAH').count(),
+            'mean_by_tdah': df.groupby('TDAH').mean(numeric_only=True) if 'TDAH' in df.columns else pd.DataFrame(),
+            'count_by_tdah': df.groupby('TDAH').count() if 'TDAH' in df.columns else pd.DataFrame(),
             'categorical_cols': df.select_dtypes(include=['object']).columns.tolist(),
             'numeric_cols': df.select_dtypes(exclude=['object']).columns.tolist()
         }
 
         return df, df_ds1, df_ds2, df_ds3, df_ds4, df_ds5, df_stats
+        
     except Exception as e:
-        st.error(f"Erreur lors du chargement: {str(e)}")
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), {}
+        st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
+        st.info("Utilisation de données simulées à la place")
+        return create_simulated_dataset()
+
+def create_simulated_dataset():
+    """Crée un dataset simulé en cas d'échec du chargement"""
+    np.random.seed(42)
+    n_samples = 1500
+    
+    # Génération de données simulées pour le TDAH
+    df = pd.DataFrame({
+        'Age': np.random.normal(35, 12, n_samples).astype(int),
+        'Genre': np.random.choice(['M', 'F'], n_samples, p=[0.6, 0.4]),
+        'Education': np.random.choice(['Primaire', 'Secondaire', 'Supérieur'], n_samples),
+        'Hyperactivite_Score': np.random.randint(0, 28, n_samples),
+        'Inattention_Score': np.random.randint(0, 28, n_samples),
+        'Impulsivite_Score': np.random.randint(0, 20, n_samples),
+        'Troubles_Apprentissage': np.random.choice(['Oui', 'Non'], n_samples, p=[0.3, 0.7]),
+        'Antecedents_Familiaux': np.random.choice(['Oui', 'Non'], n_samples, p=[0.4, 0.6]),
+        'Statut_testeur': np.random.choice(['Famille', 'Medecin', 'Psychologue', 'Auto'], n_samples),
+    })
+    
+    # Génération du score total ADHD-RS (18 items, 0-3 chaque)
+    for i in range(1, 19):
+        df[f'Q{i}'] = np.random.randint(0, 4, n_samples)
+    
+    df['Score_ADHD_Total'] = df[[f'Q{i}' for i in range(1, 19)]].sum(axis=1)
+    
+    # Génération de la variable cible TDAH basée sur les scores
+    tdah_prob = (df['Score_ADHD_Total'] / 54) * 0.8 + 0.1  # Probabilité basée sur le score
+    df['TDAH'] = np.random.binomial(1, tdah_prob, n_samples)
+    df['TDAH'] = df['TDAH'].map({1: 'Oui', 0: 'Non'})
+    
+    # Nettoyage des âges aberrants
+    df.loc[df['Age'] < 6, 'Age'] = np.random.randint(6, 18, (df['Age'] < 6).sum())
+    df.loc[df['Age'] > 65, 'Age'] = np.random.randint(18, 65, (df['Age'] > 65).sum())
+    
+    # Datasets simulés pour compatibilité
+    df_ds1 = df.sample(300, random_state=1).copy()
+    df_ds2 = df.sample(400, random_state=2).copy()
+    df_ds3 = df.sample(350, random_state=3).copy()
+    df_ds4 = df.sample(250, random_state=4).copy()
+    df_ds5 = df.sample(200, random_state=5).copy()
+    
+    df_stats = {
+        'mean_by_tdah': df.groupby('TDAH').mean(numeric_only=True),
+        'count_by_tdah': df.groupby('TDAH').count(),
+        'categorical_cols': df.select_dtypes(include=['object']).columns.tolist(),
+        'numeric_cols': df.select_dtypes(exclude=['object']).columns.tolist()
+    }
+
+    return df, df_ds1, df_ds2, df_ds3, df_ds4, df_ds5, df_stats
 
 def show_home_page():
     """Page d'accueil pour le TDAH avec design moderne"""
@@ -758,7 +801,7 @@ def show_home_page():
             </div>
             """, unsafe_allow_html=True)
 
-    # Section "Caractéristiques principales"
+    # Section "Impact du TDAH"
     st.markdown("""
     <h2 style="color: #ff5722; margin: 45px 0 25px 0; text-align: center; font-size: 2.2rem;">
         🧠 Impact du TDAH
@@ -848,13 +891,14 @@ def show_data_exploration():
 
     # Structure des données
     with st.expander("📂 Structure des Données", expanded=True):
-        st.markdown("""
+        st.markdown(f"""
         <div style="background:#fff3e0; padding:15px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.05)">
-            <h4 style="color:#e65100; border-bottom:1px solid #ffcc02; padding-bottom:8px">Jeux de Données TDAH</h4>
+            <h4 style="color:#e65100; border-bottom:1px solid #ffcc02; padding-bottom:8px">Dataset TDAH Chargé</h4>
             <ul style="padding-left:20px">
-                <li>📁 <strong>Dataset Principal:</strong> Données synthétiques TDAH (n=1500)</li>
-                <li>📁 <strong>Variables cliniques:</strong> Scores ADHD-RS, démographie</li>
-                <li>📁 <strong>Évaluations:</strong> 18 items du questionnaire ADHD-RS</li>
+                <li>📁 <strong>Dataset Principal:</strong> Données TDAH (n={len(df)})</li>
+                <li>📁 <strong>Variables:</strong> {len(df.columns)} colonnes</li>
+                <li>📁 <strong>Variables numériques:</strong> {len(df_stats['numeric_cols'])}</li>
+                <li>📁 <strong>Variables catégorielles:</strong> {len(df_stats['categorical_cols'])}</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
@@ -867,6 +911,8 @@ def show_data_exploration():
         with tab_main:
             st.caption("Dataset Principal TDAH")
             st.dataframe(df.head(10), use_container_width=True)
+            st.info(f"**Colonnes disponibles:** {', '.join(df.columns.tolist())}")
+            
         with tab1:
             st.dataframe(df_ds1.head(5), use_container_width=True)
         with tab2:
@@ -887,108 +933,98 @@ def show_data_exploration():
         with col1:
             st.metric("Participants", len(df), "Total échantillon")
         with col2:
-            tdah_count = (df['TDAH'] == 'Oui').sum()
-            st.metric("Cas TDAH", tdah_count, f"{tdah_count/len(df):.1%}")
+            if 'TDAH' in df.columns:
+                tdah_count = (df['TDAH'] == 'Oui').sum() if 'Oui' in df['TDAH'].values else (df['TDAH'] == 1).sum()
+                st.metric("Cas TDAH", tdah_count, f"{tdah_count/len(df):.1%}")
+            else:
+                st.metric("Cas TDAH", "N/A", "Colonne manquante")
         with col3:
-            age_mean = df['Age'].mean()
-            st.metric("Âge moyen", f"{age_mean:.1f} ans", f"±{df['Age'].std():.1f}")
+            if 'Age' in df.columns:
+                age_mean = df['Age'].mean()
+                st.metric("Âge moyen", f"{age_mean:.1f} ans", f"±{df['Age'].std():.1f}")
+            else:
+                st.metric("Âge moyen", "N/A", "Colonne manquante")
         with col4:
-            male_ratio = (df['Genre'] == 'M').mean()
-            st.metric("Ratio H/F", f"{male_ratio:.1%}", "Hommes")
+            if 'Genre' in df.columns:
+                male_ratio = (df['Genre'] == 'M').mean() if 'M' in df['Genre'].values else 0.5
+                st.metric("Ratio H/F", f"{male_ratio:.1%}", "Hommes")
+            else:
+                st.metric("Ratio H/F", "N/A", "Colonne manquante")
 
         # Distributions par variables
         st.subheader("Distributions des variables clés")
         
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Distribution âge
-            fig_age = px.histogram(df, x='Age', color='TDAH', 
-                                 title="Distribution de l'âge par diagnostic TDAH",
-                                 color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
-            st.plotly_chart(fig_age, use_container_width=True)
+        if 'Age' in df.columns and 'TDAH' in df.columns:
+            col1, col2 = st.columns(2)
             
-        with col2:
-            # Distribution score total
-            fig_score = px.box(df, x='TDAH', y='Score_ADHD_Total',
-                             title="Distribution des scores ADHD-RS",
-                             color='TDAH',
-                             color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
-            st.plotly_chart(fig_score, use_container_width=True)
+            with col1:
+                # Distribution âge
+                fig_age = px.histogram(df, x='Age', color='TDAH', 
+                                     title="Distribution de l'âge par diagnostic TDAH",
+                                     color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
+                st.plotly_chart(fig_age, use_container_width=True)
+                
+            with col2:
+                # Distribution par genre si disponible
+                if 'Genre' in df.columns:
+                    genre_counts = df.groupby(['Genre', 'TDAH']).size().reset_index(name='Count')
+                    fig_genre = px.bar(genre_counts, x='Genre', y='Count', color='TDAH',
+                                     title="Répartition par genre et diagnostic TDAH",
+                                     color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
+                    st.plotly_chart(fig_genre, use_container_width=True)
+                else:
+                    st.info("Colonne 'Genre' non disponible pour la visualisation")
+        else:
+            st.warning("Colonnes nécessaires ('Age', 'TDAH') manquantes pour les visualisations")
 
-    # Analyse des corrélations
-    with st.expander("🔗 Analyse des Corrélations", expanded=True):
-        st.subheader("Matrice de corrélation des variables numériques")
-        
-        # Sélection des variables numériques pertinentes
-        numeric_cols = ['Age', 'Hyperactivite_Score', 'Inattention_Score', 'Impulsivite_Score', 'Score_ADHD_Total']
-        corr_matrix = df[numeric_cols].corr()
-        
-        fig_corr = px.imshow(corr_matrix, 
-                           title="Corrélations entre les scores TDAH",
-                           color_continuous_scale='RdBu_r',
-                           aspect="auto")
-        st.plotly_chart(fig_corr, use_container_width=True)
-        
-        # Top corrélations
-        st.subheader("Corrélations les plus fortes")
-        
-        # Extraire les corrélations sans la diagonale
-        corr_pairs = []
-        for i in range(len(corr_matrix.columns)):
-            for j in range(i+1, len(corr_matrix.columns)):
-                corr_pairs.append({
-                    'Variable 1': corr_matrix.columns[i],
-                    'Variable 2': corr_matrix.columns[j],
-                    'Corrélation': corr_matrix.iloc[i, j]
-                })
-        
-        corr_df = pd.DataFrame(corr_pairs).sort_values('Corrélation', key=abs, ascending=False)
-        st.dataframe(corr_df.head(10), use_container_width=True)
+    # Analyse des corrélations si des variables numériques existent
+    if len(df_stats['numeric_cols']) > 1:
+        with st.expander("🔗 Analyse des Corrélations", expanded=True):
+            st.subheader("Matrice de corrélation des variables numériques")
+            
+            # Sélection des variables numériques pertinentes
+            numeric_cols = df_stats['numeric_cols'][:10]  # Limiter à 10 variables max
+            corr_matrix = df[numeric_cols].corr()
+            
+            fig_corr = px.imshow(corr_matrix, 
+                               title="Corrélations entre les variables numériques",
+                               color_continuous_scale='RdBu_r',
+                               aspect="auto")
+            st.plotly_chart(fig_corr, use_container_width=True)
+            
+            # Top corrélations
+            st.subheader("Corrélations les plus fortes")
+            
+            # Extraire les corrélations sans la diagonale
+            corr_pairs = []
+            for i in range(len(corr_matrix.columns)):
+                for j in range(i+1, len(corr_matrix.columns)):
+                    corr_pairs.append({
+                        'Variable 1': corr_matrix.columns[i],
+                        'Variable 2': corr_matrix.columns[j],
+                        'Corrélation': corr_matrix.iloc[i, j]
+                    })
+            
+            if corr_pairs:
+                corr_df = pd.DataFrame(corr_pairs).sort_values('Corrélation', key=abs, ascending=False)
+                st.dataframe(corr_df.head(10), use_container_width=True)
 
-    # Analyse par questionnaire
-    with st.expander("📝 Analyse du Questionnaire ADHD-RS", expanded=True):
-        st.subheader("Analyse des réponses aux 18 items ADHD-RS")
+    # Informations sur le dataset
+    with st.expander("ℹ️ Informations sur le Dataset", expanded=False):
+        st.subheader("Résumé statistique")
+        st.dataframe(df.describe(), use_container_width=True)
         
-        # Analyse des réponses par item
-        question_cols = [f'Q{i}' for i in range(1, 19)]
-        
-        # Moyennes par diagnostic
-        item_means = df.groupby('TDAH')[question_cols].mean()
-        
-        fig_items = go.Figure()
-        
-        fig_items.add_trace(go.Bar(
-            name='TDAH Positif',
-            x=question_cols,
-            y=item_means.loc['Oui'],
-            marker_color='#ff5722'
-        ))
-        
-        fig_items.add_trace(go.Bar(
-            name='TDAH Négatif', 
-            x=question_cols,
-            y=item_means.loc['Non'],
-            marker_color='#ff9800'
-        ))
-        
-        fig_items.update_layout(
-            title="Scores moyens par item du questionnaire ADHD-RS",
-            xaxis_title="Items du questionnaire",
-            yaxis_title="Score moyen (0-3)",
-            barmode='group'
-        )
-        
-        st.plotly_chart(fig_items, use_container_width=True)
-        
-        # Distribution des scores totaux
-        st.subheader("Distribution des scores totaux ADHD-RS")
-        
-        fig_dist = px.histogram(df, x='Score_ADHD_Total', color='TDAH',
-                              title="Distribution des scores totaux ADHD-RS",
-                              nbins=30,
-                              color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
-        st.plotly_chart(fig_dist, use_container_width=True)
+        st.subheader("Valeurs manquantes")
+        missing_data = df.isnull().sum()
+        if missing_data.sum() > 0:
+            missing_df = pd.DataFrame({
+                'Colonne': missing_data.index,
+                'Valeurs manquantes': missing_data.values,
+                'Pourcentage': (missing_data.values / len(df) * 100).round(2)
+            })
+            st.dataframe(missing_df[missing_df['Valeurs manquantes'] > 0], use_container_width=True)
+        else:
+            st.success("Aucune valeur manquante détectée !")
 
 def load_ml_libraries():
     """Charge les bibliothèques ML nécessaires"""
@@ -1015,11 +1051,16 @@ def train_tdah_model(df):
     try:
         if 'TDAH' not in df.columns:
             st.error("La colonne 'TDAH' n'existe pas dans le dataframe")
-            return None, None, None
+            return None, None, None, None, None
 
         # Préparation des données
         X = df.drop(columns=['TDAH'])
-        y = df['TDAH'].map({'Oui': 1, 'Non': 0})
+        
+        # Gestion des différents formats de la variable cible
+        if df['TDAH'].dtype == 'object':
+            y = df['TDAH'].map({'Oui': 1, 'Non': 0})
+        else:
+            y = df['TDAH']
 
         # Identification des colonnes numériques et catégorielles
         numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
@@ -1108,19 +1149,28 @@ def show_ml_analysis():
         with col1:
             st.metric("Échantillons totaux", len(df))
         with col2:
-            tdah_positive = (df['TDAH'] == 'Oui').sum()
-            st.metric("Cas TDAH positifs", tdah_positive, f"{tdah_positive/len(df):.1%}")
+            if 'TDAH' in df.columns:
+                if df['TDAH'].dtype == 'object':
+                    tdah_positive = (df['TDAH'] == 'Oui').sum()
+                else:
+                    tdah_positive = (df['TDAH'] == 1).sum()
+                st.metric("Cas TDAH positifs", tdah_positive, f"{tdah_positive/len(df):.1%}")
+            else:
+                st.metric("Cas TDAH positifs", "N/A", "Colonne TDAH manquante")
         with col3:
             features_count = len(df.columns) - 1  # -1 pour exclure la variable cible
             st.metric("Variables prédictives", features_count)
 
         # Distribution de la variable cible
-        st.subheader("Distribution de la variable cible")
-        
-        fig_target = px.pie(df, names='TDAH', 
-                          title="Répartition des diagnostics TDAH",
-                          color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
-        st.plotly_chart(fig_target, use_container_width=True)
+        if 'TDAH' in df.columns:
+            st.subheader("Distribution de la variable cible")
+            
+            fig_target = px.pie(df, names='TDAH', 
+                              title="Répartition des diagnostics TDAH",
+                              color_discrete_map={'Oui': '#ff5722', 'Non': '#ff9800'})
+            st.plotly_chart(fig_target, use_container_width=True)
+        else:
+            st.warning("Impossible d'afficher la distribution de la variable cible : colonne 'TDAH' manquante")
 
         # Aperçu des variables
         st.subheader("Aperçu des variables prédictives")
@@ -1151,11 +1201,22 @@ def show_ml_analysis():
     with ml_tabs[1]:
         st.subheader("🚀 Entraînement du modèle Random Forest")
         
+        if 'TDAH' not in df.columns:
+            st.error("❌ Impossible d'entraîner le modèle : colonne 'TDAH' manquante dans le dataset")
+            return
+        
         with st.spinner("Entraînement du modèle en cours..."):
             model_results = train_tdah_model(df)
             
         if model_results[0] is not None:
             pipeline, preprocessor, feature_names, X_test, y_test = model_results
+            
+            # Stocker les résultats dans session state pour les autres onglets
+            st.session_state.pipeline = pipeline
+            st.session_state.preprocessor = preprocessor
+            st.session_state.feature_names = feature_names
+            st.session_state.X_test = X_test
+            st.session_state.y_test = y_test
             
             st.success("✅ Modèle entraîné avec succès!")
             
@@ -1178,8 +1239,13 @@ def show_ml_analysis():
             st.error("❌ Échec de l'entraînement du modèle")
 
     with ml_tabs[2]:
-        if 'pipeline' in locals() and pipeline is not None:
+        if hasattr(st.session_state, 'pipeline') and st.session_state.pipeline is not None:
             st.subheader("📈 Évaluation de la performance")
+            
+            pipeline = st.session_state.pipeline
+            X_test = st.session_state.X_test
+            y_test = st.session_state.y_test
+            feature_names = st.session_state.feature_names
             
             # Prédictions
             y_pred = pipeline.predict(X_test)
@@ -1259,7 +1325,7 @@ def show_ml_analysis():
             st.warning("Veuillez d'abord entraîner le modèle dans l'onglet précédent.")
 
     with ml_tabs[3]:
-        if 'pipeline' in locals() and pipeline is not None:
+        if hasattr(st.session_state, 'pipeline') and st.session_state.pipeline is not None:
             st.subheader("🎯 Outil de prédiction TDAH")
             
             st.markdown("""
@@ -1269,49 +1335,46 @@ def show_ml_analysis():
             </div>
             """, unsafe_allow_html=True)
             
-            # Interface de prédiction
+            # Interface de prédiction basée sur les colonnes disponibles
+            df, _, _, _, _, _, _ = load_dataset()
+            available_cols = [col for col in df.columns if col != 'TDAH']
+            
             col1, col2 = st.columns(2)
             
+            input_data = {}
+            
             with col1:
-                age_input = st.slider("Âge", min_value=6, max_value=65, value=25)
-                genre_input = st.selectbox("Genre", options=['M', 'F'])
-                education_input = st.selectbox("Niveau d'éducation", 
-                                             options=['Primaire', 'Secondaire', 'Supérieur'])
-                troubles_input = st.selectbox("Troubles d'apprentissage", options=['Oui', 'Non'])
+                for i, col in enumerate(available_cols[:len(available_cols)//2]):
+                    if df[col].dtype in ['int64', 'float64']:
+                        min_val = float(df[col].min())
+                        max_val = float(df[col].max())
+                        mean_val = float(df[col].mean())
+                        input_data[col] = st.slider(f"{col}", min_val, max_val, mean_val, key=f"input_{col}")
+                    else:
+                        unique_vals = df[col].unique().tolist()
+                        input_data[col] = st.selectbox(f"{col}", unique_vals, key=f"input_{col}")
                 
             with col2:
-                hyperactivite_input = st.slider("Score Hyperactivité", min_value=0, max_value=27, value=10)
-                inattention_input = st.slider("Score Inattention", min_value=0, max_value=27, value=10)
-                impulsivite_input = st.slider("Score Impulsivité", min_value=0, max_value=20, value=8)
-                antecedents_input = st.selectbox("Antécédents familiaux", options=['Oui', 'Non'])
+                for col in available_cols[len(available_cols)//2:]:
+                    if df[col].dtype in ['int64', 'float64']:
+                        min_val = float(df[col].min())
+                        max_val = float(df[col].max())
+                        mean_val = float(df[col].mean())
+                        input_data[col] = st.slider(f"{col}", min_val, max_val, mean_val, key=f"input_{col}")
+                    else:
+                        unique_vals = df[col].unique().tolist()
+                        input_data[col] = st.selectbox(f"{col}", unique_vals, key=f"input_{col}")
                 
-            # Calcul du score total (simulation des questions Q1-Q18)
-            score_total = hyperactivite_input + inattention_input + impulsivite_input
-            
             # Bouton de prédiction
             if st.button("🔮 Prédire le risque TDAH", key="predict_tdah"):
-                # Créer le DataFrame d'input
-                input_data = pd.DataFrame({
-                    'Age': [age_input],
-                    'Genre': [genre_input],
-                    'Education': [education_input],
-                    'Hyperactivite_Score': [hyperactivite_input],
-                    'Inattention_Score': [inattention_input],
-                    'Impulsivite_Score': [impulsivite_input],
-                    'Troubles_Apprentissage': [troubles_input],
-                    'Antecedents_Familiaux': [antecedents_input],
-                    'Statut_testeur': ['Auto'],  # Valeur par défaut
-                    'Score_ADHD_Total': [score_total]
-                })
-                
-                # Ajouter les questions Q1-Q18 avec des valeurs simulées
-                for i in range(1, 19):
-                    input_data[f'Q{i}'] = [np.random.randint(0, 4)]  # Simulation
-                
                 try:
+                    # Créer le DataFrame d'input
+                    input_df = pd.DataFrame([input_data])
+                    
                     # Prédiction
-                    prediction = pipeline.predict(input_data)[0]
-                    probability = pipeline.predict_proba(input_data)[0, 1]
+                    pipeline = st.session_state.pipeline
+                    prediction = pipeline.predict(input_df)[0]
+                    probability = pipeline.predict_proba(input_df)[0, 1]
                     
                     # Affichage du résultat
                     col1, col2, col3 = st.columns(3)
@@ -1431,7 +1494,6 @@ def show_ai_prediction():
             total_score = inattention_score + hyperactivite_score
             
             # Simulation d'une prédiction IA
-            # Dans un vrai cas, vous utiliseriez votre modèle entraîné
             risk_factors = 0
             
             if total_score > 20:
@@ -1848,8 +1910,8 @@ def show_about():
             <ul>
                 <li>Outil d'aide uniquement</li>
                 <li>Ne remplace pas le diagnostic médical</li>
-                <li>Données d'entraînement limitées</li>
                 <li>Validation continue nécessaire</li>
+                <li>Données représentatives limitées</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
@@ -1900,5 +1962,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
