@@ -6,7 +6,6 @@ Version corrigée avec dataset réel
 
 import streamlit as st
 import joblib
-import base64
 import hashlib
 import os
 import pickle
