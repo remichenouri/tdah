@@ -3526,7 +3526,7 @@ def show_enhanced_documentation():
             # Non-stimulants
             st.markdown("#### 🔄 Non-stimulants (2ème ligne)")
             
-                        non_stimulants_data = {
+            non_stimulants_data = {
                 'Médicament': ['Atomoxétine', 'Guanfacine LP', 'Clonidine LP', 'Bupropion'],
                 'Noms commerciaux': ['Strattera®', 'Intuniv®', 'Kapvay®', 'Wellbutrin®'],
                 'Durée d\'action': ['24h', '24h', '12h', '12-24h'],
