@@ -1309,22 +1309,14 @@ def load_ml_libraries():
         try:
             from imblearn.over_sampling import SMOTE
             smote_available = True
-            st.info("✅ SMOTE disponible - Équilibrage des données activé")
-        except ImportError as e:
-            st.warning(f"⚠️ SMOTE non disponible ({str(e)}). Utilisation sans rééquilibrage.")
-            
-            # Classe SMOTE de substitution
+        except ImportError:
             class SMOTESubstitute:
-                def __init__(self, random_state=None, k_neighbors=5):
+                def __init__(self, random_state=None):
                     self.random_state = random_state
-                    self.k_neighbors = k_neighbors
+                    st.warning("⚠️ SMOTE non disponible. Utilisation sans rééquilibrage.")
                 
                 def fit_resample(self, X, y):
-                    """Retourne les données sans modification"""
                     return X, y
-                
-                def __str__(self):
-                    return "SMOTESubstitute (pas d'équilibrage)"
             
             SMOTE = SMOTESubstitute
             smote_available = False
@@ -1905,7 +1897,8 @@ def show_enhanced_ai_prediction():
             if total_symptoms > 0:
                 inatt_dominance = results['scores']['inattention'] / total_symptoms
             else:
-                inatt_dominance = 0.5  # Valeur par défaut si aucun symptôme
+                inatt_dominance = 0.5  # Valeur par défaut
+
                 
             hyper_dominance = 1 - inatt_dominance
             
@@ -4618,30 +4611,25 @@ def show_about():
 
 # Application principale
 def main():
-    set_custom_theme()
     initialize_session_state()
+    set_custom_theme()
     
-    # Sidebar avec navigation
-    with st.sidebar:
-        selected_tool = show_navigation_menu()
-
-    # Contenu principal basé sur la sélection
-    if selected_tool == "🏠 Accueil":
+    tool_choice = show_navigation_menu()
+    
+    if tool_choice == "🏠 Accueil":
         show_home_page()
-    elif selected_tool == "🔍 Exploration":
+    elif tool_choice == "🔍 Exploration":
         show_enhanced_data_exploration()
-    elif selected_tool == "🧠 Analyse ML":
-        show_enhanced_ml_analysis()
-    elif selected_tool == "🤖 Prédiction par IA":
+    elif tool_choice == "🧠 Analyse ML":
+        show_enhanced_ml_analysis()  
+    elif tool_choice == "🤖 Prédiction par IA":
         show_enhanced_ai_prediction()
-    elif selected_tool == "📚 Documentation":
-        show_enhanced_documentation()
-    elif selected_tool == "ℹ️ À propos":
+    elif tool_choice == "📚 Documentation":
+        show_documentation()
+    elif tool_choice == "ℹ️ À propos":
         show_about()
 
 if __name__ == "__main__":
     main()
-
-
 
 
