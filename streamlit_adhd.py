@@ -1405,48 +1405,48 @@ def load_ml_libraries():
         from sklearn.model_selection import cross_val_score, train_test_split, GridSearchCV, RandomizedSearchCV
         from sklearn.feature_selection import RFE, SelectKBest, f_classif
 
-    missing_libraries = []
-    try:
-        from lazypredict.Supervised import LazyClassifier
-        globals()['LazyClassifier'] = LazyClassifier
-        st.success("✅ LazyPredict loaded successfully")
-    except ImportError:
-        missing_libraries.append("lazypredict")
-        
-        # Create fallback implementation
-        class LazyClassifierFallback:
-            def __init__(self, *args, **kwargs):
-                st.warning("⚠️ LazyPredict not available - using simplified model comparison")
+        missing_libraries = []
+        try:
+            from lazypredict.Supervised import LazyClassifier
+            globals()['LazyClassifier'] = LazyClassifier
+            st.success("✅ LazyPredict loaded successfully")
+        except ImportError:
+            missing_libraries.append("lazypredict")
             
-            def fit(self, X_train, X_test, y_train, y_test):
-                # Implement basic model comparison
-                from sklearn.ensemble import RandomForestClassifier
-                from sklearn.linear_model import LogisticRegression
-                from sklearn.metrics import accuracy_score
+            # Create fallback implementation
+            class LazyClassifierFallback:
+                def __init__(self, *args, **kwargs):
+                    st.warning("⚠️ LazyPredict not available - using simplified model comparison")
                 
-                models = {
-                    'RandomForestClassifier': RandomForestClassifier(n_estimators=100, random_state=42),
-                    'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000)
-                }
-                
-                results = {}
-                for name, model in models.items():
-                    model.fit(X_train, y_train)
-                    y_pred = model.predict(X_test)
-                    accuracy = accuracy_score(y_test, y_pred)
-                    results[name] = {'Accuracy': accuracy}
-                
-                # Return mock results in expected format
-                import pandas as pd
-                return pd.DataFrame(results).T, None
+                def fit(self, X_train, X_test, y_train, y_test):
+                    # Implement basic model comparison
+                    from sklearn.ensemble import RandomForestClassifier
+                    from sklearn.linear_model import LogisticRegression
+                    from sklearn.metrics import accuracy_score
+                    
+                    models = {
+                        'RandomForestClassifier': RandomForestClassifier(n_estimators=100, random_state=42),
+                        'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000)
+                    }
+                    
+                    results = {}
+                    for name, model in models.items():
+                        model.fit(X_train, y_train)
+                        y_pred = model.predict(X_test)
+                        accuracy = accuracy_score(y_test, y_pred)
+                        results[name] = {'Accuracy': accuracy}
+                    
+                    # Return mock results in expected format
+                    import pandas as pd
+                    return pd.DataFrame(results).T, None
+            
+            globals()['LazyClassifier'] = LazyClassifierFallback
         
-        globals()['LazyClassifier'] = LazyClassifierFallback
-    
-    if missing_libraries:
-        st.error(f"❌ Missing libraries: {', '.join(missing_libraries)}")
-        st.info("💡 Install missing dependencies with: pip install " + " ".join(missing_libraries))
-    
-    return len(missing_libraries) == 0
+        if missing_libraries:
+            st.error(f"❌ Missing libraries: {', '.join(missing_libraries)}")
+            st.info("💡 Install missing dependencies with: pip install " + " ".join(missing_libraries))
+        
+        return len(missing_libraries) == 0
 
         
         # Gestion spéciale pour SMOTE avec fallback
