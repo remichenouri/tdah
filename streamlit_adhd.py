@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Streamlit TDAH - Outil de Dépistage et d'Analyse
-Version enrichie avec dataset réel ASRS et analyses avancées
+Streamlit TDAH - Outil de Dépistage et d'Analyse (Version Corrigée et Optimisée)
 """
 
 import streamlit as st
@@ -24,6 +23,8 @@ import seaborn as sns
 from scipy import stats
 from scipy.stats import mannwhitneyu, chi2_contingency, pearsonr, spearmanr
 import warnings
+from lazypredict.Supervised import LazyClassifier
+from sklearn.model_selection import GridSearchCV
 warnings.filterwarnings('ignore')
 
 # Configuration de la page
@@ -825,6 +826,107 @@ if 'css_loaded' not in st.session_state:
         </p>
     </div>
     """, unsafe_allow_html=True)
+    
+def smart_visualization(df, x_var, y_var=None, color_var=None):
+    """Visualisation automatique adaptée aux types de données"""
+    # Vérification des variables
+    if x_var not in df.columns:
+        st.error(f"Variable '{x_var}' non trouvée")
+        return
+    
+    if y_var and y_var not in df.columns:
+        st.error(f"Variable '{y_var}' non trouvée")
+        return
+    
+    # Détection des types de données
+    x_is_num = pd.api.types.is_numeric_dtype(df[x_var])
+    y_is_num = y_var and pd.api.types.is_numeric_dtype(df[y_var])
+    color_is_cat = color_var and not pd.api.types.is_numeric_dtype(df[color_var])
+
+    # Sélection du type de graphique
+    if not y_var:
+        if x_is_num:
+            chart_type = "histogram"
+        else:
+            chart_type = "bar"
+    else:
+        if x_is_num and y_is_num:
+            chart_type = "scatter"
+        elif x_is_num and not y_is_num:
+            chart_type = "box"
+        elif not x_is_num and y_is_num:
+            chart_type = "violin"
+        else:
+            chart_type = "heatmap"
+
+    # Création du graphique
+    try:
+        if chart_type == "histogram":
+            fig = px.histogram(
+                df, x=x_var, color=color_var,
+                nbins=30, marginal="rug",
+                color_discrete_sequence=px.colors.sequential.Oranges
+            )
+            
+        elif chart_type == "bar":
+            df_counts = df[x_var].value_counts().reset_index()
+            fig = px.bar(
+                df_counts, x='index', y=x_var,
+                color='index' if color_var else None,
+                color_discrete_sequence=px.colors.sequential.Oranges
+            )
+            
+        elif chart_type == "scatter":
+            fig = px.scatter(
+                df, x=x_var, y=y_var, color=color_var,
+                trendline="lowess", opacity=0.7,
+                color_continuous_scale=px.colors.sequential.Oranges
+            )
+            
+        elif chart_type == "box":
+            fig = px.box(
+                df, x=x_var, y=y_var, color=color_var,
+                color_discrete_sequence=px.colors.sequential.Oranges
+            )
+            
+        elif chart_type == "violin":
+            fig = px.violin(
+                df, x=x_var, y=y_var, color=color_var,
+                box=True, points="all",
+                color_discrete_sequence=px.colors.sequential.Oranges
+            )
+            
+        elif chart_type == "heatmap":
+            crosstab = pd.crosstab(df[x_var], df[y_var])
+            fig = px.imshow(
+                crosstab, 
+                color_continuous_scale=px.colors.sequential.Oranges,
+                labels=dict(x=x_var, y=y_var, color="Count")
+            )
+
+        # Paramètres communs
+        fig.update_layout(
+            template="plotly_white",
+            hovermode="x unified",
+            height=500,
+            margin=dict(l=20, r=20, t=40, b=20),
+            font=dict(family="Arial", size=12)
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Statistiques contextuelles
+        with st.expander("📊 Statistiques associées"):
+            if chart_type in ["scatter", "heatmap"] and x_is_num and y_is_num:
+                corr = df[[x_var, y_var]].corr().iloc[0,1]
+                st.write(f"Corrélation de Pearson : {corr:.3f}")
+                
+            elif chart_type in ["histogram", "box", "violin"] and x_is_num:
+                stats = df[x_var].describe()
+                st.write(stats)
+
+    except Exception as e:
+        st.error(f"Erreur de visualisation : {str(e)}")
 
 def show_enhanced_data_exploration():
     """Exploration enrichie des données TDAH avec analyses statistiques avancées"""
@@ -1352,199 +1454,107 @@ def load_ml_libraries():
         st.error("Veuillez installer les dépendances : pip install scikit-learn imbalanced-learn")
         return False
 
+from lazypredict.Supervised import LazyClassifier
+from sklearn.model_selection import GridSearchCV
 
-@st.cache_resource
-def train_advanced_models(df):
-    """Entraîne plusieurs modèles ML avancés pour prédire le TDAH"""
-    load_ml_libraries()
-    
+@st.cache_resource(show_spinner="Entraînement des modèles...")
+def train_optimized_models(df):
+    """Pipeline ML optimisée avec sélection automatique de modèle"""
     try:
-        if 'diagnosis' not in df.columns:
-            st.error("La colonne 'diagnosis' n'existe pas dans le dataframe")
-            return None
-
-        # Préparation des données avec sélection intelligente des features
-        feature_columns = []
+        # Préparation des données
+        X = df.drop('diagnosis', axis=1)
+        y = df['diagnosis']
         
-        # Variables ASRS (les plus importantes pour le diagnostic)
-        asrs_questions = [col for col in df.columns if col.startswith('asrs_q')]
-        asrs_scores = [col for col in df.columns if col.startswith('asrs_') and not col.startswith('asrs_q')]
-        
-        # Variables démographiques importantes
-        demographic_vars = ['age', 'gender', 'education', 'job_status']
-        
-        # Variables psychométriques
-        psychometric_vars = [col for col in df.columns if col.startswith('iq_')]
-        
-        # Variables de qualité de vie
-        quality_vars = ['quality_of_life', 'stress_level', 'sleep_problems']
-        
-        # Assemblage des features avec vérification de disponibilité
-        for var_list in [asrs_questions, asrs_scores, demographic_vars, psychometric_vars, quality_vars]:
-            for var in var_list:
-                if var in df.columns:
-                    feature_columns.append(var)
-        
-        # Suppression des doublons
-        feature_columns = list(set(feature_columns))
-        
-        X = df[feature_columns].copy()
-        y = df['diagnosis'].copy()
-
-        # Identification des colonnes numériques et catégorielles
-        numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
-        categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
-
-        # Préprocesseur avancé
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ('num', StandardScaler(), numerical_cols),
-                ('cat', OneHotEncoder(handle_unknown='ignore', drop='first'), categorical_cols)
-            ],
-            remainder='passthrough',
-            verbose_feature_names_out=False
-        )
-
-        # Division train/test stratifiée
+        # Division des données
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
+            X, y, 
+            test_size=0.2, 
+            stratify=y, 
+            random_state=42
         )
-
-        # Application du préprocesseur
-        X_train_processed = preprocessor.fit_transform(X_train)
-        X_test_processed = preprocessor.transform(X_test)
-
-        # Gestion du déséquilibre des classes avec SMOTE
-        smote = SMOTE(random_state=42)
-        X_train_balanced, y_train_balanced = smote.fit_resample(X_train_processed, y_train)
-
-        # Dictionnaire des modèles à tester
-        models = {
-            'Random Forest': RandomForestClassifier(
-                n_estimators=200,
-                max_depth=12,
-                min_samples_split=5,
-                min_samples_leaf=2,
-                max_features='sqrt',
-                random_state=42,
-                n_jobs=-1
-            ),
-            'Gradient Boosting': GradientBoostingClassifier(
-                n_estimators=150,
-                learning_rate=0.1,
-                max_depth=8,
-                random_state=42
-            ),
-            'Logistic Regression': LogisticRegression(
-                random_state=42,
-                max_iter=1000,
-                C=1.0
-            ),
-            'SVM': SVC(
-                kernel='rbf',
-                C=1.0,
-                probability=True,
-                random_state=42
-            ),
-            'Neural Network': MLPClassifier(
-                hidden_layer_sizes=(100, 50),
-                max_iter=1000,
-                random_state=42,
-                early_stopping=True
-            ),
-            'K-Nearest Neighbors': KNeighborsClassifier(
-                n_neighbors=5,
-                weights='distance'
-            )
-        }
-
-        # Entraînement et évaluation de tous les modèles
-        model_results = {}
         
-        for name, model in models.items():
+        # Phase 1: Sélection de modèle avec LazyPredict
+        lazy_clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=None)
+        models, predictions = lazy_clf.fit(X_train, X_test, y_train, y_test)
+        
+        # Sélection des top 3 modèles
+        top_models = models.head(3).index.tolist()
+        
+        # Configuration GridSearch pour les hyperparamètres
+        param_grids = {
+            'RandomForestClassifier': {
+                'n_estimators': [100, 200],
+                'max_depth': [None, 10, 20],
+                'min_samples_split': [2, 5]
+            },
+            'LogisticRegression': {
+                'C': [0.1, 1, 10],
+                'solver': ['lbfgs', 'liblinear']
+            },
+            'XGBClassifier': {
+                'n_estimators': [100, 200],
+                'learning_rate': [0.01, 0.1],
+                'max_depth': [3, 6]
+            }
+        }
+        
+        # Entraînement des meilleurs modèles avec GridSearch
+        best_models = {}
+        for model_name in top_models:
             try:
-                # Entraînement
-                model.fit(X_train_balanced, y_train_balanced)
+                model_class = globals()[model_name]
+                grid_search = GridSearchCV(
+                    estimator=model_class(),
+                    param_grid=param_grids.get(model_name, {}),
+                    cv=3,
+                    n_jobs=-1,
+                    scoring='roc_auc'
+                )
+                grid_search.fit(X_train, y_train)
                 
-                # Prédictions
-                y_pred = model.predict(X_test_processed)
-                y_pred_proba = model.predict_proba(X_test_processed)[:, 1] if hasattr(model, 'predict_proba') else None
-                
-                # Métriques avec protection division par zéro
-                accuracy = accuracy_score(y_test, y_pred)
-                precision = precision_score(y_test, y_pred, zero_division=0)
-                recall = recall_score(y_test, y_pred, zero_division=0)
-                f1 = f1_score(y_test, y_pred, zero_division=0)
-
-                # AUC avec vérification
-                if y_pred_proba is not None and len(set(y_test)) > 1:
-                    try:
-                        auc = roc_auc_score(y_test, y_pred_proba)
-                    except ValueError:
-                        auc = 0.5
-                else:
-                    auc = 0.5
-                
-                # Validation croisée
-                try:
-                    cv_scores = cross_val_score(model, X_train_balanced, y_train_balanced, cv=5, scoring='roc_auc')
-                except Exception:
-                    cv_scores = cross_val_score(model, X_train_balanced, y_train_balanced, cv=5, scoring='accuracy')
-                
-                model_results[name] = {
-                    'model': model,
-                    'accuracy': accuracy,
-                    'precision': precision,
-                    'recall': recall,
-                    'f1': f1,
-                    'auc': auc,
-                    'cv_mean': cv_scores.mean(),
-                    'cv_std': cv_scores.std(),
-                    'y_pred': y_pred,
-                    'y_pred_proba': y_pred_proba
+                best_models[model_name] = {
+                    'model': grid_search.best_estimator_,
+                    'params': grid_search.best_params_,
+                    'score': grid_search.best_score_
                 }
                 
             except Exception as e:
-                st.warning(f"⚠️ Erreur modèle {name}: {str(e)}")
+                st.warning(f"Erreur sur {model_name}: {str(e)}")
                 continue
-
-        if not model_results:
-            st.error("❌ Aucun modèle entraîné avec succès")
-            return None
-
-        # Sélection du meilleur modèle basé sur l'AUC
-        best_model_name = max(model_results.keys(), key=lambda k: model_results[k]['auc'])
-        best_model = model_results[best_model_name]['model']
-
-        # Feature importance pour le meilleur modèle
-        feature_names = None
-        feature_importance = None
         
-        try:
-            feature_names = preprocessor.get_feature_names_out()
-            if hasattr(best_model, 'feature_importances_'):
-                feature_importance = best_model.feature_importances_
-            elif hasattr(best_model, 'coef_'):
-                feature_importance = np.abs(best_model.coef_[0])
-        except Exception as e:
-            st.warning(f"Impossible d'extraire l'importance des features: {str(e)}")
-
+        # Validation finale
+        results = {}
+        for name, data in best_models.items():
+            model = data['model']
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+            y_proba = model.predict_proba(X_test)[:,1] if hasattr(model, 'predict_proba') else None
+            
+            # Métriques avec protection division par zéro
+            metrics = {
+                'accuracy': accuracy_score(y_test, y_pred),
+                'precision': precision_score(y_test, y_pred, zero_division=0),
+                'recall': recall_score(y_test, y_pred, zero_division=0),
+                'f1': f1_score(y_test, y_pred, zero_division=0),
+                'auc': roc_auc_score(y_test, y_proba) if y_proba is not None and len(np.unique(y_test)) > 1 else 0.5,
+                'best_params': data['params']
+            }
+            
+            results[name] = metrics
+        
+        # Sélection du meilleur modèle
+        best_model_name = max(results.keys(), key=lambda x: results[x]['auc'])
+        
         return {
-            'models': model_results,
-            'best_model': best_model,
-            'best_model_name': best_model_name,
-            'preprocessor': preprocessor,
-            'feature_names': feature_names,
-            'feature_importance': feature_importance,
-            'X_test': X_test,
-            'y_test': y_test,
-            'X_test_processed': X_test_processed,
-            'feature_columns': feature_columns
+            'best_model': best_models[best_model_name]['model'],
+            'all_results': results,
+            'lazy_report': models
         }
-
+        
     except Exception as e:
-        st.error(f"Erreur lors de l'entraînement des modèles: {str(e)}")
+        st.error(f"Erreur d'entraînement : {str(e)}")
         return None
+
 
 def show_enhanced_ai_prediction():
     """Interface de prédiction IA enrichie avec test ASRS complet"""
@@ -2643,8 +2653,8 @@ def show_enhanced_ai_prediction():
             if total_symptoms > 0:
                 inatt_dominance = results['scores']['inattention'] / total_symptoms
             else:
-                inatt_dominance = 0.5  # Valeur par défaut si aucun symptôme
-                
+                inatt_dominance = 0.5
+                        
             hyper_dominance = 1 - inatt_dominance
             
             response_consistency = 1 - (np.std(list(results['responses'].values())) / 4)  # Normalisation sur 0-4
