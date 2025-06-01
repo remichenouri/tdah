@@ -1404,10 +1404,8 @@ def load_ml_libraries():
                                     classification_report, roc_curve, precision_recall_curve)
         from sklearn.model_selection import cross_val_score, train_test_split, GridSearchCV, RandomizedSearchCV
         from sklearn.feature_selection import RFE, SelectKBest, f_classif
-        def load_ml_libraries():
-    """Enhanced ML library loading with comprehensive error handling"""
+
     missing_libraries = []
-    
     try:
         from lazypredict.Supervised import LazyClassifier
         globals()['LazyClassifier'] = LazyClassifier
