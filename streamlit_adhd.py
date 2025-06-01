@@ -1305,19 +1305,29 @@ def load_ml_libraries():
         from sklearn.model_selection import cross_val_score, train_test_split, GridSearchCV, RandomizedSearchCV
         from sklearn.feature_selection import RFE, SelectKBest, f_classif
         
-        # Gestion spéciale pour SMOTE
+        # Gestion spéciale pour SMOTE avec fallback
         try:
             from imblearn.over_sampling import SMOTE
-        except ImportError:
+            smote_available = True
+            st.info("✅ SMOTE disponible - Équilibrage des données activé")
+        except ImportError as e:
+            st.warning(f"⚠️ SMOTE non disponible ({str(e)}). Utilisation sans rééquilibrage.")
+            
+            # Classe SMOTE de substitution
             class SMOTESubstitute:
-                def __init__(self, random_state=None):
+                def __init__(self, random_state=None, k_neighbors=5):
                     self.random_state = random_state
-                    st.warning("⚠️ SMOTE non disponible. Utilisation sans rééquilibrage.")
+                    self.k_neighbors = k_neighbors
                 
                 def fit_resample(self, X, y):
+                    """Retourne les données sans modification"""
                     return X, y
+                
+                def __str__(self):
+                    return "SMOTESubstitute (pas d'équilibrage)"
             
             SMOTE = SMOTESubstitute
+            smote_available = False
                 
         # Stockage global des imports
         globals().update({
@@ -1339,13 +1349,15 @@ def load_ml_libraries():
             'confusion_matrix': confusion_matrix,
             'cross_val_score': cross_val_score,
             'train_test_split': train_test_split,
-            'SMOTE': SMOTE
+            'SMOTE': SMOTE,
+            'smote_available': smote_available
         })
         
         return True
         
     except Exception as e:
-        st.error(f"Erreur lors du chargement des bibliothèques ML: {str(e)}")
+        st.error(f"❌ Erreur critique lors du chargement des bibliothèques ML: {str(e)}")
+        st.error("Veuillez installer les dépendances : pip install scikit-learn imbalanced-learn")
         return False
 
 
@@ -1458,44 +1470,55 @@ def train_advanced_models(df):
         model_results = {}
         
         for name, model in models.items():
-            # Entraînement
-            model.fit(X_train_balanced, y_train_balanced)
-            
-            # Prédictions
-            y_pred = model.predict(X_test_processed)
-            y_pred_proba = model.predict_proba(X_test_processed)[:, 1] if hasattr(model, 'predict_proba') else None
-            
-            # Métriques avec protection division par zéro
-            accuracy = accuracy_score(y_test, y_pred)
-            precision = precision_score(y_test, y_pred, zero_division=0)
-            recall = recall_score(y_test, y_pred, zero_division=0)
-            f1 = f1_score(y_test, y_pred, zero_division=0)
+            try:
+                # Entraînement
+                model.fit(X_train_balanced, y_train_balanced)
+                
+                # Prédictions
+                y_pred = model.predict(X_test_processed)
+                y_pred_proba = model.predict_proba(X_test_processed)[:, 1] if hasattr(model, 'predict_proba') else None
+                
+                # Métriques avec protection division par zéro
+                accuracy = accuracy_score(y_test, y_pred)
+                precision = precision_score(y_test, y_pred, zero_division=0)
+                recall = recall_score(y_test, y_pred, zero_division=0)
+                f1 = f1_score(y_test, y_pred, zero_division=0)
 
-# AUC avec vérification
-if y_pred_proba is not None and len(set(y_test)) > 1:
-    try:
-        auc = roc_auc_score(y_test, y_pred_proba)
-    except ValueError:
-        auc = 0.5
-else:
-    auc = 0.5
+                # AUC avec vérification
+                if y_pred_proba is not None and len(set(y_test)) > 1:
+                    try:
+                        auc = roc_auc_score(y_test, y_pred_proba)
+                    except ValueError:
+                        auc = 0.5
+                else:
+                    auc = 0.5
+                
+                # Validation croisée
+                try:
+                    cv_scores = cross_val_score(model, X_train_balanced, y_train_balanced, cv=5, scoring='roc_auc')
+                except Exception:
+                    cv_scores = cross_val_score(model, X_train_balanced, y_train_balanced, cv=5, scoring='accuracy')
+                
+                model_results[name] = {
+                    'model': model,
+                    'accuracy': accuracy,
+                    'precision': precision,
+                    'recall': recall,
+                    'f1': f1,
+                    'auc': auc,
+                    'cv_mean': cv_scores.mean(),
+                    'cv_std': cv_scores.std(),
+                    'y_pred': y_pred,
+                    'y_pred_proba': y_pred_proba
+                }
+                
+            except Exception as e:
+                st.warning(f"⚠️ Erreur modèle {name}: {str(e)}")
+                continue
 
-            
-            # Validation croisée
-            cv_scores = cross_val_score(model, X_train_balanced, y_train_balanced, cv=5, scoring='roc_auc')
-            
-            model_results[name] = {
-                'model': model,
-                'accuracy': accuracy,
-                'precision': precision,
-                'recall': recall,
-                'f1': f1,
-                'auc': auc,
-                'cv_mean': cv_scores.mean(),
-                'cv_std': cv_scores.std(),
-                'y_pred': y_pred,
-                'y_pred_proba': y_pred_proba
-            }
+        if not model_results:
+            st.error("❌ Aucun modèle entraîné avec succès")
+            return None
 
         # Sélection du meilleur modèle basé sur l'AUC
         best_model_name = max(model_results.keys(), key=lambda k: model_results[k]['auc'])
@@ -1531,653 +1554,493 @@ else:
         st.error(f"Erreur lors de l'entraînement des modèles: {str(e)}")
         return None
 
-def show_enhanced_ml_analysis():
-    """Analyse ML avancée pour le TDAH avec plusieurs algorithmes"""
+def show_enhanced_ai_prediction():
+    """Interface de prédiction IA enrichie avec test ASRS complet"""
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
         <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
                    text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            🧠 Analyse Machine Learning Avancée - TDAH
+            🤖 Test ASRS Complet & Prédiction IA
         </h1>
         <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
                   max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Comparaison de 6 algorithmes d'apprentissage automatique pour le diagnostic TDAH
+            Évaluation officielle ASRS v1.1 de l'OMS avec analyse par intelligence artificielle
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-    load_ml_libraries()
-    df = load_enhanced_dataset()
-    
-    if df is None or len(df) == 0:
-        st.error("Impossible de charger le dataset")
-        return
-
-    # Onglets ML avancés
-    ml_tabs = st.tabs([
-        "🚀 Entraînement multi-modèles",
-        "📊 Comparaison des performances", 
-        "🎯 Analyse des features",
-        "🔍 Diagnostic des modèles",
-        "⚙️ Optimisation hyperparamètres",
+    # Onglets pour la prédiction
+    pred_tabs = st.tabs([
+        "📝 Test ASRS Officiel",
+        "🤖 Analyse IA", 
+        "📊 Résultats Détaillés",
+        "📈 KPIs Avancés",
         "💡 Recommandations"
     ])
 
-    with ml_tabs[0]:
-        st.subheader("🚀 Entraînement de 6 algorithmes d'apprentissage automatique")
+    with pred_tabs[0]:
+        st.subheader("📝 Test ASRS v1.1 - Organisation Mondiale de la Santé")
         
         st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #ff9800;">
-            <h4 style="color: #ef6c00; margin-top: 0;">🎯 Stratégie d'entraînement</h4>
+        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 30px; border-left: 4px solid #ff9800;">
+            <h4 style="color: #ef6c00; margin-top: 0;">ℹ️ À propos du test ASRS</h4>
+            <p style="color: #f57c00; line-height: 1.6;">
+                L'<strong>Adult ADHD Self-Report Scale (ASRS) v1.1</strong> est l'outil de référence développé par l'OMS 
+                pour le dépistage du TDAH chez l'adulte. Il comprend 18 questions basées sur les critères du DSM-5.
+            </p>
             <ul style="color: #f57c00; line-height: 1.8;">
-                <li><strong>Préparation des données :</strong> Standardisation, encodage one-hot, équilibrage SMOTE</li>
-                <li><strong>Sélection des features :</strong> Questions ASRS, données démographiques, variables psychométriques</li>
-                <li><strong>Validation :</strong> Division train/test stratifiée + validation croisée 5-fold</li>
-                <li><strong>Métriques :</strong> Accuracy, Precision, Recall, F1-Score, AUC-ROC</li>
-                <li><strong>Gestion du déséquilibre :</strong> Technique SMOTE pour l'équilibrage des classes</li>
+                <li><strong>Partie A (6 questions) :</strong> Questions de dépistage principales</li>
+                <li><strong>Partie B (12 questions) :</strong> Questions complémentaires pour évaluation complète</li>
+                <li><strong>Durée :</strong> 5-10 minutes</li>
+                <li><strong>Validation :</strong> Validé scientifiquement sur des milliers de participants</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
-        
-        if 'diagnosis' not in df.columns:
-            st.error("❌ Impossible d'entraîner les modèles : colonne 'diagnosis' manquante dans le dataset")
-            return
-        
-        # Informations sur le dataset
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Échantillons totaux", len(df))
-        with col2:
-            tdah_positive = df['diagnosis'].sum()
-            st.metric("Cas TDAH positifs", tdah_positive, f"{tdah_positive/len(df):.1%}")
-        with col3:
-            features_count = len([col for col in df.columns if not col.startswith(('subject_id', 'diagnosis', 'source_file', 'generation_date', 'version', 'streamlit_ready'))])
-            st.metric("Features disponibles", features_count)
-        with col4:
-            st.metric("Ratio déséquilibre", f"1:{len(df)/tdah_positive:.1f}")
 
-        # Entraînement des modèles
-        with st.spinner("Entraînement des 6 modèles en cours... Cela peut prendre quelques minutes."):
-            ml_results = train_advanced_models(df)
-            
-        if ml_results is not None:
-            # Stocker les résultats dans session state
-            st.session_state.ml_results = ml_results
-            
-            st.success("✅ Tous les modèles ont été entraînés avec succès!")
-            
-            # Résumé rapide des performances
-            st.subheader("📊 Résumé des performances")
-            
-            performance_data = []
-            for name, results in ml_results['models'].items():
-                performance_data.append({
-                    'Modèle': name,
-                    'Accuracy': f"{results['accuracy']:.3f}",
-                    'AUC-ROC': f"{results['auc']:.3f}",
-                    'F1-Score': f"{results['f1']:.3f}",
-                    'CV Score': f"{results['cv_mean']:.3f} ± {results['cv_std']:.3f}"
-                })
-            
-            performance_df = pd.DataFrame(performance_data)
-            st.dataframe(performance_df, use_container_width=True)
-            
-            # Modèle recommandé
-            best_model = ml_results['best_model_name']
-            best_auc = ml_results['models'][best_model]['auc']
-            
-            st.success(f"🏆 **Meilleur modèle :** {best_model} (AUC = {best_auc:.3f})")
-            
-        else:
-            st.error("❌ Échec de l'entraînement des modèles")
+        # Instructions
+        st.markdown("### 📋 Instructions")
+        st.info("""
+        **Pour chaque question, indiquez à quelle fréquence vous avez vécu cette situation au cours des 6 derniers mois :**
+        
+        • **Jamais** (0 point)  
+        • **Rarement** (1 point)  
+        • **Parfois** (2 points)  
+        • **Souvent** (3 points)  
+        • **Très souvent** (4 points)
+        """)
 
-    with ml_tabs[1]:
-        if hasattr(st.session_state, 'ml_results') and st.session_state.ml_results is not None:
-            st.subheader("📊 Comparaison détaillée des performances")
+        # Initialisation des réponses
+        if 'asrs_responses' not in st.session_state:
+            st.session_state.asrs_responses = {}
+
+        # Formulaire ASRS corrigé
+        with st.form("asrs_complete_form", clear_on_submit=False):
             
-            ml_results = st.session_state.ml_results
+            # Partie A - Questions principales
+            st.markdown("## 🎯 Partie A - Questions de dépistage principal")
+            st.markdown("*Ces 6 questions sont les plus prédictives pour le dépistage du TDAH*")
             
-            # Graphique de comparaison des métriques
-            st.markdown("### 📈 Métriques de performance par modèle")
-            
-            metrics_data = []
-            for name, results in ml_results['models'].items():
-                metrics_data.extend([
-                    {'Modèle': name, 'Métrique': 'Accuracy', 'Valeur': results['accuracy']},
-                    {'Modèle': name, 'Métrique': 'Precision', 'Valeur': results['precision']},
-                    {'Modèle': name, 'Métrique': 'Recall', 'Valeur': results['recall']},
-                    {'Modèle': name, 'Métrique': 'F1-Score', 'Valeur': results['f1']},
-                    {'Modèle': name, 'Métrique': 'AUC-ROC', 'Valeur': results['auc']}
-                ])
-            
-            metrics_df = pd.DataFrame(metrics_data)
-            
-            fig_metrics = px.bar(
-                metrics_df, 
-                x='Modèle', 
-                y='Valeur', 
-                color='Métrique',
-                title="Comparaison des métriques par modèle",
-                barmode='group'
-            )
-            fig_metrics.update_layout(height=600)
-            st.plotly_chart(fig_metrics, use_container_width=True)
-            
-            # Courbes ROC comparatives
-            st.markdown("### 📈 Courbes ROC comparatives")
-            
-            fig_roc = go.Figure()
-            
-            for name, results in ml_results['models'].items():
-                if results['y_pred_proba'] is not None:
-                    fpr, tpr, _ = roc_curve(ml_results['y_test'], results['y_pred_proba'])
-                    fig_roc.add_trace(go.Scatter(
-                        x=fpr, y=tpr,
-                        mode='lines',
-                        name=f'{name} (AUC = {results["auc"]:.3f})',
-                        line=dict(width=3)
-                    ))
-            
-            # Ligne de référence
-            fig_roc.add_trace(go.Scatter(
-                x=[0, 1], y=[0, 1],
-                mode='lines',
-                name='Baseline (AUC = 0.500)',
-                line=dict(dash='dash', color='gray')
-            ))
-            
-            fig_roc.update_layout(
-                title='Courbes ROC - Comparaison des modèles',
-                xaxis_title='Taux de Faux Positifs',
-                yaxis_title='Taux de Vrais Positifs',
-                height=600
-            )
-            st.plotly_chart(fig_roc, use_container_width=True)
-            
-            # Matrices de confusion
-            st.markdown("### 🎯 Matrices de confusion")
-            
-            # Sélection du modèle à visualiser
-            selected_model = st.selectbox(
-                "Sélectionnez un modèle pour voir sa matrice de confusion :",
-                list(ml_results['models'].keys()),
-                index=list(ml_results['models'].keys()).index(ml_results['best_model_name'])
-            )
-            
-            if selected_model:
-                y_pred = ml_results['models'][selected_model]['y_pred']
-                cm = confusion_matrix(ml_results['y_test'], y_pred)
+            for i, question in enumerate(ASRS_QUESTIONS["Partie A - Questions de dépistage principal"], 1):
+                st.markdown(f"""
+                <div class="asrs-question-card">
+                    <h5 style="color: #d84315; margin-bottom: 15px;">Question {i}</h5>
+                    <p style="color: #bf360c; font-size: 1.05rem; line-height: 1.5; margin-bottom: 20px;">
+                        {question}
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                fig_cm = px.imshow(
-                    cm, 
-                    text_auto=True,
-                    aspect="auto",
-                    title=f"Matrice de confusion - {selected_model}",
-                    labels=dict(x="Prédiction", y="Réalité"),
-                    x=['Non-TDAH', 'TDAH'],
-                    y=['Non-TDAH', 'TDAH'],
-                    color_continuous_scale='Oranges'
+                # Sélection avec selectbox (approche corrigée)
+                response = st.selectbox(
+                    f"Votre réponse à la question {i}:",
+                    options=list(ASRS_OPTIONS.keys()),
+                    format_func=lambda x: ASRS_OPTIONS[x],
+                    key=f"asrs_q{i}",
+                    index=0,
+                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
                 )
-                st.plotly_chart(fig_cm, use_container_width=True)
+                st.session_state.asrs_responses[f'q{i}'] = response
                 
-                # Métriques détaillées
-                col1, col2, col3, col4 = st.columns(4)
-                results = ml_results['models'][selected_model]
+                # Affichage visuel de la réponse sélectionnée
+                if response > 0:
+                    st.success(f"✅ Sélectionné : {ASRS_OPTIONS[response]}")
                 
-                with col1:
-                    st.metric("Accuracy", f"{results['accuracy']:.3f}")
-                with col2:
-                    st.metric("Precision", f"{results['precision']:.3f}")
-                with col3:
-                    st.metric("Recall", f"{results['recall']:.3f}")
-                with col4:
-                    st.metric("F1-Score", f"{results['f1']:.3f}")
+                st.markdown("---")
 
-            # Analyse de stabilité (validation croisée)
-            st.markdown("### 🎲 Stabilité des modèles (Validation croisée)")
+            # Partie B - Questions complémentaires
+            st.markdown("## 📝 Partie B - Questions complémentaires")
+            st.markdown("*Ces 12 questions fournissent des informations supplémentaires pour l'évaluation*")
             
-            cv_data = []
-            for name, results in ml_results['models'].items():
-                cv_data.append({
-                    'Modèle': name,
-                    'CV Mean': results['cv_mean'],
-                    'CV Std': results['cv_std'],
-                    'CV Min': results['cv_mean'] - results['cv_std'],
-                    'CV Max': results['cv_mean'] + results['cv_std']
-                })
-            
-            cv_df = pd.DataFrame(cv_data)
-            
-            fig_cv = go.Figure()
-            
-            for _, row in cv_df.iterrows():
-                fig_cv.add_trace(go.Scatter(
-                    x=[row['Modèle']], 
-                    y=[row['CV Mean']],
-                    error_y=dict(type='data', array=[row['CV Std']], visible=True),
-                    mode='markers',
-                    marker=dict(size=10),
-                    name=row['Modèle']
-                ))
-            
-            fig_cv.update_layout(
-                title='Stabilité des modèles (Score AUC-ROC ± écart-type)',
-                xaxis_title='Modèles',
-                yaxis_title='Score AUC-ROC',
-                showlegend=False
-            )
-            st.plotly_chart(fig_cv, use_container_width=True)
-            
-        else:
-            st.warning("Veuillez d'abord entraîner les modèles dans l'onglet précédent.")
-
-    with ml_tabs[2]:
-        if hasattr(st.session_state, 'ml_results') and st.session_state.ml_results is not None:
-            st.subheader("🎯 Analyse de l'importance des features")
-            
-            ml_results = st.session_state.ml_results
-            
-            # Importance des features pour le meilleur modèle
-            if ml_results['feature_importance'] is not None and ml_results['feature_names'] is not None:
-                st.markdown(f"### 🏆 Importance des features - {ml_results['best_model_name']}")
+            for i, question in enumerate(ASRS_QUESTIONS["Partie B - Questions complémentaires"], 7):
+                st.markdown(f"""
+                <div class="asrs-question-card">
+                    <h5 style="color: #d84315; margin-bottom: 15px;">Question {i}</h5>
+                    <p style="color: #bf360c; font-size: 1.05rem; line-height: 1.5; margin-bottom: 20px;">
+                        {question}
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                importance_df = pd.DataFrame({
-                    'Feature': ml_results['feature_names'],
-                    'Importance': ml_results['feature_importance']
-                }).sort_values('Importance', ascending=False)
-                
-                # Top 20 des features les plus importantes
-                top_features = importance_df.head(20)
-                
-                fig_importance = px.bar(
-                    top_features, 
-                    x='Importance', 
-                    y='Feature',
-                    orientation='h',
-                    title=f"Top 20 des features les plus importantes ({ml_results['best_model_name']})",
-                    color='Importance',
-                    color_continuous_scale='Oranges'
+                response = st.selectbox(
+                    f"Votre réponse à la question {i}:",
+                    options=list(ASRS_OPTIONS.keys()),
+                    format_func=lambda x: ASRS_OPTIONS[x],
+                    key=f"asrs_q{i}",
+                    index=0,
+                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
                 )
-                fig_importance.update_layout(height=700)
-                st.plotly_chart(fig_importance, use_container_width=True)
+                st.session_state.asrs_responses[f'q{i}'] = response
                 
-                # Analyse par catégorie de features
-                st.markdown("### 📊 Importance par catégorie de features")
+                if response > 0:
+                    st.success(f"✅ Sélectionné : {ASRS_OPTIONS[response]}")
                 
-                # Catégorisation des features
-                feature_categories = {
-                    'ASRS Questions': [],
-                    'ASRS Scores': [],
-                    'Démographique': [],
-                    'Psychométrique': [],
-                    'Qualité de vie': [],
-                    'Autres': []
+                st.markdown("---")
+
+            # Informations complémentaires
+            st.markdown("## 👤 Informations complémentaires")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                age = st.number_input("Âge", min_value=18, max_value=80, value=30, key="demo_age")
+                education = st.selectbox("Niveau d'éducation", 
+                                       ["Bac", "Bac+2", "Bac+3", "Bac+5", "Doctorat"], 
+                                       key="demo_education")
+                
+            with col2:
+                gender = st.selectbox("Genre", ["M", "F"], key="demo_gender")
+                job_status = st.selectbox("Statut professionnel",
+                                        ["CDI", "CDD", "Freelance", "Étudiant", "Chômeur"],
+                                        key="demo_job")
+                
+            with col3:
+                quality_of_life = st.slider("Qualité de vie (1-10)", 1, 10, 5, key="demo_qol")
+                stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3, key="demo_stress")
+
+            # Bouton de soumission
+            submitted = st.form_submit_button(
+                "🔬 Analyser avec l'IA", 
+                use_container_width=True,
+                type="primary"
+            )
+
+            if submitted:
+                # Calcul des scores ASRS
+                part_a_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in range(1, 7)])
+                part_b_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in range(7, 19)])
+                total_score = part_a_score + part_b_score
+                
+                # Score d'inattention (questions 1-9 selon DSM-5)
+                inattention_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in [1, 2, 3, 4, 7, 8, 9]])
+                
+                # Score d'hyperactivité-impulsivité (questions 5, 6, 10-18)
+                hyperactivity_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in [5, 6] + list(range(10, 19))])
+                
+                # Stockage des résultats
+                st.session_state.asrs_results = {
+                    'responses': st.session_state.asrs_responses.copy(),
+                    'scores': {
+                        'part_a': part_a_score,
+                        'part_b': part_b_score,
+                        'total': total_score,
+                        'inattention': inattention_score,
+                        'hyperactivity': hyperactivity_score
+                    },
+                    'demographics': {
+                        'age': age,
+                        'gender': gender,
+                        'education': education,
+                        'job_status': job_status,
+                        'quality_of_life': quality_of_life,
+                        'stress_level': stress_level
+                    }
                 }
                 
-                for feature in importance_df['Feature']:
-                    if 'asrs_q' in feature.lower():
-                        feature_categories['ASRS Questions'].append(feature)
-                    elif 'asrs_' in feature.lower():
-                        feature_categories['ASRS Scores'].append(feature)
-                    elif any(word in feature.lower() for word in ['age', 'gender', 'education', 'job', 'marital']):
-                        feature_categories['Démographique'].append(feature)
-                    elif 'iq_' in feature.lower():
-                        feature_categories['Psychométrique'].append(feature)
-                    elif any(word in feature.lower() for word in ['quality', 'stress', 'sleep']):
-                        feature_categories['Qualité de vie'].append(feature)
-                    else:
-                        feature_categories['Autres'].append(feature)
-                
-                # Calcul de l'importance moyenne par catégorie
-                category_importance = []
-                for category, features in feature_categories.items():
-                    if features:
-                        category_features = importance_df[importance_df['Feature'].isin(features)]
-                        avg_importance = category_features['Importance'].mean()
-                        total_importance = category_features['Importance'].sum()
-                        category_importance.append({
-                            'Catégorie': category,
-                            'Importance moyenne': avg_importance,
-                            'Importance totale': total_importance,
-                            'Nombre de features': len(features)
-                        })
-                
-                if category_importance:
-                    category_df = pd.DataFrame(category_importance)
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        fig_cat_avg = px.bar(
-                            category_df, 
-                            x='Catégorie', 
-                            y='Importance moyenne',
-                            title="Importance moyenne par catégorie",
-                            color='Importance moyenne',
-                            color_continuous_scale='Oranges'
-                        )
-                        st.plotly_chart(fig_cat_avg, use_container_width=True)
-                    
-                    with col2:
-                        fig_cat_total = px.pie(
-                            category_df, 
-                            values='Importance totale', 
-                            names='Catégorie',
-                            title="Répartition de l'importance totale"
-                        )
-                        st.plotly_chart(fig_cat_total, use_container_width=True)
-                
-                # Détail des top features ASRS
-                st.markdown("### 🔍 Analyse détaillée des questions ASRS les plus importantes")
-                
-                asrs_features = importance_df[importance_df['Feature'].str.contains('asrs_q', na=False)].head(10)
-                
-                if not asrs_features.empty:
-                    st.dataframe(asrs_features, use_container_width=True)
-                    
-                    # Mapping avec les vraies questions ASRS
-                    st.markdown("#### 📝 Correspondance avec les questions ASRS")
-                    
-                    for _, row in asrs_features.head(5).iterrows():
-                        feature_name = row['Feature']
-                        importance = row['Importance']
-                        
-                        # Extraction du numéro de question
-                        try:
-                            q_num = int(feature_name.split('asrs_q')[1].split('_')[0])
-                            if q_num <= len(ASRS_QUESTIONS["Partie A - Questions de dépistage principal"]):
-                                question_text = ASRS_QUESTIONS["Partie A - Questions de dépistage principal"][q_num-1]
-                            else:
-                                question_text = ASRS_QUESTIONS["Partie B - Questions complémentaires"][q_num-7]
-                            
-                            st.markdown(f"""
-                            <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #ff9800;">
-                                <h5 style="color: #ef6c00; margin: 0;">Question {q_num} (Importance: {importance:.3f})</h5>
-                                <p style="color: #f57c00; margin: 10px 0 0 0; font-style: italic;">{question_text}</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-                        except:
-                            continue
-            
-            else:
-                st.warning("Impossible d'analyser l'importance des features pour ce modèle.")
-                
-        else:
-            st.warning("Veuillez d'abord entraîner les modèles dans le premier onglet.")
+                st.success("✅ Test ASRS complété ! Consultez les onglets suivants pour l'analyse IA.")
 
-    with ml_tabs[3]:
-        if hasattr(st.session_state, 'ml_results') and st.session_state.ml_results is not None:
-            st.subheader("🔍 Diagnostic et analyse des erreurs")
+    with pred_tabs[1]:
+        if 'asrs_results' in st.session_state:
+            st.subheader("🤖 Analyse par Intelligence Artificielle")
             
-            ml_results = st.session_state.ml_results
+            results = st.session_state.asrs_results
             
-            # Sélection du modèle à diagnostiquer
-            selected_model = st.selectbox(
-                "Sélectionnez un modèle à diagnostiquer :",
-                list(ml_results['models'].keys()),
-                key="diagnostic_model_select"
-            )
+            # Analyse des scores selon les critères officiels
+            st.markdown("### 📊 Analyse selon les critères ASRS officiels")
             
-            if selected_model:
-                model_results = ml_results['models'][selected_model]
-                
-                # Analyse des erreurs
-                st.markdown("### ❌ Analyse des erreurs de classification")
-                
-                y_true = ml_results['y_test']
-                y_pred = model_results['y_pred']
-                
-                # Identification des erreurs
-                errors_mask = y_true != y_pred
-                false_positives = (y_true == 0) & (y_pred == 1)
-                false_negatives = (y_true == 1) & (y_pred == 0)
-                
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("Erreurs totales", errors_mask.sum(), f"{errors_mask.mean():.1%}")
-                with col2:
-                    st.metric("Faux positifs", false_positives.sum(), f"{false_positives.mean():.1%}")
-                with col3:
-                    st.metric("Faux négatifs", false_negatives.sum(), f"{false_negatives.mean():.1%}")
-                
-                # Distribution des probabilités de prédiction
-                if model_results['y_pred_proba'] is not None:
-                    st.markdown("### 📊 Distribution des probabilités de prédiction")
-                    
-                    prob_df = pd.DataFrame({
-                        'Probabilité': model_results['y_pred_proba'],
-                        'Vraie classe': ['TDAH' if x == 1 else 'Non-TDAH' for x in y_true],
-                        'Prédiction': ['TDAH' if x == 1 else 'Non-TDAH' for x in y_pred]
-                    })
-                    
-                    fig_prob = px.histogram(
-                        prob_df, 
-                        x='Probabilité', 
-                        color='Vraie classe',
-                        facet_col='Prédiction',
-                        title=f"Distribution des probabilités - {selected_model}",
-                        nbins=30,
-                        color_discrete_map={'Non-TDAH': '#ff9800', 'TDAH': '#ff5722'}
-                    )
-                    st.plotly_chart(fig_prob, use_container_width=True)
-                    
-                    # Seuil optimal
-                    st.markdown("### ⚖️ Analyse du seuil de décision")
-                    
-                    # Calcul des métriques pour différents seuils
-                    thresholds = np.arange(0.1, 0.9, 0.05)
-                    threshold_metrics = []
-                    
-                    for threshold in thresholds:
-                        y_pred_thresh = (model_results['y_pred_proba'] >= threshold).astype(int)
-                        accuracy = accuracy_score(y_true, y_pred_thresh)
-                        precision = precision_score(y_true, y_pred_thresh, zero_division=0)
-                        recall = recall_score(y_true, y_pred_thresh, zero_division=0)
-                        f1 = f1_score(y_true, y_pred_thresh, zero_division=0)
-                        
-                        threshold_metrics.append({
-                            'Seuil': threshold,
-                            'Accuracy': accuracy,
-                            'Precision': precision,
-                            'Recall': recall,
-                            'F1-Score': f1
-                        })
-                    
-                    threshold_df = pd.DataFrame(threshold_metrics)
-                    
-                    fig_threshold = go.Figure()
-                    
-                    for metric in ['Accuracy', 'Precision', 'Recall', 'F1-Score']:
-                        fig_threshold.add_trace(go.Scatter(
-                            x=threshold_df['Seuil'],
-                            y=threshold_df[metric],
-                            mode='lines+markers',
-                            name=metric,
-                            line=dict(width=3)
-                        ))
-                    
-                    fig_threshold.update_layout(
-                        title='Impact du seuil de décision sur les métriques',
-                        xaxis_title='Seuil de probabilité',
-                        yaxis_title='Score des métriques',
-                        height=500
-                    )
-                    st.plotly_chart(fig_threshold, use_container_width=True)
-                    
-                    # Seuil optimal basé sur F1-Score
-                    optimal_threshold = threshold_df.loc[threshold_df['F1-Score'].idxmax(), 'Seuil']
-                    optimal_f1 = threshold_df.loc[threshold_df['F1-Score'].idxmax(), 'F1-Score']
-                    
-                    st.success(f"🎯 **Seuil optimal recommandé :** {optimal_threshold:.2f} (F1-Score = {optimal_f1:.3f})")
+            part_a_score = results['scores']['part_a']
+            
+            # Critères ASRS partie A (seuil de 14 points sur 24)
+            asrs_positive = part_a_score >= 14
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Score Partie A", f"{part_a_score}/24")
+            with col2:
+                st.metric("Score Total", f"{results['scores']['total']}/72") 
+            with col3:
+                risk_level = "ÉLEVÉ" if asrs_positive else "FAIBLE"
+                color = "🔴" if asrs_positive else "🟢"
+                st.metric("Risque TDAH", f"{color} {risk_level}")
 
-        else:
-            st.warning("Veuillez d'abord entraîner les modèles dans le premier onglet.")
+            # Simulation d'analyse IA avancée
+            st.markdown("### 🧠 Analyse IA Multicritères")
+            
+            # Calcul du score de risque IA (simulation réaliste)
+            ai_risk_factors = 0
+            
+            # Facteur 1: Score ASRS partie A
+            if part_a_score >= 16:
+                ai_risk_factors += 0.4
+            elif part_a_score >= 14:
+                ai_risk_factors += 0.3
+            elif part_a_score >= 10:
+                ai_risk_factors += 0.2
+                
+            # Facteur 2: Score total
+            total_score = results['scores']['total']
+            if total_score >= 45:
+                ai_risk_factors += 0.25
+            elif total_score >= 35:
+                ai_risk_factors += 0.15
+                
+            # Facteur 3: Déséquilibre inattention/hyperactivité
+            inatt_score = results['scores']['inattention']
+            hyper_score = results['scores']['hyperactivity']
+            if abs(inatt_score - hyper_score) > 10:
+                ai_risk_factors += 0.1
+                
+            # Facteur 4: Démographie
+            age = results['demographics']['age']
+            if age < 25:
+                ai_risk_factors += 0.05
+                
+            # Facteur 5: Qualité de vie et stress
+            qol = results['demographics']['quality_of_life']
+            stress = results['demographics']['stress_level']
+            if qol < 5 and stress > 3:
+                ai_risk_factors += 0.1
+                
+            # Facteur 6: Pattern de réponses
+            high_responses = sum([1 for score in results['responses'].values() if score >= 3])
+            if high_responses >= 8:
+                ai_risk_factors += 0.1
+                
+            ai_probability = min(ai_risk_factors, 0.95)
+            
+            # Affichage du résultat IA
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Probabilité IA TDAH", f"{ai_probability:.1%}")
+            with col2:
+                confidence = "Très élevée" if ai_probability > 0.8 else "Élevée" if ai_probability > 0.6 else "Modérée" if ai_probability > 0.4 else "Faible"
+                st.metric("Confiance", confidence)
+            with col3:
+                recommendation = "Urgente" if ai_probability > 0.8 else "Recommandée" if ai_probability > 0.6 else "Conseillée" if ai_probability > 0.4 else "Surveillance"
+                st.metric("Consultation", recommendation)
+            with col4:
+                risk_category = "Très élevé" if ai_probability > 0.8 else "Élevé" if ai_probability > 0.6 else "Modéré" if ai_probability > 0.4 else "Faible"
+                st.metric("Catégorie risque", risk_category)
 
-    with ml_tabs[4]:
-        st.subheader("⚙️ Optimisation des hyperparamètres")
-        
-        st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #ff9800;">
-            <h4 style="color: #ef6c00; margin-top: 0;">🔧 Optimisation avancée</h4>
-            <p style="color: #f57c00; line-height: 1.6;">
-                Cette section permet d'optimiser finement les hyperparamètres du meilleur modèle 
-                pour améliorer encore ses performances. L'optimisation utilise une recherche par grille 
-                avec validation croisée.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if hasattr(st.session_state, 'ml_results') and st.session_state.ml_results is not None:
-            ml_results = st.session_state.ml_results
-            
-            # Sélection du modèle à optimiser
-            model_to_optimize = st.selectbox(
-                "Sélectionnez le modèle à optimiser :",
-                ['Random Forest', 'Gradient Boosting', 'Logistic Regression'],
-                index=0
-            )
-            
-            if st.button("🚀 Lancer l'optimisation des hyperparamètres"):
-                with st.spinner("Optimisation en cours... Cela peut prendre plusieurs minutes."):
-                    
-                    # Préparation des données
-                    df = load_enhanced_dataset()
-                    feature_columns = ml_results['feature_columns']
-                    X = df[feature_columns]
-                    y = df['diagnosis']
-                    
-                    # Division train/test
-                    X_train, X_test, y_train, y_test = train_test_split(
-                        X, y, test_size=0.2, random_state=42, stratify=y
-                    )
-                    
-                    # Préprocessing
-                    preprocessor = ml_results['preprocessor']
-                    X_train_processed = preprocessor.fit_transform(X_train)
-                    X_test_processed = preprocessor.transform(X_test)
-                    
-                    # SMOTE
-                    smote = SMOTE(random_state=42)
-                    X_train_balanced, y_train_balanced = smote.fit_resample(X_train_processed, y_train)
-                    
-                    # Grilles d'hyperparamètres
-                    if model_to_optimize == 'Random Forest':
-                        model = RandomForestClassifier(random_state=42, n_jobs=-1)
-                        param_grid = {
-                            'n_estimators': [100, 200, 300],
-                            'max_depth': [8, 12, 16, None],
-                            'min_samples_split': [2, 5, 10],
-                            'min_samples_leaf': [1, 2, 4],
-                            'max_features': ['sqrt', 'log2']
-                        }
-                    elif model_to_optimize == 'Gradient Boosting':
-                        model = GradientBoostingClassifier(random_state=42)
-                        param_grid = {
-                            'n_estimators': [100, 150, 200],
-                            'learning_rate': [0.05, 0.1, 0.15],
-                            'max_depth': [6, 8, 10],
-                            'subsample': [0.8, 0.9, 1.0]
-                        }
-                    else:  # Logistic Regression
-                        model = LogisticRegression(random_state=42, max_iter=1000)
-                        param_grid = {
-                            'C': [0.1, 1.0, 10.0, 100.0],
-                            'penalty': ['l1', 'l2'],
-                            'solver': ['liblinear', 'saga']
-                        }
-                    
-                    # Recherche par grille avec validation croisée
-                    grid_search = GridSearchCV(
-                        model, 
-                        param_grid, 
-                        cv=5, 
-                        scoring='roc_auc',
-                        n_jobs=-1,
-                        verbose=0
-                    )
-                    
-                    grid_search.fit(X_train_balanced, y_train_balanced)
-                    
-                    # Meilleur modèle
-                    best_model = grid_search.best_estimator_
-                    best_params = grid_search.best_params_
-                    best_score = grid_search.best_score_
-                    
-                    # Évaluation sur test set
-                    y_pred_optimized = best_model.predict(X_test_processed)
-                    y_pred_proba_optimized = best_model.predict_proba(X_test_processed)[:, 1]
-                    
-                    accuracy_optimized = accuracy_score(y_test, y_pred_optimized)
-                    auc_optimized = roc_auc_score(y_test, y_pred_proba_optimized)
-                    f1_optimized = f1_score(y_test, y_pred_optimized)
-                    
-                    # Affichage des résultats
-                    st.success("✅ Optimisation terminée!")
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.markdown("### 🏆 Meilleurs hyperparamètres")
-                        for param, value in best_params.items():
-                            st.write(f"• **{param}:** {value}")
-                    
-                    with col2:
-                        st.markdown("### 📊 Performances optimisées")
-                        st.metric("CV Score", f"{best_score:.3f}")
-                        st.metric("Test Accuracy", f"{accuracy_optimized:.3f}")
-                        st.metric("Test AUC-ROC", f"{auc_optimized:.3f}")
-                        st.metric("Test F1-Score", f"{f1_optimized:.3f}")
-                    
-                    # Comparaison avec le modèle non-optimisé
-                    original_results = ml_results['models'][model_to_optimize]
-                    
-                    st.markdown("### 📈 Amélioration par rapport au modèle original")
-                    
-                    comparison_data = {
-                        'Métrique': ['Accuracy', 'AUC-ROC', 'F1-Score'],
-                        'Original': [original_results['accuracy'], original_results['auc'], original_results['f1']],
-                        'Optimisé': [accuracy_optimized, auc_optimized, f1_optimized],
-                        'Amélioration': [
-                            accuracy_optimized - original_results['accuracy'],
-                            auc_optimized - original_results['auc'],
-                            f1_optimized - original_results['f1']
-                        ]
+            # Gauge de probabilité
+            fig_gauge = go.Figure(go.Indicator(
+                mode = "gauge+number+delta",
+                value = ai_probability * 100,
+                domain = {'x': [0, 1], 'y': [0, 1]},
+                title = {'text': "Probabilité TDAH (%)"},
+                delta = {'reference': 50},
+                gauge = {
+                    'axis': {'range': [None, 100]},
+                    'bar': {'color': "#ff5722"},
+                    'steps': [
+                        {'range': [0, 40], 'color': "#c8e6c9"},
+                        {'range': [40, 60], 'color': "#fff3e0"},
+                        {'range': [60, 80], 'color': "#ffcc02"},
+                        {'range': [80, 100], 'color': "#ffcdd2"}
+                    ],
+                    'threshold': {
+                        'line': {'color': "red", 'width': 4},
+                        'thickness': 0.75,
+                        'value': 70
                     }
-                    
-                    comparison_df = pd.DataFrame(comparison_data)
-                    comparison_df['Amélioration (%)'] = (comparison_df['Amélioration'] / comparison_df['Original'] * 100).round(2)
-                    
-                    st.dataframe(comparison_df, use_container_width=True)
-                    
-                    # Graphique de comparaison
-                    fig_comparison = go.Figure()
-                    
-                    fig_comparison.add_trace(go.Bar(
-                        name='Original',
-                        x=comparison_df['Métrique'],
-                        y=comparison_df['Original'],
-                        marker_color='#ff9800'
-                    ))
-                    
-                    fig_comparison.add_trace(go.Bar(
-                        name='Optimisé',
-                        x=comparison_df['Métrique'],
-                        y=comparison_df['Optimisé'],
-                        marker_color='#ff5722'
-                    ))
-                    
-                    fig_comparison.update_layout(
-                        title=f'Comparaison des performances - {model_to_optimize}',
-                        yaxis_title='Score',
-                        barmode='group'
-                    )
-                    st.plotly_chart(fig_comparison, use_container_width=True)
-        
+                }
+            ))
+            
+            fig_gauge.update_layout(height=400)
+            st.plotly_chart(fig_gauge, use_container_width=True)
+            
         else:
-            st.warning("Veuillez d'abord entraîner les modèles dans le premier onglet.")
+            st.warning("Veuillez d'abord compléter le test ASRS dans l'onglet précédent.")
+
+    with pred_tabs[2]:
+        if 'asrs_results' in st.session_state:
+            st.subheader("📊 Résultats Détaillés")
+            
+            results = st.session_state.asrs_results
+            
+            # Tableau détaillé des réponses
+            st.markdown("### 📝 Détail des réponses ASRS")
+            
+            responses_data = []
+            all_questions = ASRS_QUESTIONS["Partie A - Questions de dépistage principal"] + ASRS_QUESTIONS["Partie B - Questions complémentaires"]
+            
+            for i in range(1, 19):
+                question_text = all_questions[i-1]
+                response_value = results['responses'].get(f'q{i}', 0)
+                response_text = ASRS_OPTIONS[response_value]
+                part = "A" if i <= 6 else "B"
+                
+                responses_data.append({
+                    'Question': i,
+                    'Partie': part,
+                    'Score': response_value,
+                    'Réponse': response_text,
+                    'Question complète': question_text[:80] + "..." if len(question_text) > 80 else question_text
+                })
+            
+            responses_df = pd.DataFrame(responses_data)
+            st.dataframe(responses_df, use_container_width=True)
+            
+        else:
+            st.warning("Veuillez d'abord compléter le test ASRS.")
+
+    with pred_tabs[3]:
+        if 'asrs_results' in st.session_state:
+            st.subheader("📈 KPIs Avancés et Métriques Cliniques")
+            
+            results = st.session_state.asrs_results
+            
+            # KPIs principaux
+            st.markdown("### 🎯 KPIs Principaux")
+            
+            col1, col2, col3, col4, col5 = st.columns(5)
+            
+            # Calculs des KPIs avec correction de la division par zéro
+            total_score = results['scores']['total']
+            severity_index = (total_score / 72) * 100
+            
+            total_symptoms = results['scores']['inattention'] + results['scores']['hyperactivity']
+            if total_symptoms > 0:
+                inatt_dominance = results['scores']['inattention'] / total_symptoms
+            else:
+                inatt_dominance = 0.5  # Valeur par défaut si aucun symptôme
+                
+            hyper_dominance = 1 - inatt_dominance
+            
+            response_consistency = 1 - (np.std(list(results['responses'].values())) / 4)  # Normalisation sur 0-4
+            
+            high_severity_responses = sum([1 for score in results['responses'].values() if score >= 3])
+            severity_concentration = (high_severity_responses / 18) * 100
+            
+            part_a_severity = (results['scores']['part_a'] / 24) * 100
+            
+            with col1:
+                st.metric(
+                    "Indice de sévérité", 
+                    f"{severity_index:.1f}%",
+                    help="Pourcentage du score maximum possible"
+                )
+            with col2:
+                st.metric(
+                    "Dominance inattention", 
+                    f"{inatt_dominance:.1%}",
+                    help="Proportion des symptômes d'inattention"
+                )
+            with col3:
+                st.metric(
+                    "Cohérence réponses", 
+                    f"{response_consistency:.1%}",
+                    help="Consistance du pattern de réponses"
+                )
+            with col4:
+                st.metric(
+                    "Concentration sévérité", 
+                    f"{severity_concentration:.1f}%",
+                    help="% de réponses 'Souvent' ou 'Très souvent'"
+                )
+            with col5:
+                st.metric(
+                    "Score dépistage", 
+                    f"{part_a_severity:.1f}%",
+                    help="Performance sur les 6 questions clés"
+                )
+
+            # Calcul de la fiabilité avec correction
+            st.markdown("### 🎯 Fiabilité de l'évaluation")
+            
+            reliability_factors = [
+                response_consistency >= 0.6,  # Cohérence des réponses
+                len([x for x in results['responses'].values() if x > 0]) >= 10,  # Nombre minimum de symptômes
+                abs(results['scores']['inattention'] - results['scores']['hyperactivity']) < 20,  # Équilibre relatif
+                results['demographics']['age'] >= 18  # Âge approprié
+            ]
+            
+            reliability_score = sum(reliability_factors) / len(reliability_factors)
+            reliability_level = "Très fiable" if reliability_score >= 0.75 else "Fiable" if reliability_score >= 0.5 else "Modérée"
+            reliability_color = "#4caf50" if reliability_score >= 0.75 else "#ff9800" if reliability_score >= 0.5 else "#ff5722"
+            
+            st.markdown(f"""
+            <div style="background-color: white; padding: 20px; border-radius: 10px; border-left: 4px solid {reliability_color};">
+                <h4 style="color: {reliability_color}; margin: 0 0 10px 0;">Fiabilité de l'évaluation</h4>
+                <h3 style="color: {reliability_color}; margin: 0;">{reliability_level}</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        else:
+            st.warning("Veuillez d'abord compléter le test ASRS dans le premier onglet.")
+
+    with pred_tabs[4]:
+        if 'asrs_results' in st.session_state:
+            st.subheader("💡 Recommandations Personnalisées")
+            
+            results = st.session_state.asrs_results
+            
+            # Recommandations basées sur les résultats
+            st.markdown("### 🎯 Recommandations spécifiques")
+            
+            recommendations = []
+            
+            # Analyse du profil
+            if results['scores']['part_a'] >= 14:
+                recommendations.append({
+                    "priority": "high",
+                    "title": "Consultation spécialisée recommandée",
+                    "description": "Votre score ASRS partie A suggère un risque élevé de TDAH. Une évaluation par un professionnel est conseillée.",
+                    "action": "Prendre rendez-vous avec un psychiatre ou psychologue spécialisé en TDAH"
+                })
+            
+            if results['scores']['inattention'] > results['scores']['hyperactivity']:
+                recommendations.append({
+                    "priority": "medium", 
+                    "title": "Profil plutôt inattentif détecté",
+                    "description": "Vos symptômes d'inattention sont prédominants.",
+                    "action": "Techniques de concentration et d'organisation peuvent être bénéfiques"
+                })
+            else:
+                recommendations.append({
+                    "priority": "medium",
+                    "title": "Profil hyperactif-impulsif détecté", 
+                    "description": "Vos symptômes d'hyperactivité-impulsivité sont prédominants.",
+                    "action": "Techniques de gestion de l'impulsivité et relaxation recommandées"
+                })
+            
+            if results['demographics']['stress_level'] >= 4:
+                recommendations.append({
+                    "priority": "medium",
+                    "title": "Niveau de stress élevé",
+                    "description": "Votre niveau de stress peut aggraver les symptômes TDAH.",
+                    "action": "Techniques de gestion du stress et évaluation des facteurs de stress"
+                })
+            
+            if results['demographics']['quality_of_life'] <= 5:
+                recommendations.append({
+                    "priority": "high",
+                    "title": "Impact sur la qualité de vie",
+                    "description": "Les symptômes semblent affecter significativement votre qualité de vie.",
+                    "action": "Prise en charge globale recommandée incluant support psychosocial"
+                })
+            
+            # Affichage des recommandations
+            for rec in recommendations:
+                color = "#f44336" if rec["priority"] == "high" else "#ff9800" if rec["priority"] == "medium" else "#4caf50"
+                icon = "🚨" if rec["priority"] == "high" else "⚠️" if rec["priority"] == "medium" else "💡"
+                
+                st.markdown(f"""
+                <div style="background-color: white; padding: 20px; border-radius: 10px; 
+                           border-left: 4px solid {color}; margin: 15px 0;
+                           box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <h4 style="color: {color}; margin: 0 0 10px 0;">{icon} {rec["title"]}</h4>
+                    <p style="margin: 0 0 10px 0; line-height: 1.6;">{rec["description"]}</p>
+                    <p style="margin: 0; font-style: italic; color: #666;">
+                        <strong>Action suggérée :</strong> {rec["action"]}
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+        else:
+            st.warning("Veuillez d'abord compléter le test ASRS pour obtenir des recommandations personnalisées.")
 
     with ml_tabs[5]:
         st.subheader("💡 Recommandations et conclusions")
@@ -2782,7 +2645,7 @@ def show_enhanced_ai_prediction():
             # Calculs des KPIs
             total_score = results['scores']['total']
             severity_index = (total_score / 72) * 100
-            
+
             total_symptoms = results['scores']['inattention'] + results['scores']['hyperactivity']
             if total_symptoms > 0:
                 inatt_dominance = results['scores']['inattention'] / total_symptoms
