@@ -1318,7 +1318,7 @@ def load_ml_libraries():
                     return X, y
             
             SMOTE = SMOTESubstitute
-        
+                
         # Stockage global des imports
         globals().update({
             'RandomForestClassifier': RandomForestClassifier,
@@ -2788,6 +2788,7 @@ def show_enhanced_ai_prediction():
                 inatt_dominance = results['scores']['inattention'] / total_symptoms
             else:
                 inatt_dominance = 0.5  # Valeur par défaut si aucun symptôme
+                
             hyper_dominance = 1 - inatt_dominance
             
             response_consistency = 1 - (np.std(list(results['responses'].values())) / 4)  # Normalisation sur 0-4
