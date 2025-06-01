@@ -618,6 +618,32 @@ def show_home_page():
     </style>
     """, unsafe_allow_html=True)
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_optimized_css():
+    """CSS optimisé et minifié"""
+    return """
+    <style>
+    .stApp { background-color: #fff8f5 !important; }
+    .stButton > button { 
+        background: linear-gradient(135deg, #ff5722, #ff9800) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        transition: all 0.3s ease !important;
+    }
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(255,87,34,0.3) !important;
+    }
+    </style>
+    """
+
+# Appliquer le CSS optimisé au début de chaque page
+if 'css_loaded' not in st.session_state:
+    st.markdown(get_optimized_css(), unsafe_allow_html=True)
+    st.session_state.css_loaded = True
+
+
     # En-tête principal
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
@@ -1262,29 +1288,66 @@ def show_enhanced_data_exploration():
             )
 
 def load_ml_libraries():
-    """Charge les bibliothèques ML nécessaires"""
-    global RandomForestClassifier, LogisticRegression, StandardScaler, OneHotEncoder
-    global ColumnTransformer, Pipeline, accuracy_score, precision_score, recall_score
-    global f1_score, roc_auc_score, confusion_matrix, classification_report
-    global cross_val_score, train_test_split, roc_curve, precision_recall_curve
-    global GradientBoostingClassifier, SVC, MLPClassifier, KNeighborsClassifier
-    global GridSearchCV, RandomizedSearchCV, SMOTE, RFE
-    global LabelEncoder, PolynomialFeatures, SelectKBest, f_classif
-    
-    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.svm import SVC
-    from sklearn.neural_network import MLPClassifier
-    from sklearn.neighbors import KNeighborsClassifier
-    from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder, PolynomialFeatures
-    from sklearn.compose import ColumnTransformer
-    from sklearn.pipeline import Pipeline
-    from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
-                                f1_score, roc_auc_score, confusion_matrix, 
-                                classification_report, roc_curve, precision_recall_curve)
-    from sklearn.model_selection import cross_val_score, train_test_split, GridSearchCV, RandomizedSearchCV
-    from sklearn.feature_selection import RFE, SelectKBest, f_classif
-    from imblearn.over_sampling import SMOTE
+    """Charge les bibliothèques ML nécessaires de manière sécurisée"""
+    try:
+        # Import conditionnel pour éviter les erreurs
+        from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.svm import SVC
+        from sklearn.neural_network import MLPClassifier
+        from sklearn.neighbors import KNeighborsClassifier
+        from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder, PolynomialFeatures
+        from sklearn.compose import ColumnTransformer
+        from sklearn.pipeline import Pipeline
+        from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
+                                    f1_score, roc_auc_score, confusion_matrix, 
+                                    classification_report, roc_curve, precision_recall_curve)
+        from sklearn.model_selection import cross_val_score, train_test_split, GridSearchCV, RandomizedSearchCV
+        from sklearn.feature_selection import RFE, SelectKBest, f_classif
+        
+        # Gestion spéciale pour SMOTE
+        try:
+            from imblearn.over_sampling import SMOTE
+        except ImportError:
+            class SMOTESubstitute:
+                def __init__(self, random_state=None):
+                    self.random_state = random_state
+                    st.warning("⚠️ SMOTE non disponible. Utilisation sans rééquilibrage.")
+                
+                def fit_resample(self, X, y):
+                    return X, y
+            
+            SMOTE = SMOTESubstitute
+        
+        # Stockage global des imports
+        globals().update({
+            'RandomForestClassifier': RandomForestClassifier,
+            'GradientBoostingClassifier': GradientBoostingClassifier,
+            'LogisticRegression': LogisticRegression,
+            'SVC': SVC,
+            'MLPClassifier': MLPClassifier,
+            'KNeighborsClassifier': KNeighborsClassifier,
+            'StandardScaler': StandardScaler,
+            'OneHotEncoder': OneHotEncoder,
+            'ColumnTransformer': ColumnTransformer,
+            'Pipeline': Pipeline,
+            'accuracy_score': accuracy_score,
+            'precision_score': precision_score,
+            'recall_score': recall_score,
+            'f1_score': f1_score,
+            'roc_auc_score': roc_auc_score,
+            'confusion_matrix': confusion_matrix,
+            'cross_val_score': cross_val_score,
+            'train_test_split': train_test_split,
+            'SMOTE': SMOTE
+        })
+        
+        return True
+        
+    except Exception as e:
+        st.error(f"Erreur lors du chargement des bibliothèques ML: {str(e)}")
+        return False
+
 
 @st.cache_resource
 def train_advanced_models(df):
@@ -1402,12 +1465,21 @@ def train_advanced_models(df):
             y_pred = model.predict(X_test_processed)
             y_pred_proba = model.predict_proba(X_test_processed)[:, 1] if hasattr(model, 'predict_proba') else None
             
-            # Métriques
+            # Métriques avec protection division par zéro
             accuracy = accuracy_score(y_test, y_pred)
             precision = precision_score(y_test, y_pred, zero_division=0)
             recall = recall_score(y_test, y_pred, zero_division=0)
             f1 = f1_score(y_test, y_pred, zero_division=0)
-            auc = roc_auc_score(y_test, y_pred_proba) if y_pred_proba is not None else 0
+
+# AUC avec vérification
+if y_pred_proba is not None and len(set(y_test)) > 1:
+    try:
+        auc = roc_auc_score(y_test, y_pred_proba)
+    except ValueError:
+        auc = 0.5
+else:
+    auc = 0.5
+
             
             # Validation croisée
             cv_scores = cross_val_score(model, X_train_balanced, y_train_balanced, cv=5, scoring='roc_auc')
@@ -2711,7 +2783,11 @@ def show_enhanced_ai_prediction():
             total_score = results['scores']['total']
             severity_index = (total_score / 72) * 100
             
-            inatt_dominance = results['scores']['inattention'] / (results['scores']['inattention'] + results['scores']['hyperactivity'])
+            total_symptoms = results['scores']['inattention'] + results['scores']['hyperactivity']
+            if total_symptoms > 0:
+                inatt_dominance = results['scores']['inattention'] / total_symptoms
+            else:
+                inatt_dominance = 0.5  # Valeur par défaut si aucun symptôme
             hyper_dominance = 1 - inatt_dominance
             
             response_consistency = 1 - (np.std(list(results['responses'].values())) / 4)  # Normalisation sur 0-4
