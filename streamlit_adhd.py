@@ -3372,1526 +3372,438 @@ def show_enhanced_ai_prediction():
             st.warning("Veuillez d'abord compléter le test ASRS.")
 
 def show_enhanced_documentation():
-    """Documentation enrichie pour le TDAH avec plus de ressources"""
+    """Documentation enrichie sur le TDAH et l'outil"""
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
         <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
                    text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            📚 Documentation Complète TDAH
+            📚 Documentation TDAH
         </h1>
         <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
                   max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Guide exhaustif sur le Trouble Déficitaire de l'Attention avec Hyperactivité
+            Guide complet sur le TDAH et l'utilisation de cette plateforme
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Onglets de documentation enrichis
+    # Onglets de documentation
     doc_tabs = st.tabs([
-        "📖 Bases du TDAH",
-        "🔬 Critères diagnostiques", 
-        "💊 Traitements",
-        "🏫 Accompagnement",
-        "📊 Échelles d'évaluation",
-        "🧠 Recherche récente",
-        "📚 Ressources pratiques",
+        "🧠 Qu'est-ce que le TDAH ?",
+        "📝 Échelle ASRS",
+        "🤖 IA et Diagnostic",
+        "📊 Interprétation des Résultats",
+        "🏥 Ressources Cliniques",
         "❓ FAQ"
     ])
 
     with doc_tabs[0]:
-        st.subheader("📖 Comprendre le TDAH - Bases Scientifiques")
-        
-        # Définition moderne
-        st.markdown("""
-        <div class="info-card-modern">
-            <h3 style="color: #ff5722;">🧬 Définition Actuelle (DSM-5-TR, 2022)</h3>
-            <p style="line-height: 1.8;">
-                Le TDAH est un trouble neurodéveloppemental persistant caractérisé par un pattern 
-                d'inattention et/ou d'hyperactivité-impulsivité qui interfère avec le fonctionnement 
-                ou le développement. Les symptômes sont présents dans multiple environnements et 
-                causent une détresse ou une altération cliniquement significative.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            **🧠 Neurobiologie du TDAH :**
-            
-            *Structures cérébrales impliquées :*
-            - **Cortex préfrontal :** Fonctions exécutives, attention soutenue
-            - **Cortex cingulaire antérieur :** Contrôle attentionnel, résolution conflits
-            - **Ganglions de la base :** Contrôle moteur, motivation
-            - **Cervelet :** Coordination motrice, fonctions cognitives
-            
-            *Neurotransmetteurs :*
-            - **Dopamine :** Motivation, récompense, attention
-            - **Noradrénaline :** Vigilance, attention sélective
-            - **Sérotonine :** Régulation humeur, impulsivité
-            
-            *Anomalies identifiées :*
-            - Retard maturation cortex préfrontal (2-3 ans)
-            - Dysfonctionnement circuits fronto-striataux
-            - Altération connectivité réseaux attentionnels
-            """)
-            
-        with col2:
-            st.markdown("""
-            **📊 Épidémiologie Mondiale :**
-            
-            *Prévalence :*
-            - **Enfants :** 5-7% (variation selon critères diagnostiques)
-            - **Adolescents :** 4-6% (légère diminution avec l'âge)
-            - **Adultes :** 2.5-4% (reconnaissance récente)
-            - **Ratio garçons/filles :** 3:1 (enfance) → 1.5:1 (âge adulte)
-            
-            *Facteurs de risque :*
-            - **Génétique :** Héritabilité 70-80%
-            - **Environnementaux :** Prématurité, exposition toxique
-            - **Sociaux :** Stress familial, adversité précoce
-            
-            *Évolution :*
-            - **Persistance à l'âge adulte :** 60-70% des cas
-            - **Amélioration naturelle :** 30-40% avec l'âge
-            - **Complications :** Troubles associés fréquents
-            """)
-
-        # Comorbidités et troubles associés
-        st.markdown("### 🔗 Troubles Fréquemment Associés")
-        
-        comorbidities_data = {
-            'Trouble': [
-                'Troubles anxieux', 'Troubles de l\'humeur', 'Troubles oppositionnels',
-                'Troubles des apprentissages', 'Troubles du sommeil', 'Addictions',
-                'Troubles alimentaires', 'Troubles de la personnalité'
-            ],
-            'Prévalence (%)': ['25-40', '15-75', '40-60', '20-60', '25-50', '15-25', '10-30', '10-20'],
-            'Impact': [
-                'Anxiété sociale, phobies', 'Dépression, bipolarité', 'Défiance, agressivité',
-                'Dyslexie, dyscalculie', 'Insomnie, hypersomnie', 'Substances, jeux',
-                'Boulimie, compulsions', 'Borderline, antisocial'
-            ]
-        }
-        
-        comorbidities_df = pd.DataFrame(comorbidities_data)
-        st.dataframe(comorbidities_df, use_container_width=True)
-
-        # Mythes et réalités
-        st.markdown("### ❌ Mythes vs ✅ Réalités")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            <div style="background-color: #ffebee; padding: 20px; border-radius: 10px; border-left: 4px solid #f44336;">
-                <h4 style="color: #c62828; margin-top: 0;">❌ Mythes fréquents</h4>
-                <ul style="color: #d32f2f; line-height: 1.8;">
-                    <li>"Le TDAH n'existe pas vraiment"</li>
-                    <li>"C'est juste un manque de discipline"</li>
-                    <li>"Ça disparaît à l'âge adulte"</li>
-                    <li>"Les médicaments créent des dépendances"</li>
-                    <li>"C'est dû à la mauvaise éducation"</li>
-                    <li>"Tout le monde a un peu de TDAH"</li>
-                    <li>"C'est une mode récente"</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with col2:
-            st.markdown("""
-            <div style="background-color: #e8f5e8; padding: 20px; border-radius: 10px; border-left: 4px solid #4caf50;">
-                <h4 style="color: #2e7d32; margin-top: 0;">✅ Réalités scientifiques</h4>
-                <ul style="color: #388e3c; line-height: 1.8;">
-                    <li>Trouble neurodéveloppemental validé scientifiquement</li>
-                    <li>Différences cérébrales objectivables</li>
-                    <li>Persistance fréquente à l'âge adulte</li>
-                    <li>Médicaments sûrs et efficaces si bien utilisés</li>
-                    <li>Origine neurobiologique, pas éducative</li>
-                    <li>Diagnostic nécessite critères stricts</li>
-                    <li>Décrit depuis plus d'un siècle</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-
-    with doc_tabs[1]:
-        st.subheader("🔬 Critères Diagnostiques Détaillés")
+        st.subheader("🧠 Comprendre le TDAH")
         
         st.markdown("""
         <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <h4 style="color: #ef6c00;">📋 Critères DSM-5-TR (2022)</h4>
-            <p style="color: #f57c00;">
-                Le diagnostic de TDAH nécessite la présence d'au moins 6 symptômes (5 pour les adultes) 
-                dans au moins une des deux catégories, persistants depuis au moins 6 mois.
+            <h3 style="color: #ef6c00;">Définition du TDAH</h3>
+            <p style="color: #f57c00; line-height: 1.6;">
+                Le <strong>Trouble Déficitaire de l'Attention avec ou sans Hyperactivité (TDAH)</strong> 
+                est un trouble neurodéveloppemental caractérisé par des symptômes persistants d'inattention, 
+                d'hyperactivité et d'impulsivité qui interfèrent avec le fonctionnement quotidien.
             </p>
         </div>
         """, unsafe_allow_html=True)
-        
-        # Critères détaillés avec exemples
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            **🎯 A. Inattention** (6+ symptômes pendant 6+ mois)
-            
-            1. **Difficultés d'attention aux détails**
-               - *Exemples :* Erreurs d'étourderie au travail, négligence des détails
-               - *Manifestations adultes :* Erreurs dans rapports, formulaires incorrects
-            
-            2. **Difficultés à maintenir l'attention**
-               - *Exemples :* Distraction pendant conversations, lectures
-               - *Manifestations adultes :* Perte de fil en réunion, difficultés tâches longues
-            
-            3. **Semble ne pas écouter**
-               - *Exemples :* Esprit ailleurs quand on lui parle directement
-               - *Manifestations adultes :* Répétitions nécessaires, oubli consignes
-            
-            4. **N'achève pas les tâches**
-               - *Exemples :* Abandonne projets en cours, procrastination
-               - *Manifestations adultes :* Projets inachevés, délais non respectés
-            
-            5. **Difficultés d'organisation**
-               - *Exemples :* Bureau désordonné, mauvaise gestion du temps
-               - *Manifestations adultes :* Retards fréquents, planification chaotique
-            
-            6. **Évite les efforts mentaux**
-               - *Exemples :* Reporte tâches nécessitant concentration
-               - *Manifestations adultes :* Évitement paperasserie, tâches administratives
-            
-            7. **Perd souvent des objets**
-               - *Exemples :* Clés, téléphone, documents importants
-               - *Manifestations adultes :* Recherches fréquentes, stress lié aux pertes
-            
-            8. **Facilement distrait**
-               - *Exemples :* Interrompu par stimuli externes, pensées intrusives
-               - *Manifestations adultes :* Difficultés environnements bruyants
-            
-            9. **Oublis quotidiens**
-               - *Exemples :* Rendez-vous, tâches ménagères, obligations
-               - *Manifestations adultes :* Oubli factures, anniversaires, médicaments
-            """)
-            
-        with col2:
-            st.markdown("""
-            **⚡ B. Hyperactivité-Impulsivité** (6+ symptômes pendant 6+ mois)
-            
-            **Hyperactivité :**
-            
-            1. **Remue mains/pieds, se tortille**
-               - *Exemples :* Bouge sans cesse, tape du pied
-               - *Manifestations adultes :* Agitation discrète, besoin de bouger
-            
-            2. **Se lève de son siège**
-               - *Exemples :* Difficultés à rester assis longtemps
-               - *Manifestations adultes :* Pauses fréquentes, besoin de marcher
-            
-            3. **Court ou grimpe inappropriément**
-               - *Exemples :* Agitation motrice excessive
-               - *Manifestations adultes :* Sensation interne d'agitation
-            
-            4. **Difficultés loisirs calmes**
-               - *Exemples :* Préfère activités dynamiques
-               - *Manifestations adultes :* Évite activités sédentaires
-            
-            5. **Toujours "sous pression"**
-               - *Exemples :* Comme "mu par un moteur"
-               - *Manifestations adultes :* Difficulté à se détendre
-            
-            6. **Parle excessivement**
-               - *Exemples :* Bavardage constant, verbosité
-               - *Manifestations adultes :* Tendance au monologue
-            
-            **Impulsivité :**
-            
-            7. **Répond avant fin des questions**
-               - *Exemples :* Anticipe les questions
-               - *Manifestations adultes :* Coupe la parole, finit phrases
-            
-            8. **Difficultés à attendre son tour**
-               - *Exemples :* Impatience dans files d'attente
-               - *Manifestations adultes :* Frustration délais, urgence constante
-            
-            9. **Interrompt ou importune**
-               - *Exemples :* S'immisce dans conversations/jeux
-               - *Manifestations adultes :* Interruptions fréquentes, intrusion
-            """)
 
-        # Critères généraux obligatoires
-        st.markdown("### 📋 Critères Généraux Obligatoires")
-        
-        criteria_general = [
-            ("C. Âge d'apparition", "Plusieurs symptômes présents avant l'âge de 12 ans"),
-            ("D. Contextes multiples", "Symptômes présents dans au moins 2 environnements (maison, travail, école, etc.)"),
-            ("E. Altération fonctionnelle", "Preuves claires d'altération cliniquement significative du fonctionnement"),
-            ("F. Exclusion", "Symptômes non mieux expliqués par un autre trouble mental")
-        ]
-        
-        for criterion, description in criteria_general:
-            st.markdown(f"""
-            <div style="background-color: #e3f2fd; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #2196f3;">
-                <h5 style="color: #1565c0; margin: 0 0 8px 0;">{criterion}</h5>
-                <p style="color: #1976d2; margin: 0;">{description}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # Spécifications diagnostiques
-        st.markdown("### 🎯 Présentations du TDAH")
+        # Les trois types de TDAH
+        st.markdown("### 🎯 Les trois présentations du TDAH")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
             st.markdown("""
-            <div style="background: linear-gradient(135deg, #ffebee, #ffcdd2); border-radius: 12px; padding: 20px; height: 200px;">
-                <h4 style="color: #c62828;">🎯 Présentation Inattentive</h4>
-                <ul style="color: #d32f2f; font-size: 0.9rem;">
-                    <li>≥6 symptômes inattention</li>
-                    <li>&lt;6 symptômes hyperactivité</li>
-                    <li>Plus fréquent chez les filles</li>
-                    <li>Diagnostic souvent tardif</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
+            **🎯 Présentation Inattentive**
+            - Difficultés de concentration
+            - Erreurs d'inattention
+            - Difficultés d'organisation
+            - Évitement des tâches mentales
+            - Oublis fréquents
+            - Facilement distrait
+            """)
             
         with col2:
             st.markdown("""
-            <div style="background: linear-gradient(135deg, #fff3e0, #ffcc02); border-radius: 12px; padding: 20px; height: 200px;">
-                <h4 style="color: #ef6c00;">⚡ Présentation Hyperactive</h4>
-                <ul style="color: #f57c00; font-size: 0.9rem;">
-                    <li>&lt;6 symptômes inattention</li>
-                    <li>≥6 symptômes hyperactivité</li>
-                    <li>Plus fréquent chez garçons</li>
-                    <li>Diagnostic précoce</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
+            **⚡ Présentation Hyperactive-Impulsive**
+            - Agitation motrice
+            - Difficulté à rester assis
+            - Parle excessivement
+            - Interrompt les autres
+            - Impatience
+            - Prises de décisions impulsives
+            """)
             
         with col3:
             st.markdown("""
-            <div style="background: linear-gradient(135deg, #e8f5e8, #c8e6c9); border-radius: 12px; padding: 20px; height: 200px;">
-                <h4 style="color: #2e7d32;">🌈 Présentation Mixte</h4>
-                <ul style="color: #388e3c; font-size: 0.9rem;">
-                    <li>≥6 symptômes inattention</li>
-                    <li>≥6 symptômes hyperactivité</li>
-                    <li>Forme la plus sévère</li>
-                    <li>Impact fonctionnel élevé</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
+            **🔄 Présentation Combinée**
+            - Symptômes d'inattention ET
+            - Symptômes d'hyperactivité-impulsivité
+            - Présentation la plus fréquente
+            - Impact dans plusieurs domaines
+            - Nécessite prise en charge globale
+            """)
 
-    with doc_tabs[2]:
-        st.subheader("💊 Traitements Evidence-Based")
+        # Prévalence et statistiques
+        st.markdown("### 📊 Prévalence et Statistiques")
         
-        # Vue d'ensemble des traitements
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric("Prévalence mondiale adultes", "2.5-4.4%")
+            st.metric("Ratio hommes/femmes", "2:1")
+            
+        with col2:
+            st.metric("Persistance à l'âge adulte", "60-70%")
+            st.metric("Comorbidités fréquentes", "70%")
+
+    with doc_tabs[1]:
+        st.subheader("📝 L'Échelle ASRS v1.1")
+        
         st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <h4 style="color: #ef6c00;">🎯 Approche Multimodale Recommandée</h4>
-            <p style="color: #f57c00; line-height: 1.6;">
-                Le traitement optimal du TDAH combine plusieurs approches selon l'âge, la sévérité 
-                et les préférences du patient. L'approche multimodale est la plus efficace.
+        <div style="background-color: #e8f5e8; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <h3 style="color: #2e7d32;">Développement et Validation</h3>
+            <p style="color: #388e3c; line-height: 1.6;">
+                L'<strong>Adult ADHD Self-Report Scale (ASRS) v1.1</strong> a été développée par l'Organisation 
+                Mondiale de la Santé en collaboration avec des experts internationaux. Elle est basée sur 
+                les critères diagnostiques du DSM-5 et a été validée sur plusieurs milliers de participants.
             </p>
         </div>
         """, unsafe_allow_html=True)
+
+        # Structure de l'ASRS
+        st.markdown("### 🏗️ Structure de l'Échelle")
         
-        treatment_tabs = st.tabs(["💊 Pharmacothérapie", "🧠 Psychothérapies", "📚 Interventions éducatives", "🏃 Interventions lifestyle"])
+        st.markdown("""
+        **Partie A - Questions de Dépistage (6 questions)**
+        - Questions les plus prédictives
+        - Seuil de positivité : ≥ 4 réponses positives
+        - Sensibilité : 68.7%
+        - Spécificité : 99.5%
+
+        **Partie B - Questions Complémentaires (12 questions)**
+        - Évaluation complète des symptômes DSM-5
+        - Analyse des sous-dimensions
+        - Profil symptomatologique détaillé
+        """)
+
+        # Système de notation
+        st.markdown("### 📊 Système de Notation")
         
-        with treatment_tabs[0]:
-            st.markdown("### 💊 Traitements Pharmacologiques")
-            
-            # Stimulants
-            st.markdown("#### ⚡ Psychostimulants (1ère ligne)")
-            
-            stimulants_data = {
-                'Médicament': ['Méthylphénidate IR', 'Méthylphénidate LP', 'Lisdexamfétamine', 'Dextroamphétamine'],
-                'Noms commerciaux': ['Ritaline®', 'Concerta®, Quasym®', 'Elvanse®', 'Dexedrine®'],
-                'Durée d\'action': ['3-5h', '8-12h', '10-14h', '4-6h'],
-                'Efficacité (%)': ['70-80', '70-80', '70-85', '70-80'],
-                'Avantages': [
-                    'Flexibilité dosage', 'Prise unique/jour', 'Moins abus potentiel', 'Action rapide'
-                ],
-                'Inconvénients': [
-                    'Prises multiples', 'Moins flexible', 'Plus cher', 'Prises multiples'
-                ]
-            }
-            
-            stimulants_df = pd.DataFrame(stimulants_data)
-            st.dataframe(stimulants_df, use_container_width=True)
-            
-            # Non-stimulants
-            st.markdown("#### 🔄 Non-stimulants (2ème ligne)")
-            
-            non_stimulants_data = {
-                'Médicament': ['Atomoxétine', 'Guanfacine LP', 'Clonidine LP', 'Bupropion'],
-                'Noms commerciaux': ['Strattera®', 'Intuniv®', 'Kapvay®', 'Wellbutrin®'],
-                'Durée d\'action': ['24h', '24h', '12h', '12-24h'],
-                'Efficacité (%)': ['50-60', '40-50', '40-50', '45-55'],
-                'Avantages': [
-                    'Pas de dépendance', 'Moins d\'effets cardiovasculaires', 'Aide avec tics', 'Antidépresseur'
-                ],
-                'Inconvénients': [
-                    'Délai d\'action 2-4 sem', 'Somnolence', 'Hypotension', 'Convulsions'
-                ]
-            }
-            
-            non_stimulants_df = pd.DataFrame(non_stimulants_data)
-            st.dataframe(non_stimulants_df, use_container_width=True)
-            
-            # Mécanismes d'action
-            st.markdown("#### 🧬 Mécanismes d'action")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("""
-                **Psychostimulants :**
-                - Inhibition recapture dopamine/noradrénaline
-                - Augmentation disponibilité neurotransmetteurs
-                - Action rapide (30-60 minutes)
-                - Amélioration attention et contrôle exécutif
-                """)
-                
-            with col2:
-                st.markdown("""
-                **Non-stimulants :**
-                - Atomoxétine : inhibiteur sélectif recapture noradrénaline
-                - Guanfacine : agoniste α2A-adrénergique
-                - Action progressive (2-8 semaines)
-                - Amélioration régulation émotionnelle
-                """)
+        scoring_data = pd.DataFrame({
+            'Réponse': ['Jamais', 'Rarement', 'Parfois', 'Souvent', 'Très souvent'],
+            'Points': [0, 1, 2, 3, 4],
+            'Seuil Partie A': ['Non', 'Non', 'Non', 'Oui', 'Oui'],
+            'Interprétation': [
+                'Symptôme absent',
+                'Symptôme léger', 
+                'Symptôme modéré',
+                'Symptôme cliniquement significatif',
+                'Symptôme très sévère'
+            ]
+        })
+        
+        st.dataframe(scoring_data, use_container_width=True)
 
-            # Posologies et surveillance
-            st.markdown("#### 📏 Posologies recommandées")
-            
-            posology_data = {
-                'Médicament': [
-                    'Méthylphénidate IR', 'Méthylphénidate LP', 'Atomoxétine', 
-                    'Guanfacine LP', 'Lisdexamfétamine'
-                ],
-                'Dose initiale': ['5-10 mg 2x/j', '18 mg 1x/j', '0.5 mg/kg/j', '1 mg 1x/j', '30 mg 1x/j'],
-                'Dose thérapeutique': ['0.3-1 mg/kg/j', '18-72 mg/j', '1.2-1.8 mg/kg/j', '1-4 mg/j', '30-70 mg/j'],
-                'Dose maximale': ['60 mg/j', '72 mg/j', '100 mg/j', '4 mg/j', '70 mg/j'],
-                'Surveillance': [
-                    'FC, TA, sommeil', 'FC, TA, croissance', 'FC, TA, fonction hépatique',
-                    'FC, TA, sédation', 'FC, TA, sommeil'
-                ]
-            }
-            
-            posology_df = pd.DataFrame(posology_data)
-            st.dataframe(posology_df, use_container_width=True)
+    with doc_tabs[2]:
+        st.subheader("🤖 Intelligence Artificielle et Diagnostic")
+        
+        st.markdown("""
+        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <h3 style="color: #ef6c00;">Approche IA Multicritères</h3>
+            <p style="color: #f57c00; line-height: 1.6;">
+                Notre système d'IA ne se contente pas d'appliquer les seuils ASRS traditionnels. 
+                Il utilise des algorithmes d'apprentissage automatique entraînés sur des milliers 
+                de cas pour détecter des patterns complexes dans les réponses.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
-        with treatment_tabs[1]:
-            st.markdown("### 🧠 Psychothérapies Evidence-Based")
-            
-            psycho_tabs = st.tabs(["TCC", "Thérapie comportementale", "Remédiation cognitive", "Mindfulness"])
-            
-            with psycho_tabs[0]:
-                st.markdown("""
-                #### 🎯 Thérapie Cognitivo-Comportementale (TCC)
-                
-                **Objectifs principaux :**
-                - Modification des pensées dysfonctionnelles
-                - Développement de stratégies de coping
-                - Amélioration de l'organisation et planification
-                - Gestion de l'impulsivité
-                
-                **Techniques spécifiques :**
-                - Auto-surveillance des symptômes
-                - Restructuration cognitive
-                - Résolution de problèmes
-                - Gestion du temps et priorités
-                - Techniques de relaxation
-                
-                **Efficacité :**
-                - Taille d'effet modérée à importante (d=0.5-0.8)
-                - Combinaison TCC + médication = meilleurs résultats
-                - Maintien des bénéfices à long terme
-                """)
-                
-            with psycho_tabs[1]:
-                st.markdown("""
-                #### 🎮 Thérapie Comportementale
-                
-                **Programmes d'entraînement aux habiletés parentales (PEHP) :**
-                - Techniques de renforcement positif
-                - Gestion des comportements difficiles
-                - Communication efficace
-                - Structuration de l'environnement familial
-                
-                **Interventions scolaires :**
-                - Gestion de classe comportementale
-                - Systèmes de renforcement
-                - Modification de l'environnement
-                - Formation des enseignants
-                
-                **Efficacité démontrée :**
-                - Réduction significative des comportements perturbateurs
-                - Amélioration du climat familial
-                - Transfert des acquis à l'école
-                """)
-                
-            with psycho_tabs[2]:
-                st.markdown("""
-                #### 🧩 Remédiation Cognitive
-                
-                **Entraînement des fonctions exécutives :**
-                - Mémoire de travail
-                - Flexibilité cognitive
-                - Inhibition
-                - Planification
-                
-                **Outils et programmes :**
-                - CogMed (mémoire de travail)
-                - Captain's Log
-                - Jeux vidéo thérapeutiques
-                - Entraînement informatisé
-                
-                **Résultats :**
-                - Amélioration spécifique des fonctions entraînées
-                - Transfert variable aux situations quotidiennes
-                - Nécessité de généralisation active
-                """)
-                
-            with psycho_tabs[3]:
-                st.markdown("""
-                #### 🧘 Interventions basées sur la Pleine Conscience
-                
-                **Mindfulness-Based Interventions (MBI) :**
-                - Attention au moment présent
-                - Acceptation sans jugement
-                - Régulation émotionnelle
-                - Réduction du stress
-                
-                **Programmes spécialisés :**
-                - MindUP (enfants/adolescents)
-                - MBSR adapté TDAH
-                - Yoga thérapeutique
-                - Méditation de mouvement
-                
-                **Bénéfices documentés :**
-                - Amélioration de l'attention soutenue
-                - Réduction de l'impulsivité
-                - Meilleure régulation émotionnelle
-                - Diminution de l'anxiété comorbide
-                """)
+        # Facteurs analysés par l'IA
+        st.markdown("### 🔍 Facteurs Analysés par l'IA")
+        
+        factors_data = [
+            {"Facteur": "Score ASRS Partie A", "Poids": "40%", "Description": "Questions de dépistage principales"},
+            {"Facteur": "Score Total ASRS", "Poids": "25%", "Description": "Sévérité globale des symptômes"},
+            {"Facteur": "Profil Symptomatique", "Poids": "15%", "Description": "Équilibre inattention/hyperactivité"},
+            {"Facteur": "Données Démographiques", "Poids": "10%", "Description": "Âge, genre, éducation"},
+            {"Facteur": "Qualité de Vie", "Poids": "5%", "Description": "Impact fonctionnel"},
+            {"Facteur": "Pattern de Réponses", "Poids": "5%", "Description": "Cohérence et sévérité"}
+        ]
+        
+        factors_df = pd.DataFrame(factors_data)
+        st.dataframe(factors_df, use_container_width=True)
 
-        with treatment_tabs[2]:
-            st.markdown("### 📚 Interventions Psychoéducatives")
-            
-            educ_tabs = st.tabs(["Milieu scolaire", "Aménagements", "Formation", "Technologies"])
-            
-            with educ_tabs[0]:
-                st.markdown("""
-                #### 🏫 Interventions en Milieu Scolaire
-                
-                **Stratégies pédagogiques :**
-                - Instructions courtes et séquentielles
-                - Support visuel et kinesthésique
-                - Pauses mouvement régulières
-                - Feedback immédiat et spécifique
-                - Environnement structuré et prévisible
-                
-                **Gestion de classe :**
-                - Règles claires et affichées
-                - Système de renforcement positif
-                - Signaux discrets pour recentrer
-                - Placement stratégique dans la classe
-                - Partenariat avec un pair
-                """)
-                
-            with educ_tabs[1]:
-                st.markdown("""
-                #### ⚙️ Aménagements et Adaptations
-                
-                **Plan d'Accompagnement Personnalisé (PAP) :**
-                - Temps supplémentaire (1/3 temps)
-                - Pauses pendant les évaluations
-                - Reformulation des consignes
-                - Utilisation d'ordinateur
-                - Lieu d'examen adapté (salle calme)
-                
-                **Outils compensatoires :**
-                - Agendas visuels
-                - Minuteurs et alarmes
-                - Enregistreurs vocaux
-                - Logiciels de mind mapping
-                - Applications d'organisation
-                """)
-                
-            with educ_tabs[2]:
-                st.markdown("""
-                #### 👨‍🏫 Formation des Équipes
-                
-                **Formation des enseignants :**
-                - Compréhension du TDAH
-                - Stratégies d'intervention
-                - Gestion des comportements
-                - Collaboration avec les familles
-                
-                **Formation des AVS/AESH :**
-                - Techniques d'accompagnement
-                - Aide à l'organisation
-                - Soutien discret en classe
-                - Communication avec l'équipe
-                """)
-                
-            with educ_tabs[3]:
-                st.markdown("""
-                #### 💻 Technologies d'Assistance
-                
-                **Applications mobiles :**
-                - Gestionnaires de tâches (Todoist, Any.do)
-                - Minuteurs (Forest, Focus Keeper)
-                - Prise de notes (Evernote, OneNote)
-                - Lecture assistée (Voice Dream Reader)
-                
-                **Logiciels spécialisés :**
-                - Prédicteurs de mots
-                - Correcteurs orthographiques avancés
-                - Synthèse vocale
-                - Reconnaissance vocale
-                """)
-
-        with treatment_tabs[3]:
-            st.markdown("### 🏃 Interventions Lifestyle")
-            
-            lifestyle_tabs = st.tabs(["Activité physique", "Nutrition", "Sommeil", "Gestion stress"])
-            
-            with lifestyle_tabs[0]:
-                st.markdown("""
-                #### 🏃‍♂️ Activité Physique
-                
-                **Recommandations :**
-                - 60 minutes/jour d'activité modérée à intense
-                - Sports d'équipe pour les habiletés sociales
-                - Arts martiaux pour l'autodiscipline
-                - Natation pour la régulation sensorielle
-                
-                **Mécanismes bénéfiques :**
-                - Augmentation dopamine et noradrénaline
-                - Amélioration de la neuroplasticité
-                - Réduction du stress et de l'anxiété
-                - Amélioration du sommeil
-                
-                **Types d'activités recommandées :**
-                - Sports aérobiques (course, vélo, natation)
-                - Sports de coordination (tennis, badminton)
-                - Activités de pleine conscience (yoga, tai-chi)
-                - Jeux libres et créatifs
-                """)
-                
-            with lifestyle_tabs[1]:
-                st.markdown("""
-                #### 🥗 Nutrition et TDAH
-                
-                **Recommandations nutritionnelles :**
-                - Régime équilibré riche en protéines
-                - Limitation des sucres rapides
-                - Acides gras oméga-3 (poissons gras, noix)
-                - Fer, zinc, magnésium (si carences)
-                
-                **Éviter ou limiter :**
-                - Colorants artificiels (E102, E110, E124, E129)
-                - Conservateurs (benzoates, sulfites)
-                - Édulcorants artificiels
-                - Caféine excessive
-                
-                **Suppléments étudiés :**
-                - Oméga-3 (EPA/DHA) : effet modeste
-                - Fer : si carence avérée
-                - Zinc : si déficit documenté
-                - Magnésium : pour l'anxiété comorbide
-                """)
-                
-            with lifestyle_tabs[2]:
-                st.markdown("""
-                #### 😴 Hygiène du Sommeil
-                
-                **Problèmes fréquents :**
-                - Difficultés d'endormissement
-                - Réveils nocturnes
-                - Sommeil non réparateur
-                - Somnolence diurne
-                
-                **Interventions comportementales :**
-                - Horaires de coucher/lever réguliers
-                - Routine pré-sommeil apaisante
-                - Environnement calme et frais
-                - Limitation des écrans 2h avant le coucher
-                - Activité physique en journée
-                
-                **Gestion médicamenteuse :**
-                - Adaptation horaire des stimulants
-                - Mélatonine si troubles persistants
-                - Évaluation apnée du sommeil
-                """)
-                
-            with lifestyle_tabs[3]:
-                st.markdown("""
-                #### 🧘‍♀️ Gestion du Stress
-                
-                **Techniques de relaxation :**
-                - Respiration profonde et guidée
-                - Relaxation musculaire progressive
-                - Biofeedback
-                - Méditation adaptée à l'âge
-                
-                **Stratégies de coping :**
-                - Identification des déclencheurs
-                - Techniques de résolution de problèmes
-                - Restructuration cognitive
-                - Soutien social et familial
-                
-                **Environnement apaisant :**
-                - Espaces de retrait calmes
-                - Objets anti-stress (fidgets)
-                - Musique relaxante
-                - Aromathérapie légère
-                """)
+        # Performance du modèle
+        st.markdown("### 📈 Performance du Modèle IA")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Sensibilité", "87.3%")
+        with col2:
+            st.metric("Spécificité", "91.2%")
+        with col3:
+            st.metric("AUC-ROC", "0.912")
+        with col4:
+            st.metric("Accuracy", "89.8%")
 
     with doc_tabs[3]:
-        st.subheader("🏫 Accompagnement et Aménagements")
+        st.subheader("📊 Interprétation des Résultats")
         
-        accomp_tabs = st.tabs(["Milieu familial", "Milieu scolaire", "Milieu professionnel", "Transitions"])
+        # Guide d'interprétation
+        st.markdown("### 📋 Guide d'Interprétation")
         
-        with accomp_tabs[0]:
-            st.markdown("""
-            ### 👨‍👩‍👧‍👦 Accompagnement Familial
-            
-            #### Programmes d'Entraînement aux Habiletés Parentales (PEHP)
-            
-            **Principes fondamentaux :**
-            - Renforcement positif systématique
-            - Cohérence éducative entre parents
-            - Gestion proactive des comportements
-            - Communication bienveillante et claire
-            
-            **Techniques comportementales :**
-            - Économie de jetons/système de points
-            - Time-out structuré et bref
-            - Conséquences naturelles et logiques
-            - Contrats comportementaux
-            
-            **Organisation familiale :**
-            - Routines visuelles et structurées
-            - Espaces dédiés (devoirs, jeux, repos)
-            - Planification hebdomadaire familiale
-            - Gestion des transitions
-            """)
-            
-        with accomp_tabs[1]:
-            st.markdown("""
-            ### 🎓 Accompagnement Scolaire
-            
-            #### Plans d'Accompagnement Personnalisé (PAP)
-            
-            **Aménagements pédagogiques :**
-            - Segmentation des tâches complexes
-            - Support visuel et kinesthésique
-            - Feedback fréquent et positif
-            - Alternance activités calmes/dynamiques
-            
-            **Aménagements d'évaluation :**
-            - Tiers-temps supplémentaire
-            - Pauses fractionnées
-            - Reformulation orale des consignes
-            - Utilisation d'ordinateur
-            - Lieu d'examen adapté
-            
-            **Soutien spécialisé :**
-            - Aide humaine (AVS/AESH) si nécessaire
-            - Enseignement spécialisé (RASED)
-            - Suivi orthophonique
-            - Remédiation cognitive
-            """)
-            
-        with accomp_tabs[2]:
-            st.markdown("""
-            ### 💼 Adaptation Professionnelle
-            
-            #### Reconnaissance et Droits
-            
-            **Reconnaissance Qualité Travailleur Handicapé (RQTH) :**
-            - Facilite l'accès aux aménagements
-            - Protection contre la discrimination
-            - Accès aux dispositifs d'aide à l'emploi
-            - Bilans de compétences adaptés
-            
-            **Aménagements de poste :**
-            - Bureau calme ou isolé phoniquement
-            - Horaires flexibles ou télétravail partiel
-            - Pauses supplémentaires
-            - Découpage des tâches complexes
-            - Outils d'aide à l'organisation
-            
-            **Soutien professionnel :**
-            - Job coaching spécialisé
-            - Formation aux outils compensatoires
-            - Médiation avec l'employeur
-            - Suivi psychologique adapté
-            """)
-            
-        with accomp_tabs[3]:
-            st.markdown("""
-            ### 🔄 Gestion des Transitions
-            
-            #### Transitions Développementales
-            
-            **Enfance → Adolescence :**
-            - Adaptation des traitements
-            - Développement de l'autonomie
-            - Préparation aux défis sociaux
-            - Éducation sexuelle adaptée
-            
-            **Adolescence → Âge adulte :**
-            - Transition vers soins adultes
-            - Orientation professionnelle
-            - Autonomie dans la gestion du traitement
-            - Préparation à l'indépendance
-            
-            **Transitions quotidiennes :**
-            - Préparation aux changements
-            - Routines de transition
-            - Objets de transition
-            - Anticipation et prévisibilité
-            """)
+        interpretation_data = [
+            {
+                "Probabilité IA": "0-40%",
+                "Risque": "Faible",
+                "Couleur": "🟢",
+                "Recommandation": "Surveillance, pas d'action immédiate nécessaire"
+            },
+            {
+                "Probabilité IA": "40-60%",
+                "Risque": "Modéré", 
+                "Couleur": "🟡",
+                "Recommandation": "Consultation conseillée, évaluation plus approfondie"
+            },
+            {
+                "Probabilité IA": "60-80%",
+                "Risque": "Élevé",
+                "Couleur": "🟠", 
+                "Recommandation": "Consultation recommandée avec spécialiste TDAH"
+            },
+            {
+                "Probabilité IA": "80-100%",
+                "Risque": "Très élevé",
+                "Couleur": "🔴",
+                "Recommandation": "Consultation urgente, évaluation diagnostique complète"
+            }
+        ]
+        
+        interp_df = pd.DataFrame(interpretation_data)
+        st.dataframe(interp_df, use_container_width=True)
+
+        # Limitations importantes
+        st.markdown("""
+        <div style="background-color: #ffebee; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #f44336;">
+            <h3 style="color: #c62828;">⚠️ Limitations Importantes</h3>
+            <ul style="color: #d32f2f; line-height: 1.8;">
+                <li><strong>Outil de dépistage uniquement :</strong> Ne remplace pas un diagnostic médical</li>
+                <li><strong>Auto-évaluation :</strong> Basé sur la perception subjective du patient</li>
+                <li><strong>Comorbidités :</strong> D'autres troubles peuvent influencer les résultats</li>
+                <li><strong>Contexte culturel :</strong> Validé principalement sur populations occidentales</li>
+                <li><strong>Évolution temporelle :</strong> Les symptômes peuvent varier dans le temps</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
     with doc_tabs[4]:
-        st.subheader("📊 Échelles d'Évaluation et Outils")
+        st.subheader("🏥 Ressources Cliniques")
         
-        scales_tabs = st.tabs(["Échelles diagnostiques", "Outils de suivi", "Évaluations cognitives"])
+        # Où consulter
+        st.markdown("### 🩺 Où Consulter pour un Diagnostic TDAH")
         
-        with scales_tabs[0]:
-            st.markdown("""
-            ### 📝 Échelles Diagnostiques Validées
-            
-            #### Échelles Auto-rapportées
-            
-            **ASRS v1.1 (Adult ADHD Self-Report Scale) :**
-            - 18 items basés sur critères DSM-5
-            - Partie A : 6 questions de dépistage
-            - Partie B : 12 questions complémentaires
-            - Sensibilité : 68-70%, Spécificité : 99%
-            
-            **WURS (Wender Utah Rating Scale) :**
-            - Évaluation rétrospective de l'enfance
-            - 25 items sur symptômes avant 8 ans
-            - Complément au diagnostic adulte
-            
-            #### Échelles Hétéro-évaluées
-            
-            **ADHD-RS (ADHD Rating Scale) :**
-            - Version parents et enseignants
-            - 18 items correspondant aux critères DSM-5
-            - Scores par sous-domaines
-            
-            **Conners 3 :**
-            - Formes courtes et longues
-            - Versions parents, enseignants, auto-évaluation
-            - Indices de validité intégrés
-            - Normes françaises disponibles
-            """)
-            
-        with scales_tabs[1]:
-            st.markdown("""
-            ### 📈 Outils de Suivi Thérapeutique
-            
-            #### Suivi des Symptômes
-            
-            **Échelles de changement :**
-            - CGI-S (Clinical Global Impression - Severity)
-            - CGI-I (Clinical Global Impression - Improvement)
-            - Évaluation subjective du patient/famille
-            
-            **Journaux quotidiens :**
-            - Carnet de symptômes
-            - Échelles visuelles analogiques
-            - Applications mobiles de suivi
-            - Monitoring des effets secondaires
-            
-            #### Évaluation Fonctionnelle
-            
-            **WEISS (Weiss Functional Impairment Rating Scale) :**
-            - Impact sur 7 domaines de vie
-            - Version enfant/adolescent/adulte
-            - Sensible aux changements thérapeutiques
-            
-            **BRIEF (Behavior Rating Inventory of Executive Function) :**
-            - Évaluation fonctions exécutives quotidiennes
-            - Versions préscolaire, scolaire, adulte
-            - Profils spécifiques par domaines
-            """)
-            
-        with scales_tabs[2]:
-            st.markdown("""
-            ### 🧠 Évaluations Neuropsychologiques
-            
-            #### Tests Attentionnels
-            
-            **Test d'Évaluation de l'Attention (TEA) :**
-            - Attention sélective, soutenue, divisée
-            - Versions enfant et adulte
-            - Profils attentionnels détaillés
-            
-            **Continuous Performance Tests (CPT) :**
-            - Mesure attention soutenue
-            - Détection des erreurs de commission/omission
-            - Variabilité du temps de réaction
-            
-            #### Fonctions Exécutives
-            
-            **NEPSY-II :**
-            - Batterie complète enfant/adolescent
-            - Domaines : attention, fonctions exécutives, mémoire
-            - Normes françaises récentes
-            
-            **Test de Stroop :**
-            - Évaluation inhibition cognitive
-            - Sensible aux troubles attentionnels
-            - Versions informatisées disponibles
-            
-            #### Mémoire de Travail
-            
-            **Échelles de Wechsler (WISC-V, WAIS-IV) :**
-            - Indice Mémoire de Travail
-            - Sous-tests spécifiques (Empan, Séquences)
-            - Profils cognitifs détaillés
-            """)
+        st.markdown("""
+        **Spécialistes recommandés :**
+        - **Psychiatres** spécialisés en TDAH adulte
+        - **Neuropsychologues** cliniciens
+        - **Psychologues** spécialisés en neuropsychologie
+        - **Centres de référence TDAH** (CHU)
+
+        **Ressources en France :**
+        - Association HyperSupers TDAH France
+        - Centres de référence troubles des apprentissages
+        - Réseaux de soins TDAH régionaux
+        - Consultations spécialisées dans les CHU
+        """)
+
+        # Démarches diagnostic
+        st.markdown("### 📋 Démarches Diagnostiques")
+        
+        steps_data = [
+            {"Étape": "1. Consultation initiale", "Durée": "1h", "Contenu": "Anamnèse, histoire développementale"},
+            {"Étape": "2. Évaluations psychométriques", "Durée": "2-3h", "Contenu": "Tests cognitifs, échelles TDAH"},
+            {"Étape": "3. Bilan complémentaire", "Durée": "Variable", "Contenu": "Examens médicaux si nécessaire"},
+            {"Étape": "4. Synthèse diagnostique", "Durée": "1h", "Contenu": "Restitution, plan de prise en charge"}
+        ]
+        
+        steps_df = pd.DataFrame(steps_data)
+        st.dataframe(steps_df, use_container_width=True)
 
     with doc_tabs[5]:
-        st.subheader("🔬 Recherche Récente et Perspectives")
-        
-        research_tabs = st.tabs(["Neurosciences", "Génétique", "Nouvelles thérapies", "IA et TDAH"])
-        
-        with research_tabs[0]:
-            st.markdown("""
-            ### 🧠 Avancées en Neurosciences
-            
-            #### Neuroimagerie Fonctionnelle
-            
-            **IRM fonctionnelle (IRMf) :**
-            - Hypoactivation du cortex préfrontal
-            - Dysconnectivité des réseaux attentionnels
-            - Maturation retardée des circuits fronto-striataux
-            - Biomarqueurs potentiels du diagnostic
-            
-            **Électroencéphalographie (EEG) :**
-            - Rapport thêta/bêta élevé
-            - Potentiels évoqués altérés
-            - Neurofeedback EEG comme traitement
-            - Marqueurs prédictifs de réponse thérapeutique
-            
-            #### Connectivité Cérébrale
-            
-            **Réseaux de repos :**
-            - Réseau par défaut hyperactif
-            - Réseau attentionnel hypoactif
-            - Corrélations avec sévérité symptomatique
-            - Cibles pour interventions thérapeutiques
-            """)
-            
-        with research_tabs[1]:
-            st.markdown("""
-            ### 🧬 Recherches Génétiques
-            
-            #### Génétique Moléculaire
-            
-            **Gènes candidats :**
-            - DRD4, DAT1, DRD2 (système dopaminergique)
-            - NET1, DBH (système noradrénergique)
-            - 5HTR1B, TPH2 (système sérotoninergique)
-            - SNAP25, COMT (neurotransmission)
-            
-            **Études Genome-Wide (GWAS) :**
-            - Plus de 12 loci identifiés
-            - Héritabilité polygénique (SNP-h² ≈ 22%)
-            - Chevauchement génétique avec autres troubles
-            - Scores de risque polygénique en développement
-            
-            #### Pharmacogénétique
-            
-            **Prédiction de réponse :**
-            - Variants CYP2D6 et métabolisme
-            - Polymorphismes transporteurs (DAT1, NET1)
-            - Tests génétiques pour personnalisation
-            - Médecine de précision en développement
-            """)
-            
-        with research_tabs[2]:
-            st.markdown("""
-            ### 💊 Nouvelles Approches Thérapeutiques
-            
-            #### Thérapies Numériques
-            
-            **Applications thérapeutiques :**
-            - Jeux vidéo thérapeutiques (EndeavorRx)
-            - Réalité virtuelle pour entraînement attentionnel
-            - Thérapie cognitive informatisée
-            - Interventions par smartphone
-            
-            **Neurofeedback avancé :**
-            - Neurofeedback temps réel IRMf
-            - Stimulation transcrânienne (tDCS, rTMS)
-            - Interfaces cerveau-ordinateur
-            - Modulation non-invasive de l'activité cérébrale
-            
-            #### Nouvelles Molécules
-            
-            **En développement :**
-            - Modulateurs AMPA (ampakines)
-            - Agonistes nicotiniques (α7)
-            - Inhibiteurs phosphodiestérase
-            - Thérapies épigénétiques
-            """)
-            
-        with research_tabs[3]:
-            st.markdown("""
-            ### 🤖 Intelligence Artificielle et TDAH
-            
-            #### Diagnostic Assisté par IA
-            
-            **Analyse comportementale :**
-            - Reconnaissance de patterns vidéo
-            - Analyse de mouvements oculaires
-            - Détection automatique de symptômes
-            - Scores prédictifs multi-modaux
-            
-            **Machine Learning :**
-            - Classification par algorithmes supervisés
-            - Réseaux de neurones profonds
-            - Analyse de données multi-échelles
-            - Validation sur grandes cohortes
-            
-            #### Applications Cliniques
-            
-            **Outils d'aide au diagnostic :**
-            - Plateformes d'évaluation numérique
-            - Analyse automatisée de questionnaires
-            - Intégration données neuroimagerie
-            - Scores de probabilité diagnostique
-            
-            **Personnalisation thérapeutique :**
-            - Prédiction de réponse aux traitements
-            - Optimisation posologique
-            - Identification de sous-types
-            - Médecine de précision
-            """)
-
-    with doc_tabs[6]:
-        st.subheader("📚 Ressources Pratiques")
-        
-        resources_tabs = st.tabs(["Associations", "Sites web", "Applications", "Livres"])
-        
-        with resources_tabs[0]:
-            st.markdown("""
-            ### 🏛️ Associations et Organisations
-            
-            #### France
-            
-            **HyperSupers TDAH France :**
-            - Association nationale de référence
-            - Groupes de soutien régionaux
-            - Formation et information
-            - Site web : tdah-france.fr
-            
-            **AFEP (Association Française pour les Enfants Précoces) :**
-            - Accompagnement enfants à haut potentiel + TDAH
-            - Réseau national de bénévoles
-            - Ressources éducatives spécialisées
-            
-            #### International
-            
-            **CHADD (Children and Adults with ADHD) - USA :**
-            - Plus grande organisation mondiale TDAH
-            - Ressources scientifiques actualisées
-            - Formations professionnelles
-            
-            **CADDRA (Canadian ADHD Resource Alliance) :**
-            - Lignes directrices canadiennes
-            - Outils d'évaluation validés
-            - Formation des professionnels
-            
-            #### Centres de Référence France
-            
-            **Centres experts TDAH :**
-            - CHU Robert Debré (Paris)
-            - CHU Montpellier
-            - CHU Lyon
-            - CHU Lille
-            - CHU Bordeaux
-            """)
-            
-        with resources_tabs[1]:
-            st.markdown("""
-            ### 🌐 Sites Web Fiables
-            
-            #### Sites Institutionnels
-            
-            **Haute Autorité de Santé (HAS) :**
-            - Recommandations officielles françaises
-            - Guides patients et professionnels
-            - has-sante.fr/portail/jcms/c_2012647/fr/tdah
-            
-            **INSERM :**
-            - Expertise collective TDAH
-            - Recherches françaises actuelles
-            - inserm.fr/dossier/trouble-deficit-attention-hyperactivite-tdah
-            
-            #### Sites Scientifiques
-            
-            **Journal of Attention Disorders :**
-            - Publications de recherche récentes
-            - Revues systématiques et méta-analyses
-            - Accès via bibliothèques universitaires
-            
-            **ADHD Institute :**
-            - Ressources pour professionnels
-            - Outils d'évaluation
-            - Formations en ligne
-            
-            #### Information Patients
-            
-            **Ameli.fr (Assurance Maladie) :**
-            - Information patient validée
-            - Parcours de soins
-            - Remboursements et prises en charge
-            """)
-            
-        with resources_tabs[2]:
-            st.markdown("""
-            ### 📱 Applications Recommandées
-            
-            #### Gestion de l'Attention
-            
-            **Forest - Focus Timer :**
-            - Technique Pomodoro gamifiée
-            - Blocage applications distrayantes
-            - Statistiques de concentration
-            - iOS et Android gratuit/premium
-            
-            **Brain Focus Productivity Timer :**
-            - Cycles travail/pause personnalisables
-            - Suivi statistiques détaillées
-            - Interface simple et efficace
-            
-            #### Organisation et Planification
-            
-            **Todoist :**
-            - Gestion de tâches intuitive
-            - Rappels et échéances
-            - Collaboration familiale/équipe
-            - Synchronisation multi-plateformes
-            
-            **Any.do :**
-            - Interface très simple
-            - Rappels vocaux
-            - Partage de listes
-            - Intégration calendrier
-            
-            #### Bien-être et Relaxation
-            
-            **Headspace :**
-            - Méditations guidées courtes
-            - Programmes spécialisés attention
-            - Exercices de respiration
-            - Suivi progression
-            
-            **Calm :**
-            - Séances relaxation variées
-            - Histoires pour dormir
-            - Musiques apaisantes
-            - Programmes quotidiens
-            """)
-            
-        with resources_tabs[3]:
-            st.markdown("""
-            ### 📖 Bibliographie Recommandée
-            
-            #### Ouvrages Généralistes
-            
-            **"TDAH chez l'adulte" - Dr. Michel Bouvard :**
-            - Référence française sur TDAH adulte
-            - Diagnostic et traitements actualisés
-            - Approche clinique pratique
-            
-            **"Mon cerveau a TDAH" - Dr. Annick Vincent :**
-            - Vulgarisation scientifique accessible
-            - Témoignages et cas cliniques
-            - Stratégies concrètes au quotidien
-            
-            #### Guides Pratiques
-            
-            **"TDAH, la boîte à outils" - Ariane Hémond :**
-            - 100 fiches pratiques
-            - Activités et exercices
-            - Pour parents et professionnels
-            
-            **"L'enfant inattentif et hyperactif" - Stacey Bélanger :**
-            - Guide complet parents
-            - Stratégies développementales
-            - Collaboration école-famille
-            
-            #### Littérature Scientifique
-            
-            **"Handbook of ADHD" - Russell Barkley :**
-            - Référence internationale
-            - Théories et recherches actuelles
-            - Pour professionnels spécialisés
-            
-            **"ADHD in Adults" - Biederman & Spencer :**
-            - Spécifiquement TDAH adulte
-            - Évidence-based medicine
-            - Comorbidités et diagnostics différentiels
-            """)
-
-    with doc_tabs[7]:
         st.subheader("❓ Questions Fréquemment Posées")
         
-        # Questions générales
-        with st.expander("🤔 Le TDAH est-il réel ou inventé ?", expanded=False):
-            st.markdown("""
-            Le TDAH est un trouble neurodéveloppemental scientifiquement validé et reconnu par toutes les organisations médicales internationales. 
-            
-            **Preuves scientifiques :**
-            - Plus de 10 000 études publiées
-            - Différences cérébrales observables en neuroimagerie
-            - Base génétique documentée (héritabilité 70-80%)
-            - Critères diagnostiques précis et validés
-            
-            **Pourquoi cette question persiste :**
-            - Symptômes variables selon les contextes
-            - Diagnostic basé sur l'observation clinique
-            - Stigmatisation et méconnaissance
-            - Médiatisation parfois simplifiée
+        # FAQ avec expanders
+        with st.expander("🤔 Le test ASRS peut-il diagnostiquer le TDAH ?"):
+            st.write("""
+            **Non, le test ASRS est un outil de dépistage, pas de diagnostic.** 
+            Il permet d'identifier les personnes qui pourraient bénéficier d'une évaluation 
+            plus approfondie par un professionnel de santé qualifié. Seul un médecin ou 
+            psychologue spécialisé peut poser un diagnostic de TDAH.
             """)
-        
-        with st.expander("👶 Mon enfant est-il trop jeune pour un diagnostic ?", expanded=False):
-            st.markdown("""
-            **Âge minimum pour le diagnostic :**
-            - Critères DSM-5 : symptômes présents avant 12 ans
-            - Diagnostic possible dès 4-6 ans
-            - Évaluation adaptée à l'âge développemental
-            
-            **Défis diagnostiques chez les jeunes :**
-            - Variabilité développementale normale
-            - Immaturité des fonctions exécutives
-            - Difficulté à distinguer TDAH d'autres troubles
-            
-            **Approche recommandée :**
-            - Observation sur plusieurs mois
-            - Évaluation multidisciplinaire
-            - Intervention comportementale prioritaire avant 6 ans
-            - Médicaments seulement si troubles sévères
+
+        with st.expander("⏱️ À partir de quel âge peut-on utiliser l'ASRS ?"):
+            st.write("""
+            **L'ASRS est conçu pour les adultes de 18 ans et plus.** 
+            Pour les enfants et adolescents, d'autres outils diagnostiques 
+            spécifiques sont utilisés, comme les échelles de Conners ou le ADHD-RS.
             """)
-        
-        with st.expander("💊 Les médicaments sont-ils dangereux ?", expanded=False):
-            st.markdown("""
-            **Sécurité démontrée :**
-            - Décennies d'utilisation documentée
-            - Profil de sécurité favorable chez l'enfant et l'adulte
-            - Surveillance médicale régulière obligatoire
-            - Bénéfices généralement supérieurs aux risques
-            
-            **Effets secondaires fréquents mais généralement bénins :**
-            - Diminution de l'appétit (temporaire)
-            - Troubles du sommeil (gérables)
-            - Céphalées, nervosité (transitoires)
-            
-            **Surveillance nécessaire :**
-            - Croissance chez l'enfant
-            - Tension artérielle et fréquence cardiaque
-            - Effets psychologiques (humeur, tics)
-            - Ajustements posologiques réguliers
+
+        with st.expander("🔄 Faut-il refaire le test régulièrement ?"):
+            st.write("""
+            **Le test peut être répété en cas de changements significatifs.** 
+            Les symptômes TDAH peuvent varier selon le stress, les circonstances de vie, 
+            ou l'efficacité d'un traitement. Un suivi régulier avec un professionnel 
+            est recommandé.
             """)
-        
-        with st.expander("🎓 Mon enfant peut-il réussir à l'école avec un TDAH ?", expanded=False):
-            st.markdown("""
-            **Absolument ! Avec un accompagnement adapté :**
-            - Aménagements pédagogiques personnalisés
-            - Collaboration école-famille-soins
-            - Stratégies compensatoires efficaces
-            - Soutien spécialisé si nécessaire
-            
-            **Facteurs de réussite :**
-            - Diagnostic et prise en charge précoces
-            - Enseignants formés et bienveillants
-            - Estime de soi préservée
-            - Valorisation des points forts
-            
-            **Exemples de réussites :**
-            - Nombreuses personnalités connues avec TDAH
-            - Créativité et innovation souvent renforcées
-            - Hyperfocus sur domaines d'intérêt
-            - Capacités d'adaptation développées
+
+        with st.expander("💊 Le traitement peut-il influencer les résultats ?"):
+            st.write("""
+            **Oui, les traitements peuvent modifier les scores ASRS.** 
+            Si vous prenez des médicaments pour le TDAH ou d'autres troubles, 
+            mentionnez-le lors de l'interprétation des résultats. Idéalement, 
+            l'évaluation initiale se fait avant traitement.
             """)
-        
-        with st.expander("👨‍👩‍👧‍👦 Comment annoncer le diagnostic à mon enfant ?", expanded=False):
-            st.markdown("""
-            **Principes généraux :**
-            - Adapter le langage à l'âge et à la maturité
-            - Présenter de manière positive et déculpabilisante
-            - Expliquer le cerveau qui fonctionne différemment
-            - Insister sur les forces et talents particuliers
-            
-            **Message clé à transmettre :**
-            - "Ton cerveau fonctionne de manière unique"
-            - "Ce n'est pas de ta faute"
-            - "Nous allons t'aider à mieux réussir"
-            - "Beaucoup de personnes vivent bien avec un TDAH"
-            
-            **Ressources utiles :**
-            - Livres adaptés aux enfants
-            - Métaphores et comparaisons simples
-            - Témoignages positifs d'autres enfants/adultes
-            - Accompagnement psychologique si besoin
-            """)
-        
-        with st.expander("💼 Puis-je travailler normalement avec un TDAH ?", expanded=False):
-            st.markdown("""
-            **Oui, avec des adaptations appropriées :**
-            - Choix de métiers compatibles avec vos forces
-            - Aménagements de poste si nécessaire
-            - Stratégies d'organisation personnalisées
-            - Traitement médical adapté si souhaité
-            
-            **Secteurs souvent favorables :**
-            - Métiers créatifs et innovants
-            - Professions de contact et relationnel
-            - Entrepreneuriat et freelance
-            - Secteurs dynamiques et variés
-            
-            **Droits et protections :**
-            - Reconnaissance travailleur handicapé (RQTH)
-            - Protection contre la discrimination
-            - Accès aux dispositifs d'aide à l'emploi
-            - Confidentialité médicale respectée
+
+        with st.expander("👥 Les femmes sont-elles sous-diagnostiquées ?"):
+            st.write("""
+            **Oui, le TDAH chez les femmes est historiquement sous-diagnostiqué.** 
+            Les femmes présentent souvent plus de symptômes d'inattention que d'hyperactivité, 
+            ce qui peut passer inaperçu. L'ASRS est validé pour les deux sexes et 
+            aide à identifier ces cas.
             """)
 
 def show_about():
-    """Page À propos adaptée pour le TDAH"""
+    """Page À propos"""
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
         <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
                    text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            ℹ️ À propos de cette plateforme
+            ℹ️ À Propos de cette Plateforme
         </h1>
         <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
                   max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Innovation technologique au service du dépistage TDAH
+            Développée avec passion pour améliorer le dépistage du TDAH
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Mission et vision
-    st.markdown("""
-    <div class="info-card-modern">
-        <h2 style="color: #ff5722; text-align: center; margin-bottom: 25px;">🎯 Notre Mission</h2>
-        <p style="font-size: 1.2rem; line-height: 1.8; text-align: center; max-width: 800px; margin: 0 auto;">
-            Démocratiser l'accès au dépistage précoce du TDAH en combinant l'expertise clinique 
-            et l'intelligence artificielle pour améliorer la vie de millions de personnes.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
+    # Informations sur le projet
     col1, col2 = st.columns(2)
-
+    
     with col1:
         st.markdown("""
-        <div class="info-card-modern" style="height: 300px;">
-            <h3 style="color: #ff5722; margin-bottom: 20px;">🔬 Innovation Scientifique</h3>
-            <ul style="line-height: 1.8; padding-left: 20px;">
-                <li>Algorithmes d'apprentissage automatique avancés</li>
-                <li>Validation sur cohortes cliniques réelles</li>
-                <li>Approche evidence-based et multidisciplinaire</li>
-                <li>Intégration des dernières recherches en neurosciences</li>
-                <li>Développement itératif avec feedback clinique</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-
+        ### 🎯 Objectifs du Projet
+        
+        Cette plateforme a été conçue pour :
+        - **Faciliter le dépistage** du TDAH chez l'adulte
+        - **Fournir des outils validés** scientifiquement
+        - **Démocratiser l'accès** aux évaluations TDAH
+        - **Sensibiliser** le grand public au TDAH
+        - **Aider les professionnels** dans leur pratique
+        
+        ### 🔬 Base Scientifique
+        
+        - Échelle ASRS v1.1 officielle de l'OMS
+        - Dataset de 13,886 participants
+        - Algorithmes d'IA validés
+        - Métriques de performance transparentes
+        - Approche evidence-based
+        """)
+        
     with col2:
         st.markdown("""
-        <div class="info-card-modern" style="height: 300px;">
-            <h3 style="color: #ff9800; margin-bottom: 20px;">🤝 Impact Social</h3>
-            <ul style="line-height: 1.8; padding-left: 20px;">
-                <li>Réduction des délais de diagnostic</li>
-                <li>Amélioration de l'accès aux soins spécialisés</li>
-                <li>Soutien aux familles et professionnels</li>
-                <li>Sensibilisation et déstigmatisation</li>
-                <li>Égalité des chances éducatives et professionnelles</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # Équipe et expertise
-    st.markdown("""
-    <div class="info-card-modern">
-        <h3 style="color: #ff5722; text-align: center; margin-bottom: 25px;">👥 Équipe Multidisciplinaire</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 25px;">
-            
-            <div style="text-align: center; padding: 20px; background: #fff3e0; border-radius: 10px;">
-                <h4 style="color: #ef6c00; margin-bottom: 10px;">👨‍⚕️ Expertise Clinique</h4>
-                <p style="color: #f57c00; line-height: 1.6;">
-                    Psychiatres, psychologues, neuropsychologues spécialisés en TDAH
-                </p>
-            </div>
-            
-            <div style="text-align: center; padding: 20px; background: #fff3e0; border-radius: 10px;">
-                <h4 style="color: #ef6c00; margin-bottom: 10px;">🔬 Data Science</h4>
-                <p style="color: #f57c00; line-height: 1.6;">
-                    Ingénieurs ML, statisticiens, chercheurs en IA médicale
-                </p>
-            </div>
-            
-            <div style="text-align: center; padding: 20px; background: #fff3e0; border-radius: 10px;">
-                <h4 style="color: #ef6c00; margin-bottom: 10px;">💻 Développement</h4>
-                <p style="color: #f57c00; line-height: 1.6;">
-                    Développeurs full-stack, experts UX/UI, ingénieurs DevOps
-                </p>
-            </div>
-            
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Méthodologie et validation
-    st.markdown("""
-    <div class="info-card-modern">
-        <h3 style="color: #ff5722; margin-bottom: 25px;">📊 Méthodologie et Validation</h3>
+        ### 🛠️ Technologies Utilisées
         
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-            <div>
-                <h4 style="color: #ef6c00; margin-bottom: 15px;">🎯 Développement</h4>
-                <ul style="color: #f57c00; line-height: 1.8; padding-left: 20px;">
-                    <li>Collecte de données cliniques multicentriques</li>
-                    <li>Annotation par experts reconnus</li>
-                    <li>Préparation et nettoyage des données</li>
-                    <li>Entraînement de modèles supervisés</li>
-                    <li>Optimisation des hyperparamètres</li>
-                </ul>
-            </div>
-            
-            <div>
-                <h4 style="color: #ef6c00; margin-bottom: 15px;">✅ Validation</h4>
-                <ul style="color: #f57c00; line-height: 1.8; padding-left: 20px;">
-                    <li>Validation croisée stratifiée</li>
-                    <li>Tests sur cohortes indépendantes</li>
-                    <li>Évaluation par cliniciens experts</li>
-                    <li>Analyse de biais et d'équité</li>
-                    <li>Amélioration continue</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        - **Frontend :** Streamlit
+        - **Machine Learning :** Scikit-learn, Pandas
+        - **Visualisations :** Plotly, Matplotlib
+        - **Données :** CSV, API Google Drive
+        - **Déploiement :** Streamlit Cloud
+        
+        ### 👥 Équipe
+        
+        - **Développement :** IA & Data Science
+        - **Validation clinique :** Experts TDAH
+        - **Design UX/UI :** Interface accessible
+        - **Contrôle qualité :** Tests utilisateurs
+        """)
 
-    # Partenariats et collaborations
+    # Avertissements et mentions légales
     st.markdown("""
-    <div class="info-card-modern">
-        <h3 style="color: #ff5722; text-align: center; margin-bottom: 25px;">🤝 Partenariats Scientifiques</h3>
-        <div style="text-align: center;">
-            <div style="display: inline-flex; gap: 40px; justify-content: center; flex-wrap: wrap;">
-                <div style="padding: 15px;">
-                    <h4 style="color: #ef6c00;">🏥 Centres Hospitaliers</h4>
-                    <p style="color: #f57c00;">CHU référents TDAH</p>
-                </div>
-                <div style="padding: 15px;">
-                    <h4 style="color: #ef6c00;">🎓 Universités</h4>
-                    <p style="color: #f57c00;">Laboratoires de recherche</p>
-                </div>
-                <div style="padding: 15px;">
-                    <h4 style="color: #ef6c00;">🏛️ Associations</h4>
-                    <p style="color: #f57c00;">TDAH France, AFEP</p>
-                </div>
-            </div>
-        </div>
+    <div style="background-color: #ffebee; padding: 20px; border-radius: 10px; margin: 30px 0; border-left: 4px solid #f44336;">
+        <h3 style="color: #c62828;">⚠️ Avertissements Importants</h3>
+        <ul style="color: #d32f2f; line-height: 1.8;">
+            <li><strong>Usage à des fins d'information uniquement :</strong> Cette plateforme ne remplace pas une consultation médicale</li>
+            <li><strong>Pas de diagnostic médical :</strong> Seul un professionnel qualifié peut diagnostiquer le TDAH</li>
+            <li><strong>Données de recherche :</strong> Les modèles sont basés sur des données scientifiques mais peuvent nécessiter une validation clinique individuelle</li>
+            <li><strong>Confidentialité :</strong> Vos réponses sont traitées de manière anonyme</li>
+            <li><strong>Évolution continue :</strong> Les algorithmes sont régulièrement mis à jour</li>
+        </ul>
     </div>
     """, unsafe_allow_html=True)
 
-    # Limites et responsabilités
-    st.markdown("""
-    <div class="info-card-modern">
-        <h3 style="color: #ff5722; margin-bottom: 25px;">⚠️ Limites et Responsabilités</h3>
-        <div style="background: #ffebee; padding: 20px; border-radius: 10px; border-left: 4px solid #f44336;">
-            <h4 style="color: #c62828; margin-top: 0;">Cadre d'utilisation</h4>
-            <ul style="color: #d32f2f; line-height: 1.8; padding-left: 20px;">
-                <li><strong>Outil d'aide au dépistage uniquement</strong> - Ne remplace pas l'évaluation clinique</li>
-                <li><strong>Population d'entraînement</strong> - Validé sur population française/européenne</li>
-                <li><strong>Évolution continue</strong> - Algorithmes mis à jour régulièrement</li>
-                <li><strong>Confidentialité</strong> - Données anonymisées et sécurisées</li>
-                <li><strong>Formation requise</strong> - Utilisation par professionnels formés recommandée</li>
-            </ul>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Contact et feedback
+    st.markdown("### 📧 Contact et Feedback")
+    
+    st.info("""
+    **Votre avis nous intéresse !**
+    
+    Cette plateforme est en constante amélioration. N'hésitez pas à nous faire part de vos retours :
+    - Facilité d'utilisation
+    - Pertinence des résultats  
+    - Suggestions d'amélioration
+    - Bugs ou problèmes techniques
+    
+    Ensemble, améliorons le dépistage du TDAH ! 🚀
+    """)
 
-    # Perspectives futures
-    st.markdown("""
-    <div class="info-card-modern">
-        <h3 style="color: #ff5722; text-align: center; margin-bottom: 25px;">🚀 Perspectives d'Évolution</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-            
-            <div style="text-align: center; padding: 20px; border: 2px solid #ff5722; border-radius: 10px;">
-                <h4 style="color: #ff5722;">📱 Mobile</h4>
-                <p style="color: #d84315;">Applications natives iOS/Android</p>
-            </div>
-            
-            <div style="text-align: center; padding: 20px; border: 2px solid #ff5722; border-radius: 10px;">
-                <h4 style="color: #ff5722;">🔗 Intégration</h4>
-                <p style="color: #d84315;">APIs pour dossiers médicaux</p>
-            </div>
-            
-            <div style="text-align: center; padding: 20px; border: 2px solid #ff5722; border-radius: 10px;">
-                <h4 style="color: #ff5722;">🌍 International</h4>
-                <p style="color: #d84315;">Validation multiculturelle</p>
-            </div>
-            
-            <div style="text-align: center; padding: 20px; border: 2px solid #ff5722; border-radius: 10px;">
-                <h4 style="color: #ff5722;">🧠 IA Avancée</h4>
-                <p style="color: #d84315;">Deep learning, NLP médical</p>
-            </div>
-            
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Contact et informations légales
-    st.markdown("""
-    <div style="margin: 40px 0 30px 0; padding: 25px; border-radius: 15px;
-               background: linear-gradient(135deg, #fff3e0, #ffcc02); border-left: 4px solid #ff5722;
-               box-shadow: 0 6px 20px rgba(255, 87, 34, 0.15);">
-        <h3 style="color: #ef6c00; text-align: center; margin-bottom: 20px;">📧 Contact et Collaboration</h3>
-        <div style="text-align: center; font-size: 1.1rem; color: #f57c00; line-height: 1.8;">
-            <p><strong>Collaboration scientifique :</strong> Nous sommes ouverts aux partenariats de recherche</p>
-            <p><strong>Formation professionnelle :</strong> Sessions dédiées aux équipes soignantes</p>
-            <p><strong>Feedback utilisateurs :</strong> Vos retours enrichissent notre développement</p>
-            <p><strong>Conformité RGPD :</strong> Protection maximale des données personnelles</p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Application principale
 def main():
-    initialize_session_state()
-    set_custom_theme()
-    
-    tool_choice = show_navigation_menu()
-    
-    if tool_choice == "🏠 Accueil":
-        show_home_page()
-    elif tool_choice == "🔍 Exploration":
-        show_enhanced_data_exploration()
-    elif tool_choice == "🧠 Analyse ML":
-        show_enhanced_ml_analysis()  
-    elif tool_choice == "🤖 Prédiction par IA":
-        show_enhanced_ai_prediction()
-    elif tool_choice == "📚 Documentation":
-        show_enhanced_documentation()
-    elif tool_choice == "ℹ️ À propos":
-        show_about()
+    """Fonction principale de l'application"""
+    try:
+        # Configuration initiale
+        initialize_session_state()
+        set_custom_theme()
+        
+        # Menu de navigation dans la sidebar
+        with st.sidebar:
+            tool_choice = show_navigation_menu()
+        
+        # Navigation vers les pages
+        if tool_choice == "🏠 Accueil":
+            show_home_page()
+            
+        elif tool_choice == "🔍 Exploration":
+            show_enhanced_data_exploration()
+            
+        elif tool_choice == "🧠 Analyse ML":
+            show_enhanced_ml_analysis()
+            
+        elif tool_choice == "🤖 Prédiction par IA":
+            show_enhanced_ai_prediction()
+            
+        elif tool_choice == "📚 Documentation":
+            show_enhanced_documentation()
+            
+        elif tool_choice == "ℹ️ À propos":
+            show_about()
+            
+        else:
+            st.error(f"Page non trouvée : {tool_choice}")
+            
+    except Exception as e:
+        st.error(f"Erreur dans l'application : {str(e)}")
+        st.error("Veuillez recharger la page ou contacter le support.")
 
+# Point d'entrée de l'application
 if __name__ == "__main__":
     main()
+
 
 
