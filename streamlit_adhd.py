@@ -12,28 +12,40 @@ import warnings
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
 
-# Imports scientifiques (CRITIQUES - doivent être en premier)
+# Configuration globale pour éviter les erreurs d'import
+import sys
+
+# Imports scientifiques CRITIQUES avec gestion globale
 try:
     import numpy as np
     import pandas as pd
+    # Rendre numpy accessible globalement
+    globals()['np'] = np
+    globals()['pd'] = pd
     NUMPY_AVAILABLE = True
+    st.success("✅ NumPy et Pandas chargés avec succès")
 except ImportError as e:
     st.error(f"❌ Erreur critique : {e}")
+    st.error("Veuillez installer numpy et pandas : pip install numpy pandas")
     st.stop()
 
-# Imports visualisation
+# Imports visualisation avec gestion d'erreur améliorée
 try:
     import plotly.express as px
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
     import matplotlib.pyplot as plt
     import seaborn as sns
+    # Rendre plotly accessible globalement
+    globals()['px'] = px
+    globals()['go'] = go
+    globals()['make_subplots'] = make_subplots
     PLOTLY_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     PLOTLY_AVAILABLE = False
-    st.warning("⚠️ Bibliothèques de visualisation non disponibles")
+    st.warning(f"⚠️ Bibliothèques de visualisation non disponibles : {e}")
 
-# Imports ML avec gestion d'erreur
+# Imports ML avec gestion d'erreur robuste
 try:
     from sklearn.model_selection import train_test_split, GridSearchCV
     from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -43,20 +55,14 @@ try:
     from scipy import stats
     from scipy.stats import mannwhitneyu, chi2_contingency, pearsonr, spearmanr
     SKLEARN_AVAILABLE = True
-except ImportError:
+    st.success("✅ Scikit-learn chargé avec succès")
+except ImportError as e:
     SKLEARN_AVAILABLE = False
-    st.warning("⚠️ Scikit-learn non disponible - fonctionnalités ML limitées")
-
-# Imports optionnels
-try:
-    import requests
-    from PIL import Image
-    import streamlit.components.v1 as components
-except ImportError:
-    st.warning("⚠️ Certaines fonctionnalités optionnelles non disponibles")
+    st.warning(f"⚠️ Scikit-learn non disponible : {e}")
 
 # Suppression des warnings
 warnings.filterwarnings('ignore')
+
 
 # Configuration de la page
 st.set_page_config(
@@ -509,17 +515,49 @@ def show_navigation_menu():
 
     return tool_choice
 
+
+def safe_numpy_operation(operation, data, fallback_value=0):
+    """
+    Exécute une opération numpy de manière sécurisée avec fallback
+    """
+    try:
+        import numpy as np_safe
+        return operation(np_safe, data)
+    except Exception as e:
+        st.warning(f"⚠️ Opération numpy échouée : {e}. Utilisation de calcul alternatif.")
+        return fallback_value
+
+def calculate_std_safe(values):
+    """
+    Calcul d'écart-type sécurisé avec ou sans numpy
+    """
+    try:
+        import numpy as np_std
+        return np_std.std(values)
+    except:
+        # Calcul manuel de l'écart-type
+        if len(values) == 0:
+            return 0
+        mean_val = sum(values) / len(values)
+        variance = sum((x - mean_val) ** 2 for x in values) / len(values)
+        return variance ** 0.5
+
+
 @st.cache_data(ttl=86400)
 def load_enhanced_dataset():
-    """Charge le dataset TDAH enrichi depuis Google Drive"""
+    """Charge le dataset TDAH enrichi depuis Google Drive avec gestion d'erreur"""
     try:
-        # URL du nouveau dataset Google Drive
+        # Import local de pandas pour éviter les erreurs de portée
+        import pandas as pd_local
+        import numpy as np_local
+        
+        # URL du dataset Google Drive
         url = 'https://drive.google.com/file/d/15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR/view?usp=drive_link'
         file_id = url.split('/d/')[1].split('/')[0]
         download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
         
         # Chargement du dataset
-        df = pd.read_csv(download_url)
+        df = pd_local.read_csv(download_url)
         
         # Vérification de l'intégrité des données
         st.success(f"✅ Dataset chargé avec succès ! {len(df)} participants, {len(df.columns)} variables")
@@ -530,6 +568,76 @@ def load_enhanced_dataset():
         st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
         st.info("Utilisation de données simulées à la place")
         return create_fallback_dataset()
+
+def create_fallback_dataset():
+    """Crée un dataset de fallback avec imports locaux sécurisés"""
+    try:
+        import numpy as np_fallback
+        import pandas as pd_fallback
+        
+        np_fallback.random.seed(42)
+        n_samples = 1500
+        
+        # Structure basée sur le vrai dataset
+        data = {
+            'subject_id': [f'FALLBACK_{str(i).zfill(5)}' for i in range(1, n_samples + 1)],
+            'age': np_fallback.random.randint(18, 65, n_samples),
+            'gender': np_fallback.random.choice(['M', 'F'], n_samples),
+            'diagnosis': np_fallback.random.binomial(1, 0.3, n_samples),
+            'site': np_fallback.random.choice(['Site_Paris', 'Site_Lyon', 'Site_Marseille'], n_samples),
+        }
+        
+        # Questions ASRS
+        for i in range(1, 19):
+            data[f'asrs_q{i}'] = np_fallback.random.randint(0, 5, n_samples)
+        
+        # Scores calculés
+        data['asrs_inattention'] = np_fallback.random.randint(0, 36, n_samples)
+        data['asrs_hyperactivity'] = np_fallback.random.randint(0, 36, n_samples)
+        data['asrs_total'] = data['asrs_inattention'] + data['asrs_hyperactivity']
+        data['asrs_part_a'] = np_fallback.random.randint(0, 24, n_samples)
+        data['asrs_part_b'] = np_fallback.random.randint(0, 48, n_samples)
+        
+        # Variables supplémentaires
+        data.update({
+            'education': np_fallback.random.choice(['Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'], n_samples),
+            'job_status': np_fallback.random.choice(['CDI', 'CDD', 'Freelance', 'Étudiant', 'Chômeur'], n_samples),
+            'marital_status': np_fallback.random.choice(['Célibataire', 'En couple', 'Marié(e)', 'Divorcé(e)'], n_samples),
+            'quality_of_life': np_fallback.random.uniform(1, 10, n_samples),
+            'stress_level': np_fallback.random.uniform(1, 5, n_samples),
+            'sleep_problems': np_fallback.random.uniform(1, 5, n_samples),
+        })
+        
+        return pd_fallback.DataFrame(data)
+        
+    except Exception as e:
+        st.error(f"Erreur critique dans la création du dataset de fallback : {e}")
+        # Retourner un DataFrame vide plutôt que de planter
+        return pd.DataFrame()
+
+
+def test_numpy_availability():
+    """Test de disponibilité de numpy et pandas"""
+    try:
+        import numpy as test_np
+        import pandas as test_pd
+        
+        # Test simple
+        test_array = test_np.array([1, 2, 3, 4, 5])
+        test_std = test_np.std(test_array)
+        test_df = test_pd.DataFrame({'test': [1, 2, 3]})
+        
+        st.success(f"✅ Test numpy/pandas réussi - std test: {test_std:.2f}")
+        return True
+        
+    except Exception as e:
+        st.error(f"❌ Test numpy/pandas échoué : {e}")
+        return False
+
+# Appeler le test au début de l'application
+if 'numpy_tested' not in st.session_state:
+    st.session_state.numpy_tested = test_numpy_availability()
+
 
 def create_fallback_dataset():
     """Crée un dataset de fallback compatible avec la structure attendue"""
@@ -2256,17 +2364,20 @@ def show_enhanced_ai_prediction():
             
             results = st.session_state.asrs_results
             
-            # KPIs principaux
+            # KPIs principaux avec gestion sécurisée
             st.markdown("### 🎯 KPIs Principaux")
             
             col1, col2, col3, col4, col5 = st.columns(5)
             
-            # Calculs des KPIs avec vérifications de sécurité
+            # Calculs des KPIs avec protection d'erreur
             try:
+                # Import local de numpy pour éviter l'erreur de portée
+                import numpy as np_local
+                
                 total_score = results['scores']['total']
                 severity_index = (total_score / 72) * 100
                 
-                # Correction : calcul complet des symptômes totaux
+                # Calcul sécurisé des symptômes totaux
                 inatt_score = results['scores']['inattention'] 
                 hyper_score = results['scores']['hyperactivity']
                 total_symptoms = inatt_score + hyper_score
@@ -2277,12 +2388,19 @@ def show_enhanced_ai_prediction():
                 else:
                     inatt_dominance = 0.5  # Valeur par défaut
                     
-                hyper_dominance = 1 - inatt_dominance
-                
-                # Calcul de la cohérence des réponses
+                # Calcul de la cohérence des réponses avec gestion d'erreur
                 responses_values = list(results['responses'].values())
-                if len(responses_values) > 0 and NUMPY_AVAILABLE:
-                    response_consistency = 1 - (np.std(responses_values) / 4)  # Normalisation sur 0-4
+                if len(responses_values) > 0:
+                    try:
+                        # Utilisation de l'import local
+                        std_responses = np_local.std(responses_values)
+                        response_consistency = max(0, 1 - (std_responses / 4))  # Normalisation sur 0-4
+                    except Exception as e:
+                        # Calcul alternatif sans numpy
+                        mean_val = sum(responses_values) / len(responses_values)
+                        variance = sum((x - mean_val) ** 2 for x in responses_values) / len(responses_values)
+                        std_responses = variance ** 0.5
+                        response_consistency = max(0, 1 - (std_responses / 4))
                 else:
                     response_consistency = 0.5  # Valeur par défaut
                 
@@ -2292,7 +2410,7 @@ def show_enhanced_ai_prediction():
                 
                 part_a_severity = (results['scores']['part_a'] / 24) * 100
                 
-                # Affichage des métriques
+                # Affichage des métriques avec protection
                 with col1:
                     st.metric(
                         "Indice de sévérité", 
@@ -2349,6 +2467,18 @@ def show_enhanced_ai_prediction():
                 st.error(f"❌ Erreur dans le calcul des KPIs : {str(e)}")
                 st.info("ℹ️ Rechargez la page et recommencez le test ASRS")
                 
+                # KPIs de secours (valeurs par défaut)
+                with col1:
+                    st.metric("Indice de sévérité", "N/A")
+                with col2:
+                    st.metric("Dominance inattention", "N/A")
+                with col3:
+                    st.metric("Cohérence réponses", "N/A")
+                with col4:
+                    st.metric("Concentration sévérité", "N/A")
+                with col5:
+                    st.metric("Score dépistage", "N/A")
+                    
         else:
             st.warning("Veuillez d'abord compléter le test ASRS dans le premier onglet.")
 
