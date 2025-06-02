@@ -2008,42 +2008,42 @@ def show_enhanced_ml_analysis():
             st.markdown("### 🛠️ Test de Préparation des Features")
             
             # APRÈS (version corrigée)
-    if st.button("🔍 Analyser les variables disponibles"):
-        # Vérification des dépendances d'abord
-        if not check_ml_dependencies():
-            st.stop()
-        
-    with st.spinner("Analyse en cours..."):
-        # Test de préparation avec la fonction maintenant définie
-        X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
-        
-        if X_train is not None:
-            st.session_state.ml_data_prepared = {
-                'X_train': X_train,
-                'X_test': X_test,
-                'y_train': y_train,
-                'y_test': y_test
-            }
-            
-            # Affichage des informations
-            st.success("✅ Données préparées avec succès !")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("**Variables sélectionnées:**")
-                for col in X_train.columns[:10]:  # Limite à 10
-                    st.write(f"• {col}")
-                if len(X_train.columns) > 10:
-                    st.write(f"• ... et {len(X_train.columns) - 10} autres")
-            
-            with col2:
-                st.markdown("**Statistiques:**")
-                st.write(f"• Features: {X_train.shape[1]}")
-                st.write(f"• Échantillons d'entraînement: {X_train.shape[0]}")
-                st.write(f"• Échantillons de test: {X_test.shape[0]}")
-                st.write(f"• Classe positive: {y_train.sum()}/{len(y_train)}")
-        else:
-            st.error("❌ Impossible de préparer les données")
+            if st.button("🔍 Analyser les variables disponibles"):
+                # Vérification des dépendances d'abord
+                if not check_ml_dependencies():
+                    st.stop()
+                
+            with st.spinner("Analyse en cours..."):
+                # Test de préparation avec la fonction maintenant définie
+                X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
+                
+                if X_train is not None:
+                    st.session_state.ml_data_prepared = {
+                        'X_train': X_train,
+                        'X_test': X_test,
+                        'y_train': y_train,
+                        'y_test': y_test
+                    }
+                    
+                    # Affichage des informations
+                    st.success("✅ Données préparées avec succès !")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("**Variables sélectionnées:**")
+                        for col in X_train.columns[:10]:  # Limite à 10
+                            st.write(f"• {col}")
+                        if len(X_train.columns) > 10:
+                            st.write(f"• ... et {len(X_train.columns) - 10} autres")
+                    
+                    with col2:
+                        st.markdown("**Statistiques:**")
+                        st.write(f"• Features: {X_train.shape[1]}")
+                        st.write(f"• Échantillons d'entraînement: {X_train.shape[0]}")
+                        st.write(f"• Échantillons de test: {X_test.shape[0]}")
+                        st.write(f"• Classe positive: {y_train.sum()}/{len(y_train)}")
+                else:
+                    st.error("❌ Impossible de préparer les données")
 
             
         except Exception as e:
