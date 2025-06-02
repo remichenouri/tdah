@@ -1630,6 +1630,212 @@ def load_ml_libraries():
 if 'ml_libs_loaded' not in st.session_state:
     st.session_state.ml_libs_loaded = load_ml_libraries()
 
+def prepare_ml_data_safe(df):
+    """Préparation des données ML avec gestion d'erreur complète"""
+    try:
+        # Import local sécurisé
+        import numpy as np_safe
+        import pandas as pd_safe
+        
+        st.info("🔄 Préparation des données en cours...")
+        
+        # Vérification du dataset
+        if df is None or len(df) == 0:
+            st.error("❌ Dataset vide ou non disponible")
+            return None, None, None, None
+        
+        # Vérification de la colonne target
+        if 'diagnosis' not in df.columns:
+            st.error("❌ Colonne 'diagnosis' manquante dans le dataset")
+            return None, None, None, None
+        
+        # Préparation des features
+        feature_columns = [col for col in df.columns if col not in ['diagnosis', 'subject_id']]
+        
+        if len(feature_columns) == 0:
+            st.error("❌ Aucune feature disponible pour l'entraînement")
+            return None, None, None, None
+        
+        # Sélection des variables numériques uniquement pour éviter les erreurs
+        numeric_features = []
+        for col in feature_columns:
+            try:
+                # Test de conversion numérique
+                pd_safe.to_numeric(df[col], errors='coerce')
+                if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
+                    numeric_features.append(col)
+            except:
+                continue
+        
+        if len(numeric_features) == 0:
+            st.error("❌ Aucune variable numérique trouvée")
+            return None, None, None, None
+        
+        st.success(f"✅ {len(numeric_features)} variables numériques sélectionnées")
+        
+        # Préparation des données
+        X = df[numeric_features].copy()
+        y = df['diagnosis'].copy()
+        
+        # Nettoyage des valeurs manquantes
+        X = X.fillna(X.mean())
+        
+        # Vérification des dimensions
+        st.info(f"📊 Dimensions finales : X={X.shape}, y={y.shape}")
+        
+        # Division train/test avec protection
+        try:
+            from sklearn.model_selection import train_test_split
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, 
+                test_size=0.2, 
+                random_state=42,
+                stratify=y if len(np_safe.unique(y)) > 1 else None
+            )
+            
+            st.success(f"✅ Division réussie : Train={X_train.shape[0]}, Test={X_test.shape[0]}")
+            
+            return X_train, X_test, y_train, y_test
+            
+        except Exception as e:
+            st.error(f"❌ Erreur lors de la division : {str(e)}")
+            return None, None, None, None
+            
+    except Exception as e:
+        st.error(f"❌ Erreur dans la préparation des données : {str(e)}")
+        return None, None, None, None
+
+def train_simple_models_safe(X_train, X_test, y_train, y_test):
+    """Entraînement de modèles ML simplifié et sécurisé"""
+    try:
+        import numpy as np_train
+        
+        results = {}
+        
+        # Modèles simples à entraîner
+        models_to_test = {
+            'RandomForest': {
+                'class': RandomForestClassifier,
+                'params': {'n_estimators': 100, 'random_state': 42, 'max_depth': 10}
+            },
+            'LogisticRegression': {
+                'class': LogisticRegression,
+                'params': {'random_state': 42, 'max_iter': 1000}
+            }
+        }
+        
+        # Entraînement de chaque modèle
+        for model_name, model_config in models_to_test.items():
+            try:
+                st.info(f"🔄 Entraînement {model_name}...")
+                
+                # Initialisation du modèle
+                model = model_config['class'](**model_config['params'])
+                
+                # Entraînement
+                model.fit(X_train, y_train)
+                
+                # Prédictions
+                y_pred = model.predict(X_test)
+                
+                # Calcul des métriques avec protection
+                try:
+                    accuracy = accuracy_score(y_test, y_pred)
+                    precision = precision_score(y_test, y_pred, zero_division=0)
+                    recall = recall_score(y_test, y_pred, zero_division=0)
+                    f1 = f1_score(y_test, y_pred, zero_division=0)
+                    
+                    # AUC seulement si proba disponible
+                    try:
+                        y_proba = model.predict_proba(X_test)[:, 1]
+                        auc = roc_auc_score(y_test, y_proba)
+                    except:
+                        auc = 0.5  # Valeur par défaut
+                    
+                    results[model_name] = {
+                        'model': model,
+                        'accuracy': accuracy,
+                        'precision': precision,
+                        'recall': recall,
+                        'f1': f1,
+                        'auc': auc
+                    }
+                    
+                    st.success(f"✅ {model_name} : Accuracy={accuracy:.3f}")
+                    
+                except Exception as metric_error:
+                    st.warning(f"⚠️ Erreur métriques {model_name}: {metric_error}")
+                    continue
+                    
+            except Exception as model_error:
+                st.warning(f"⚠️ Erreur entraînement {model_name}: {model_error}")
+                continue
+        
+        if len(results) == 0:
+            st.error("❌ Aucun modèle n'a pu être entraîné")
+            return None
+        
+        # Sélection du meilleur modèle
+        best_model_name = max(results.keys(), key=lambda x: results[x]['accuracy'])
+        
+        st.success(f"🏆 Meilleur modèle : {best_model_name}")
+        
+        return {
+            'models': results,
+            'best_model_name': best_model_name,
+            'training_completed': True
+        }
+        
+    except Exception as e:
+        st.error(f"❌ Erreur générale d'entraînement : {str(e)}")
+        return None
+
+def check_ml_dependencies():
+    """Vérifie que toutes les dépendances ML sont disponibles"""
+    missing_deps = []
+    
+    try:
+        from sklearn.model_selection import train_test_split
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+    except ImportError as e:
+        missing_deps.append(f"scikit-learn: {e}")
+    
+    try:
+        import numpy as np
+        import pandas as pd
+    except ImportError as e:
+        missing_deps.append(f"numpy/pandas: {e}")
+    
+    if missing_deps:
+        st.error("❌ Dépendances ML manquantes :")
+        for dep in missing_deps:
+            st.error(f"  • {dep}")
+        st.code("pip install scikit-learn numpy pandas", language="bash")
+        return False
+    
+    return True
+
+def safe_model_prediction(model, X_data):
+    """Prédiction sécurisée avec gestion d'erreur"""
+    try:
+        if hasattr(model, 'predict'):
+            predictions = model.predict(X_data)
+            probabilities = None
+            
+            if hasattr(model, 'predict_proba'):
+                probabilities = model.predict_proba(X_data)
+                
+            return predictions, probabilities
+        else:
+            st.error("❌ Modèle non valide pour la prédiction")
+            return None, None
+            
+    except Exception as e:
+        st.error(f"❌ Erreur de prédiction : {str(e)}")
+        return None, None
+
 
 @st.cache_resource(show_spinner="Entraînement des modèles...")
 def train_optimized_models(df):
@@ -1801,38 +2007,44 @@ def show_enhanced_ml_analysis():
             # Test de préparation des données
             st.markdown("### 🛠️ Test de Préparation des Features")
             
-            if st.button("🔍 Analyser les variables disponibles"):
-                with st.spinner("Analyse en cours..."):
-                    # Test de préparation
-                    X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
-                    
-                    if X_train is not None:
-                        st.session_state.ml_data_prepared = {
-                            'X_train': X_train,
-                            'X_test': X_test,
-                            'y_train': y_train,
-                            'y_test': y_test
-                        }
-                        
-                        # Affichage des informations
-                        st.success("✅ Données préparées avec succès !")
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.markdown("**Variables sélectionnées:**")
-                            for col in X_train.columns[:10]:  # Limite à 10
-                                st.write(f"• {col}")
-                            if len(X_train.columns) > 10:
-                                st.write(f"• ... et {len(X_train.columns) - 10} autres")
-                        
-                        with col2:
-                            st.markdown("**Statistiques:**")
-                            st.write(f"• Features: {X_train.shape[1]}")
-                            st.write(f"• Échantillons d'entraînement: {X_train.shape[0]}")
-                            st.write(f"• Échantillons de test: {X_test.shape[0]}")
-                            st.write(f"• Classe positive: {y_train.sum()}/{len(y_train)}")
-                    else:
-                        st.error("❌ Impossible de préparer les données")
+            # APRÈS (version corrigée)
+if st.button("🔍 Analyser les variables disponibles"):
+    # Vérification des dépendances d'abord
+    if not check_ml_dependencies():
+        st.stop()
+        
+    with st.spinner("Analyse en cours..."):
+        # Test de préparation avec la fonction maintenant définie
+        X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
+        
+        if X_train is not None:
+            st.session_state.ml_data_prepared = {
+                'X_train': X_train,
+                'X_test': X_test,
+                'y_train': y_train,
+                'y_test': y_test
+            }
+            
+            # Affichage des informations
+            st.success("✅ Données préparées avec succès !")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**Variables sélectionnées:**")
+                for col in X_train.columns[:10]:  # Limite à 10
+                    st.write(f"• {col}")
+                if len(X_train.columns) > 10:
+                    st.write(f"• ... et {len(X_train.columns) - 10} autres")
+            
+            with col2:
+                st.markdown("**Statistiques:**")
+                st.write(f"• Features: {X_train.shape[1]}")
+                st.write(f"• Échantillons d'entraînement: {X_train.shape[0]}")
+                st.write(f"• Échantillons de test: {X_test.shape[0]}")
+                st.write(f"• Classe positive: {y_train.sum()}/{len(y_train)}")
+        else:
+            st.error("❌ Impossible de préparer les données")
+
             
         except Exception as e:
             st.error(f"❌ Erreur dans l'analyse des données : {str(e)}")
