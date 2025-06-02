@@ -1570,113 +1570,66 @@ def show_enhanced_data_exploration():
 def load_ml_libraries():
     """Charge les bibliothèques ML nécessaires de manière sécurisée"""
     try:
-        from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-        from sklearn.linear_model import LogisticRegression
-        from sklearn.svm import SVC
-        from sklearn.neural_network import MLPClassifier
-        from sklearn.neighbors import KNeighborsClassifier
-        from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder, PolynomialFeatures
-        from sklearn.compose import ColumnTransformer
-        from sklearn.pipeline import Pipeline
-        from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
-                                    f1_score, roc_auc_score, confusion_matrix, 
-                                    classification_report, roc_curve, precision_recall_curve)
-        from sklearn.model_selection import cross_val_score, train_test_split, GridSearchCV, RandomizedSearchCV
-        from sklearn.feature_selection import RFE, SelectKBest, f_classif
-
-        missing_libraries = []
+        # Imports de base avec gestion d'erreur
+        import numpy as np
+        import pandas as pd
+        
+        # Stockage global immédiat
+        globals()['np'] = np
+        globals()['pd'] = pd
+        
+        # Test immédiat de fonctionnement
+        test_array = np.array([1, 2, 3])
+        test_df = pd.DataFrame({'test': [1, 2, 3]})
+        
+        st.success("✅ NumPy et Pandas chargés avec succès")
+        
+        # Imports ML avec protection
         try:
-            from lazypredict.Supervised import LazyClassifier
-            globals()['LazyClassifier'] = LazyClassifier
-            st.success("✅ LazyPredict loaded successfully")
-        except ImportError:
-            missing_libraries.append("lazypredict")
+            from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+            from sklearn.linear_model import LogisticRegression
+            from sklearn.svm import SVC
+            from sklearn.neural_network import MLPClassifier
+            from sklearn.neighbors import KNeighborsClassifier
+            from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
+            from sklearn.compose import ColumnTransformer
+            from sklearn.pipeline import Pipeline
+            from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
+                                        f1_score, roc_auc_score, confusion_matrix, 
+                                        classification_report)
+            from sklearn.model_selection import cross_val_score, train_test_split, GridSearchCV
             
-            # Create fallback implementation
-            class LazyClassifierFallback:
-                def __init__(self, *args, **kwargs):
-                    st.warning("⚠️ LazyPredict not available - using simplified model comparison")
-                
-                def fit(self, X_train, X_test, y_train, y_test):
-                    # Implement basic model comparison
-                    from sklearn.ensemble import RandomForestClassifier
-                    from sklearn.linear_model import LogisticRegression
-                    from sklearn.metrics import accuracy_score
-                    
-                    models = {
-                        'RandomForestClassifier': RandomForestClassifier(n_estimators=100, random_state=42),
-                        'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000)
-                    }
-                    
-                    results = {}
-                    for name, model in models.items():
-                        model.fit(X_train, y_train)
-                        y_pred = model.predict(X_test)
-                        accuracy = accuracy_score(y_test, y_pred)
-                        results[name] = {'Accuracy': accuracy}
-                    
-                    # Return mock results in expected format
-                    import pandas as pd
-                    return pd.DataFrame(results).T, None
+            # Stockage global des classes ML
+            globals().update({
+                'RandomForestClassifier': RandomForestClassifier,
+                'LogisticRegression': LogisticRegression,
+                'GradientBoostingClassifier': GradientBoostingClassifier,
+                'SVC': SVC,
+                'StandardScaler': StandardScaler,
+                'train_test_split': train_test_split,
+                'accuracy_score': accuracy_score,
+                'precision_score': precision_score,
+                'recall_score': recall_score,
+                'f1_score': f1_score,
+                'roc_auc_score': roc_auc_score
+            })
             
-            globals()['LazyClassifier'] = LazyClassifierFallback
-        
-        if missing_libraries:
-            st.error(f"❌ Missing libraries: {', '.join(missing_libraries)}")
-            st.info("💡 Install missing dependencies with: pip install " + " ".join(missing_libraries))
-        
-        return len(missing_libraries) == 0
-
-        
-        # Gestion spéciale pour SMOTE avec fallback
-        try:
-            from imblearn.over_sampling import SMOTE
-            smote_available = True
-        except ImportError:
-            class SMOTESubstitute:
-                def __init__(self, random_state=None):
-                    self.random_state = random_state
-                    st.warning("⚠️ SMOTE non disponible. Utilisation sans rééquilibrage.")
-                
-                def fit_resample(self, X, y):
-                    return X, y
+            st.success("✅ Scikit-learn chargé avec succès")
+            return True
             
-            SMOTE = SMOTESubstitute
-            smote_available = False
-                
-        # Stockage global des imports
-        globals().update({
-            'RandomForestClassifier': RandomForestClassifier,
-            'GradientBoostingClassifier': GradientBoostingClassifier,
-            'LogisticRegression': LogisticRegression,
-            'SVC': SVC,
-            'MLPClassifier': MLPClassifier,
-            'KNeighborsClassifier': KNeighborsClassifier,
-            'StandardScaler': StandardScaler,
-            'OneHotEncoder': OneHotEncoder,
-            'ColumnTransformer': ColumnTransformer,
-            'Pipeline': Pipeline,
-            'accuracy_score': accuracy_score,
-            'precision_score': precision_score,
-            'recall_score': recall_score,
-            'f1_score': f1_score,
-            'roc_auc_score': roc_auc_score,
-            'confusion_matrix': confusion_matrix,
-            'cross_val_score': cross_val_score,
-            'train_test_split': train_test_split,
-            'SMOTE': SMOTE,
-            'smote_available': smote_available
-        })
-        
-        return True
-        
-    except Exception as e:
-        st.error(f"❌ Erreur critique lors du chargement des bibliothèques ML: {str(e)}")
-        st.error("Veuillez installer les dépendances : pip install scikit-learn imbalanced-learn")
+        except ImportError as e:
+            st.warning(f"⚠️ Certaines bibliothèques ML non disponibles : {e}")
+            return False
+            
+    except ImportError as e:
+        st.error(f"❌ Erreur critique : {e}")
+        st.error("Installez les dépendances : pip install numpy pandas scikit-learn")
         return False
 
-from lazypredict.Supervised import LazyClassifier
-from sklearn.model_selection import GridSearchCV
+# Appel immédiat de la fonction
+if 'ml_libs_loaded' not in st.session_state:
+    st.session_state.ml_libs_loaded = load_ml_libraries()
+
 
 @st.cache_resource(show_spinner="Entraînement des modèles...")
 def train_optimized_models(df):
@@ -1775,6 +1728,8 @@ def train_optimized_models(df):
     except Exception as e:
         st.error(f"Erreur d'entraînement : {str(e)}")
         return None
+
+
 def show_enhanced_ml_analysis():
     """Interface d'analyse ML enrichie pour TDAH"""
     st.markdown("""
@@ -1811,74 +1766,108 @@ def show_enhanced_ml_analysis():
     with ml_tabs[0]:
         st.subheader("🔬 Préparation des Données")
         
-        # Informations sur le dataset
-        st.markdown("### 📊 Aperçu du dataset")
+        # Vérification des bibliothèques ML
+        if not st.session_state.get('ml_libs_loaded', False):
+            st.error("❌ Bibliothèques ML non chargées")
+            if st.button("🔄 Recharger les bibliothèques"):
+                st.session_state.ml_libs_loaded = load_ml_libraries()
+                st.experimental_rerun()
+            return
         
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Participants", f"{len(df):,}")
-        with col2:
-            if 'diagnosis' in df.columns:
-                st.metric("Cas TDAH", f"{df['diagnosis'].sum():,}")
-        with col3:
-            st.metric("Variables", len(df.columns))
-        with col4:
-            missing_pct = (df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100
-            st.metric("Données manquantes", f"{missing_pct:.1f}%")
-
-        # Préparation des features
-        st.markdown("### 🛠️ Préparation des Features")
-        
-        # Sélection des variables pour ML
-        if 'diagnosis' in df.columns:
-            feature_cols = [col for col in df.columns if col != 'diagnosis' and col != 'subject_id']
-            numeric_cols = df[feature_cols].select_dtypes(include=[np.number]).columns.tolist()
-            categorical_cols = df[feature_cols].select_dtypes(include=['object']).columns.tolist()
+        try:
+            # Import sécurisé local
+            import numpy as np_analysis
+            import pandas as pd_analysis
             
-            col1, col2 = st.columns(2)
+            # Informations sur le dataset
+            st.markdown("### 📊 Aperçu du dataset")
+            
+            col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                st.markdown(f"**Variables numériques ({len(numeric_cols)}):**")
-                for col in numeric_cols[:10]:  # Limite à 10 pour l'affichage
-                    st.write(f"• {col}")
-                if len(numeric_cols) > 10:
-                    st.write(f"• ... et {len(numeric_cols) - 10} autres")
-                    
+                st.metric("Participants", f"{len(df):,}")
             with col2:
-                st.markdown(f"**Variables catégorielles ({len(categorical_cols)}):**")
-                for col in categorical_cols[:10]:  # Limite à 10 pour l'affichage
-                    st.write(f"• {col}")
-                if len(categorical_cols) > 10:
-                    st.write(f"• ... et {len(categorical_cols) - 10} autres")
+                if 'diagnosis' in df.columns:
+                    st.metric("Cas TDAH", f"{df['diagnosis'].sum():,}")
+            with col3:
+                st.metric("Variables", len(df.columns))
+            with col4:
+                try:
+                    missing_pct = (df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100
+                    st.metric("Données manquantes", f"{missing_pct:.1f}%")
+                except:
+                    st.metric("Données manquantes", "N/A")
+    
+            # Test de préparation des données
+            st.markdown("### 🛠️ Test de Préparation des Features")
+            
+            if st.button("🔍 Analyser les variables disponibles"):
+                with st.spinner("Analyse en cours..."):
+                    # Test de préparation
+                    X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
+                    
+                    if X_train is not None:
+                        st.session_state.ml_data_prepared = {
+                            'X_train': X_train,
+                            'X_test': X_test,
+                            'y_train': y_train,
+                            'y_test': y_test
+                        }
+                        
+                        # Affichage des informations
+                        st.success("✅ Données préparées avec succès !")
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown("**Variables sélectionnées:**")
+                            for col in X_train.columns[:10]:  # Limite à 10
+                                st.write(f"• {col}")
+                            if len(X_train.columns) > 10:
+                                st.write(f"• ... et {len(X_train.columns) - 10} autres")
+                        
+                        with col2:
+                            st.markdown("**Statistiques:**")
+                            st.write(f"• Features: {X_train.shape[1]}")
+                            st.write(f"• Échantillons d'entraînement: {X_train.shape[0]}")
+                            st.write(f"• Échantillons de test: {X_test.shape[0]}")
+                            st.write(f"• Classe positive: {y_train.sum()}/{len(y_train)}")
+                    else:
+                        st.error("❌ Impossible de préparer les données")
+            
+        except Exception as e:
+            st.error(f"❌ Erreur dans l'analyse des données : {str(e)}")
+            st.info("💡 Suggestion : Rechargez la page et réessayez")
+
 
     with ml_tabs[1]:
         st.subheader("🤖 Entraînement des Modèles")
         
+        # Vérification que les données sont préparées
+        if 'ml_data_prepared' not in st.session_state:
+            st.warning("⚠️ Préparez d'abord les données dans l'onglet précédent")
+            return
+        
         if st.button("🚀 Lancer l'entraînement des modèles", type="primary"):
             with st.spinner("Entraînement en cours... Cela peut prendre quelques minutes."):
-                # Simuler l'entraînement pour la démo
-                import time
-                time.sleep(2)
                 
-                # Simulation des résultats d'entraînement
-                models_results = {
-                    'RandomForest': {'accuracy': 0.85, 'auc': 0.89, 'f1': 0.82},
-                    'LogisticRegression': {'accuracy': 0.78, 'auc': 0.84, 'f1': 0.76},
-                    'GradientBoosting': {'accuracy': 0.87, 'auc': 0.91, 'f1': 0.84},
-                    'SVM': {'accuracy': 0.81, 'auc': 0.86, 'f1': 0.79}
-                }
+                # Récupération des données
+                ml_data = st.session_state.ml_data_prepared
+                X_train = ml_data['X_train']
+                X_test = ml_data['X_test']
+                y_train = ml_data['y_train']
+                y_test = ml_data['y_test']
                 
-                st.session_state.ml_results = {
-                    'models': models_results,
-                    'best_model_name': 'GradientBoosting',
-                    'training_completed': True
-                }
+                # Entraînement
+                ml_results = train_simple_models_safe(X_train, X_test, y_train, y_test)
                 
-                st.success("✅ Entraînement terminé avec succès !")
-
+                if ml_results is not None:
+                    st.session_state.ml_results = ml_results
+                    st.success("✅ Entraînement terminé avec succès !")
+                else:
+                    st.error("❌ Échec de l'entraînement")
+    
         # Affichage des résultats si disponibles
-        if hasattr(st.session_state, 'ml_results') and st.session_state.ml_results is not None:
+        if 'ml_results' in st.session_state and st.session_state.ml_results is not None:
             st.markdown("### 🏆 Résultats d'entraînement")
             
             results_data = []
@@ -1886,8 +1875,10 @@ def show_enhanced_ml_analysis():
                 results_data.append({
                     'Modèle': model_name,
                     'Accuracy': f"{metrics['accuracy']:.3f}",
-                    'AUC-ROC': f"{metrics['auc']:.3f}",
-                    'F1-Score': f"{metrics['f1']:.3f}"
+                    'Precision': f"{metrics['precision']:.3f}",
+                    'Recall': f"{metrics['recall']:.3f}",
+                    'F1-Score': f"{metrics['f1']:.3f}",
+                    'AUC-ROC': f"{metrics['auc']:.3f}"
                 })
             
             results_df = pd.DataFrame(results_data)
@@ -1895,6 +1886,7 @@ def show_enhanced_ml_analysis():
             
             best_model = st.session_state.ml_results['best_model_name']
             st.success(f"🏆 Meilleur modèle : {best_model}")
+
 
     with ml_tabs[2]:
         st.subheader("📊 Évaluation des Performances")
