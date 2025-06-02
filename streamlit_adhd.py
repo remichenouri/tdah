@@ -2008,10 +2008,10 @@ def show_enhanced_ml_analysis():
             st.markdown("### 🛠️ Test de Préparation des Features")
             
             # APRÈS (version corrigée)
-if st.button("🔍 Analyser les variables disponibles"):
-    # Vérification des dépendances d'abord
-    if not check_ml_dependencies():
-        st.stop()
+    if st.button("🔍 Analyser les variables disponibles"):
+        # Vérification des dépendances d'abord
+        if not check_ml_dependencies():
+            st.stop()
         
     with st.spinner("Analyse en cours..."):
         # Test de préparation avec la fonction maintenant définie
