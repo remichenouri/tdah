@@ -3,14 +3,25 @@
 Streamlit TDAH - Outil de Dépistage et d'Analyse (Version Corrigée)
 """
 
-# Imports système
+# 1. IMPORTS STREAMLIT EN PREMIER
 import streamlit as st
+
+# 2. CONFIGURATION DE LA PAGE IMMÉDIATEMENT APRÈS
+st.set_page_config(
+    page_title="Dépistage TDAH",
+    page_icon="🧠",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# 3. IMPORTS DES AUTRES BIBLIOTHÈQUES APRÈS
 import os
 import pickle
 import hashlib
 import warnings
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
+
 
 # Configuration globale pour éviter les erreurs d'import
 import sys
@@ -63,14 +74,6 @@ except ImportError as e:
 # Suppression des warnings
 warnings.filterwarnings('ignore')
 
-
-# Configuration de la page
-st.set_page_config(
-    page_title="Dépistage TDAH",
-    page_icon="🧠",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
 # Création des dossiers de cache
 for folder in ['data_cache', 'image_cache', 'model_cache', 'theme_cache']:
