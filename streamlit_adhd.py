@@ -1,29 +1,61 @@
 # -*- coding: utf-8 -*-
 """
-Streamlit TDAH - Outil de Dépistage et d'Analyse (Version Corrigée et Optimisée)
+Streamlit TDAH - Outil de Dépistage et d'Analyse (Version Corrigée)
 """
 
+# Imports système
 import streamlit as st
-import joblib
-import hashlib
 import os
 import pickle
-import numpy as np
-import pandas as pd
-import requests
-from concurrent.futures import ThreadPoolExecutor
-from io import BytesIO
-from PIL import Image
-import streamlit.components.v1 as components
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy import stats
-from scipy.stats import mannwhitneyu, chi2_contingency, pearsonr, spearmanr
+import hashlib
 import warnings
-from sklearn.model_selection import GridSearchCV
+from io import BytesIO
+from concurrent.futures import ThreadPoolExecutor
+
+# Imports scientifiques (CRITIQUES - doivent être en premier)
+try:
+    import numpy as np
+    import pandas as pd
+    NUMPY_AVAILABLE = True
+except ImportError as e:
+    st.error(f"❌ Erreur critique : {e}")
+    st.stop()
+
+# Imports visualisation
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
+    st.warning("⚠️ Bibliothèques de visualisation non disponibles")
+
+# Imports ML avec gestion d'erreur
+try:
+    from sklearn.model_selection import train_test_split, GridSearchCV
+    from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+    from sklearn.preprocessing import StandardScaler
+    from scipy import stats
+    from scipy.stats import mannwhitneyu, chi2_contingency, pearsonr, spearmanr
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    st.warning("⚠️ Scikit-learn non disponible - fonctionnalités ML limitées")
+
+# Imports optionnels
+try:
+    import requests
+    from PIL import Image
+    import streamlit.components.v1 as components
+except ImportError:
+    st.warning("⚠️ Certaines fonctionnalités optionnelles non disponibles")
+
+# Suppression des warnings
 warnings.filterwarnings('ignore')
 
 # Configuration de la page
@@ -78,6 +110,42 @@ ASRS_OPTIONS = {
     3: "Souvent",
     4: "Très souvent"
 }
+
+def check_dependencies():
+    """Vérifie la disponibilité des dépendances critiques"""
+    missing_deps = []
+    
+    # Vérification numpy/pandas
+    try:
+        import numpy as np
+        import pandas as pd
+    except ImportError:
+        missing_deps.append("numpy/pandas")
+    
+    # Vérification plotly
+    try:
+        import plotly.express as px
+        import plotly.graph_objects as go
+    except ImportError:
+        missing_deps.append("plotly")
+    
+    if missing_deps:
+        st.error(f"❌ Dépendances manquantes : {', '.join(missing_deps)}")
+        st.code("pip install numpy pandas plotly streamlit scikit-learn", language="bash")
+        st.stop()
+    
+    return True
+
+# Appel de la vérification au début de l'application
+check_dependencies()
+
+def safe_calculation(func, fallback_value=0, error_message="Erreur de calcul"):
+    """Wrapper pour les calculs avec gestion d'erreur"""
+    try:
+        return func()
+    except Exception as e:
+        st.warning(f"⚠️ {error_message} : {str(e)}")
+        return fallback_value
 
 def initialize_session_state():
     """Initialise l'état de session pour conserver les configurations entre les recharges"""
@@ -2193,80 +2261,97 @@ def show_enhanced_ai_prediction():
             
             col1, col2, col3, col4, col5 = st.columns(5)
             
-            # Calculs des KPIs avec correction de la division par zéro
-            total_score = results['scores']['total']
-            severity_index = (total_score / 72) * 100
-            
-            total_symptoms = results['scores']['inattention'] + results['scores']['hyperactivity']
-            if total_symptoms > 0:
-                inatt_dominance = results['scores']['inattention'] / total_symptoms
-            else:
-                inatt_dominance = 0.5  # Valeur par défaut
-
+            # Calculs des KPIs avec vérifications de sécurité
+            try:
+                total_score = results['scores']['total']
+                severity_index = (total_score / 72) * 100
                 
-            hyper_dominance = 1 - inatt_dominance
-            
-            response_consistency = 1 - (np.std(list(results['responses'].values())) / 4)  # Normalisation sur 0-4
-            
-            high_severity_responses = sum([1 for score in results['responses'].values() if score >= 3])
-            severity_concentration = (high_severity_responses / 18) * 100
-            
-            part_a_severity = (results['scores']['part_a'] / 24) * 100
-            
-            with col1:
-                st.metric(
-                    "Indice de sévérité", 
-                    f"{severity_index:.1f}%",
-                    help="Pourcentage du score maximum possible"
-                )
-            with col2:
-                st.metric(
-                    "Dominance inattention", 
-                    f"{inatt_dominance:.1%}",
-                    help="Proportion des symptômes d'inattention"
-                )
-            with col3:
-                st.metric(
-                    "Cohérence réponses", 
-                    f"{response_consistency:.1%}",
-                    help="Consistance du pattern de réponses"
-                )
-            with col4:
-                st.metric(
-                    "Concentration sévérité", 
-                    f"{severity_concentration:.1f}%",
-                    help="% de réponses 'Souvent' ou 'Très souvent'"
-                )
-            with col5:
-                st.metric(
-                    "Score dépistage", 
-                    f"{part_a_severity:.1f}%",
-                    help="Performance sur les 6 questions clés"
-                )
-
-            # Calcul de la fiabilité avec correction
-            st.markdown("### 🎯 Fiabilité de l'évaluation")
-            
-            reliability_factors = [
-                response_consistency >= 0.6,  # Cohérence des réponses
-                len([x for x in results['responses'].values() if x > 0]) >= 10,  # Nombre minimum de symptômes
-                abs(results['scores']['inattention'] - results['scores']['hyperactivity']) < 20,  # Équilibre relatif
-                results['demographics']['age'] >= 18  # Âge approprié
-            ]
-            
-            reliability_score = sum(reliability_factors) / len(reliability_factors)
-            reliability_level = "Très fiable" if reliability_score >= 0.75 else "Fiable" if reliability_score >= 0.5 else "Modérée"
-            reliability_color = "#4caf50" if reliability_score >= 0.75 else "#ff9800" if reliability_score >= 0.5 else "#ff5722"
-            
-            st.markdown(f"""
-            <div style="background-color: white; padding: 20px; border-radius: 10px; border-left: 4px solid {reliability_color};">
-                <h4 style="color: {reliability_color}; margin: 0 0 10px 0;">Fiabilité de l'évaluation</h4>
-                <h3 style="color: {reliability_color}; margin: 0;">{reliability_level}</h3>
-            </div>
-            """, unsafe_allow_html=True)
-            
+                # Correction : calcul complet des symptômes totaux
+                inatt_score = results['scores']['inattention'] 
+                hyper_score = results['scores']['hyperactivity']
+                total_symptoms = inatt_score + hyper_score
+                
+                # Calcul sécurisé de la dominance d'inattention
+                if total_symptoms > 0:
+                    inatt_dominance = inatt_score / total_symptoms
+                else:
+                    inatt_dominance = 0.5  # Valeur par défaut
+                    
+                hyper_dominance = 1 - inatt_dominance
+                
+                # Calcul de la cohérence des réponses
+                responses_values = list(results['responses'].values())
+                if len(responses_values) > 0 and NUMPY_AVAILABLE:
+                    response_consistency = 1 - (np.std(responses_values) / 4)  # Normalisation sur 0-4
+                else:
+                    response_consistency = 0.5  # Valeur par défaut
+                
+                # Calcul de la concentration de sévérité
+                high_severity_responses = sum([1 for score in results['responses'].values() if score >= 3])
+                severity_concentration = (high_severity_responses / 18) * 100
+                
+                part_a_severity = (results['scores']['part_a'] / 24) * 100
+                
+                # Affichage des métriques
+                with col1:
+                    st.metric(
+                        "Indice de sévérité", 
+                        f"{severity_index:.1f}%",
+                        help="Pourcentage du score maximum possible"
+                    )
+                with col2:
+                    st.metric(
+                        "Dominance inattention", 
+                        f"{inatt_dominance:.1%}",
+                        help="Proportion des symptômes d'inattention"
+                    )
+                with col3:
+                    st.metric(
+                        "Cohérence réponses", 
+                        f"{response_consistency:.1%}",
+                        help="Consistance du pattern de réponses"
+                    )
+                with col4:
+                    st.metric(
+                        "Concentration sévérité", 
+                        f"{severity_concentration:.1f}%",
+                        help="% de réponses 'Souvent' ou 'Très souvent'"
+                    )
+                with col5:
+                    st.metric(
+                        "Score dépistage", 
+                        f"{part_a_severity:.1f}%",
+                        help="Performance sur les 6 questions clés"
+                    )
+    
+                # Calcul de la fiabilité avec gestion d'erreur
+                st.markdown("### 🎯 Fiabilité de l'évaluation")
+                
+                reliability_factors = [
+                    response_consistency >= 0.6,  # Cohérence des réponses
+                    len([x for x in results['responses'].values() if x > 0]) >= 10,  # Nombre minimum de symptômes
+                    abs(inatt_score - hyper_score) < 20,  # Équilibre relatif
+                    results['demographics']['age'] >= 18  # Âge approprié
+                ]
+                
+                reliability_score = sum(reliability_factors) / len(reliability_factors)
+                reliability_level = "Très fiable" if reliability_score >= 0.75 else "Fiable" if reliability_score >= 0.5 else "Modérée"
+                reliability_color = "#4caf50" if reliability_score >= 0.75 else "#ff9800" if reliability_score >= 0.5 else "#ff5722"
+                
+                st.markdown(f"""
+                <div style="background-color: white; padding: 20px; border-radius: 10px; border-left: 4px solid {reliability_color};">
+                    <h4 style="color: {reliability_color}; margin: 0 0 10px 0;">Fiabilité de l'évaluation</h4>
+                    <h3 style="color: {reliability_color}; margin: 0;">{reliability_level}</h3>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            except Exception as e:
+                st.error(f"❌ Erreur dans le calcul des KPIs : {str(e)}")
+                st.info("ℹ️ Rechargez la page et recommencez le test ASRS")
+                
         else:
             st.warning("Veuillez d'abord compléter le test ASRS dans le premier onglet.")
+
 
     with pred_tabs[4]:
         if 'asrs_results' in st.session_state:
