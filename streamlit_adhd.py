@@ -627,8 +627,6 @@ def test_numpy_availability():
         test_array = test_np.array([1, 2, 3, 4, 5])
         test_std = test_np.std(test_array)
         test_df = test_pd.DataFrame({'test': [1, 2, 3]})
-        
-        st.success(f"✅ Test numpy/pandas réussi - std test: {test_std:.2f}")
         return True
         
     except Exception as e:
