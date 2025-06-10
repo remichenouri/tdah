@@ -3604,7 +3604,7 @@ def show_enhanced_ai_prediction():
                 st.success(f"✅ Réponse sélectionnée : **{selected_option}**")
 
     def validate_asrs_responses():
-        'asrs_q{i}' not in st.session_state:
+        asrs_q{i} not in st.session_state:
             missing_questions = []
         for i in range(1, 19):  # 18 questions ASRS
             if f'a      missing_questions.append(i)
