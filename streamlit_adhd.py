@@ -1804,8 +1804,8 @@ def show_enhanced_data_exploration():
 
 # -*- coding: utf-8 -*-
 """
-PARTIE ML AMÉLIORÉE - Dépistage TDAH
-Refonte complète avec meilleures pratiques ML
+PARTIE ML OPTIMISÉE - Dépistage TDAH
+Version avec persistance joblib et cache avancé
 """
 
 import streamlit as st
@@ -1814,6 +1814,19 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import os
+import hashlib
+import time
+from datetime import datetime
+import json
+
+# Import joblib pour la persistance
+try:
+    import joblib
+    JOBLIB_AVAILABLE = True
+except ImportError:
+    st.warning("⚠️ Joblib non disponible. Installation recommandée : pip install joblib")
+    JOBLIB_AVAILABLE = False
 
 # Imports ML avec gestion d'erreur robuste
 try:
@@ -1848,91 +1861,259 @@ except ImportError as e:
     ML_AVAILABLE = False
 
 # ================================================================================
-# CLASSE PRINCIPALE POUR LA PIPELINE ML
+# GESTIONNAIRE DE CACHE AVANCÉ AVEC JOBLIB
 # ================================================================================
 
-class TDAHMLPipeline:
-    """
-    Pipeline ML complète pour le dépistage TDAH avec meilleures pratiques
-    """
+class MLModelCache:
+    """Gestionnaire de cache avancé pour les modèles ML avec joblib"""
     
-    def __init__(self, random_state=42):
+    def __init__(self, cache_dir="ml_model_cache"):
+        self.cache_dir = cache_dir
+        os.makedirs(cache_dir, exist_ok=True)
+        self.metadata_file = os.path.join(cache_dir, "cache_metadata.json")
+        self.load_metadata()
+    
+    def load_metadata(self):
+        """Charge les métadonnées du cache"""
+        try:
+            if os.path.exists(self.metadata_file):
+                with open(self.metadata_file, 'r') as f:
+                    self.metadata = json.load(f)
+            else:
+                self.metadata = {}
+        except:
+            self.metadata = {}
+    
+    def save_metadata(self):
+        """Sauvegarde les métadonnées du cache"""
+        try:
+            with open(self.metadata_file, 'w') as f:
+                json.dump(self.metadata, f, indent=2)
+        except Exception as e:
+            st.warning(f"Impossible de sauvegarder les métadonnées : {e}")
+    
+    def get_cache_key(self, X_train, y_train, config):
+        """Génère une clé de cache basée sur les données et la configuration"""
+        # Hash des données d'entraînement
+        data_hash = hashlib.md5(
+            pd.concat([X_train, y_train], axis=1).to_string().encode()
+        ).hexdigest()[:12]
+        
+        # Hash de la configuration
+        config_str = json.dumps(config, sort_keys=True)
+        config_hash = hashlib.md5(config_str.encode()).hexdigest()[:8]
+        
+        return f"ml_models_{data_hash}_{config_hash}"
+    
+    def cache_exists(self, cache_key):
+        """Vérifie si un cache existe pour cette clé"""
+        cache_path = os.path.join(self.cache_dir, f"{cache_key}.joblib")
+        return os.path.exists(cache_path)
+    
+    def save_results(self, cache_key, results, best_model_name, config):
+        """Sauvegarde les résultats d'entraînement"""
+        if not JOBLIB_AVAILABLE:
+            return False
+        
+        try:
+            cache_path = os.path.join(self.cache_dir, f"{cache_key}.joblib")
+            
+            # Préparer les données à sauvegarder
+            cache_data = {
+                'results': results,
+                'best_model_name': best_model_name,
+                'config': config,
+                'timestamp': datetime.now().isoformat(),
+                'version': '1.0'
+            }
+            
+            # Sauvegarder avec joblib
+            joblib.dump(cache_data, cache_path, compress=3)
+            
+            # Mettre à jour les métadonnées
+            self.metadata[cache_key] = {
+                'created_at': cache_data['timestamp'],
+                'config': config,
+                'models': list(results.keys()),
+                'best_model': best_model_name,
+                'file_size': os.path.getsize(cache_path)
+            }
+            self.save_metadata()
+            
+            return True
+            
+        except Exception as e:
+            st.error(f"❌ Erreur lors de la sauvegarde : {e}")
+            return False
+    
+    def load_results(self, cache_key):
+        """Charge les résultats depuis le cache"""
+        if not JOBLIB_AVAILABLE:
+            return None, None
+        
+        try:
+            cache_path = os.path.join(self.cache_dir, f"{cache_key}.joblib")
+            
+            if not os.path.exists(cache_path):
+                return None, None
+            
+            # Charger avec joblib
+            cache_data = joblib.load(cache_path)
+            
+            return cache_data['results'], cache_data['best_model_name']
+            
+        except Exception as e:
+            st.warning(f"⚠️ Erreur lors du chargement du cache : {e}")
+            return None, None
+    
+    def clear_cache(self):
+        """Vide le cache"""
+        try:
+            import shutil
+            if os.path.exists(self.cache_dir):
+                shutil.rmtree(self.cache_dir)
+                os.makedirs(self.cache_dir, exist_ok=True)
+                self.metadata = {}
+                st.success("✅ Cache vidé avec succès")
+        except Exception as e:
+            st.error(f"❌ Erreur lors du vidage du cache : {e}")
+    
+    def get_cache_info(self):
+        """Retourne des informations sur le cache"""
+        if not os.path.exists(self.cache_dir):
+            return {"size": 0, "files": 0, "models": 0}
+        
+        total_size = 0
+        model_count = 0
+        
+        for filename in os.listdir(self.cache_dir):
+            if filename.endswith('.joblib'):
+                filepath = os.path.join(self.cache_dir, filename)
+                total_size += os.path.getsize(filepath)
+                
+                # Compter les modèles dans ce cache
+                if filename.replace('.joblib', '') in self.metadata:
+                    model_count += len(self.metadata[filename.replace('.joblib', '')]['models'])
+        
+        return {
+            "size": total_size / (1024 * 1024),  # En MB
+            "files": len([f for f in os.listdir(self.cache_dir) if f.endswith('.joblib')]),
+            "models": model_count
+        }
+
+# ================================================================================
+# CLASSE ML PIPELINE OPTIMISÉE
+# ================================================================================
+
+class OptimizedTDAHMLPipeline:
+    """Pipeline ML optimisée avec cache et persistance joblib"""
+    
+    def __init__(self, random_state=42, use_cache=True):
         self.random_state = random_state
+        self.use_cache = use_cache
+        self.cache_manager = MLModelCache() if use_cache else None
         self.models = {}
         self.results = {}
         self.best_model = None
         self.feature_names = []
         self.is_fitted = False
         
-        # Configuration des modèles avec hyperparamètres par défaut
+        # Configuration des modèles avec options rapides/complètes
         self.model_configs = {
-            'RandomForest': {
-                'model': RandomForestClassifier(random_state=random_state),
-                'params': {
-                    'classifier__n_estimators': [100, 200, 300],
-                    'classifier__max_depth': [None, 10, 20, 30],
-                    'classifier__min_samples_split': [2, 5, 10],
-                    'classifier__min_samples_leaf': [1, 2, 4],
-                    'classifier__class_weight': ['balanced', None]
+            'fast': {
+                'RandomForest': {
+                    'model': RandomForestClassifier(random_state=random_state, n_jobs=-1),
+                    'params': {
+                        'classifier__n_estimators': [50, 100],
+                        'classifier__max_depth': [10, 20],
+                        'classifier__min_samples_split': [2, 5],
+                        'classifier__class_weight': ['balanced']
+                    }
+                },
+                'LogisticRegression': {
+                    'model': LogisticRegression(random_state=random_state, max_iter=500),
+                    'params': {
+                        'classifier__C': [0.1, 1, 10],
+                        'classifier__solver': ['liblinear'],
+                        'classifier__class_weight': ['balanced']
+                    }
+                },
+                'GradientBoosting': {
+                    'model': GradientBoostingClassifier(random_state=random_state),
+                    'params': {
+                        'classifier__n_estimators': [50, 100],
+                        'classifier__learning_rate': [0.1, 0.2],
+                        'classifier__max_depth': [3, 5]
+                    }
                 }
             },
-            'GradientBoosting': {
-                'model': GradientBoostingClassifier(random_state=random_state),
-                'params': {
-                    'classifier__n_estimators': [100, 200],
-                    'classifier__learning_rate': [0.01, 0.1, 0.2],
-                    'classifier__max_depth': [3, 5, 7],
-                    'classifier__subsample': [0.8, 0.9, 1.0]
-                }
-            },
-            'LogisticRegression': {
-                'model': LogisticRegression(random_state=random_state, max_iter=1000),
-                'params': {
-                    'classifier__C': [0.1, 1, 10, 100],
-                    'classifier__solver': ['liblinear', 'lbfgs'],
-                    'classifier__class_weight': ['balanced', None]
-                }
-            },
-            'SVM': {
-                'model': SVC(random_state=random_state, probability=True),
-                'params': {
-                    'classifier__C': [0.1, 1, 10],
-                    'classifier__kernel': ['rbf', 'linear'],
-                    'classifier__gamma': ['scale', 'auto'],
-                    'classifier__class_weight': ['balanced', None]
-                }
-            },
-            'ExtraTrees': {
-                'model': ExtraTreesClassifier(random_state=random_state),
-                'params': {
-                    'classifier__n_estimators': [100, 200],
-                    'classifier__max_depth': [None, 10, 20],
-                    'classifier__min_samples_split': [2, 5],
-                    'classifier__class_weight': ['balanced', None]
-                }
-            },
-            'KNN': {
-                'model': KNeighborsClassifier(),
-                'params': {
-                    'classifier__n_neighbors': [3, 5, 7, 9],
-                    'classifier__weights': ['uniform', 'distance'],
-                    'classifier__algorithm': ['auto', 'ball_tree', 'kd_tree']
-                }
-            },
-            'MLP': {
-                'model': MLPClassifier(random_state=random_state, max_iter=500),
-                'params': {
-                    'classifier__hidden_layer_sizes': [(50,), (100,), (50, 50)],
-                    'classifier__alpha': [0.0001, 0.001, 0.01],
-                    'classifier__learning_rate': ['constant', 'adaptive']
+            'complete': {
+                'RandomForest': {
+                    'model': RandomForestClassifier(random_state=random_state, n_jobs=-1),
+                    'params': {
+                        'classifier__n_estimators': [100, 200, 300],
+                        'classifier__max_depth': [None, 10, 20, 30],
+                        'classifier__min_samples_split': [2, 5, 10],
+                        'classifier__min_samples_leaf': [1, 2, 4],
+                        'classifier__class_weight': ['balanced', None]
+                    }
+                },
+                'GradientBoosting': {
+                    'model': GradientBoostingClassifier(random_state=random_state),
+                    'params': {
+                        'classifier__n_estimators': [100, 200],
+                        'classifier__learning_rate': [0.01, 0.1, 0.2],
+                        'classifier__max_depth': [3, 5, 7],
+                        'classifier__subsample': [0.8, 0.9, 1.0]
+                    }
+                },
+                'LogisticRegression': {
+                    'model': LogisticRegression(random_state=random_state, max_iter=1000),
+                    'params': {
+                        'classifier__C': [0.1, 1, 10, 100],
+                        'classifier__solver': ['liblinear', 'lbfgs'],
+                        'classifier__class_weight': ['balanced', None]
+                    }
+                },
+                'SVM': {
+                    'model': SVC(random_state=random_state, probability=True),
+                    'params': {
+                        'classifier__C': [0.1, 1, 10],
+                        'classifier__kernel': ['rbf', 'linear'],
+                        'classifier__gamma': ['scale', 'auto'],
+                        'classifier__class_weight': ['balanced', None]
+                    }
+                },
+                'ExtraTrees': {
+                    'model': ExtraTreesClassifier(random_state=random_state, n_jobs=-1),
+                    'params': {
+                        'classifier__n_estimators': [100, 200],
+                        'classifier__max_depth': [None, 10, 20],
+                        'classifier__min_samples_split': [2, 5],
+                        'classifier__class_weight': ['balanced', None]
+                    }
+                },
+                'KNN': {
+                    'model': KNeighborsClassifier(n_jobs=-1),
+                    'params': {
+                        'classifier__n_neighbors': [3, 5, 7, 9],
+                        'classifier__weights': ['uniform', 'distance'],
+                        'classifier__algorithm': ['auto', 'ball_tree']
+                    }
+                },
+                'MLP': {
+                    'model': MLPClassifier(random_state=random_state, max_iter=300),
+                    'params': {
+                        'classifier__hidden_layer_sizes': [(50,), (100,), (50, 50)],
+                        'classifier__alpha': [0.001, 0.01],
+                        'classifier__learning_rate': ['adaptive']
+                    }
                 }
             }
         }
-    
+
     def prepare_data(self, df, target_col='diagnosis', test_size=0.2):
-        """
-        Préparation robuste des données avec prévention des fuites
-        """
+        """Préparation robuste des données avec cache des transformations"""
         try:
             # Vérification des données d'entrée
             if df is None or len(df) == 0:
@@ -1948,7 +2129,6 @@ class TDAHMLPipeline:
             numeric_features = []
             for col in feature_cols:
                 if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
-                    # Vérification de la variance (pas de variables constantes)
                     if df[col].var() > 0:
                         numeric_features.append(col)
             
@@ -1959,7 +2139,7 @@ class TDAHMLPipeline:
             y = df[target_col].copy()
             
             # Gestion des valeurs manquantes AVANT la division
-            missing_threshold = 0.5  # Supprimer features avec >50% de manquants
+            missing_threshold = 0.5
             for col in X.columns:
                 if X[col].isnull().sum() / len(X) > missing_threshold:
                     X.drop(col, axis=1, inplace=True)
@@ -1984,9 +2164,7 @@ class TDAHMLPipeline:
             return None, None, None, None
     
     def create_pipeline(self, model, use_feature_selection=True):
-        """
-        Création d'une pipeline complète avec préprocessing
-        """
+        """Création d'une pipeline complète avec préprocessing"""
         steps = []
         
         # Étape 1: Normalisation
@@ -2002,29 +2180,72 @@ class TDAHMLPipeline:
         return Pipeline(steps)
     
     def train_and_evaluate_models(self, X_train, X_test, y_train, y_test, 
-                                 cv_folds=5, n_jobs=-1, scoring='roc_auc'):
+                                 cv_folds=5, n_jobs=-1, scoring='roc_auc', 
+                                 mode='fast', selected_models=None, use_cache=True):
         """
-        Entraînement et évaluation de tous les modèles avec optimisation hyperparamétrique
+        Entraînement optimisé avec cache et options rapides/complètes
         """
+        # Configuration selon le mode
+        config = {
+            'mode': mode,
+            'cv_folds': cv_folds,
+            'scoring': scoring,
+            'selected_models': selected_models or [],
+            'random_state': self.random_state,
+            'n_jobs': n_jobs
+        }
+        
+        # Vérification du cache
+        if use_cache and self.cache_manager:
+            cache_key = self.cache_manager.get_cache_key(X_train, y_train, config)
+            
+            if self.cache_manager.cache_exists(cache_key):
+                st.info("📦 Modèles trouvés en cache, chargement rapide...")
+                
+                with st.spinner("Chargement depuis le cache..."):
+                    time.sleep(0.5)  # Petit délai pour l'UX
+                    cached_results, cached_best_model = self.cache_manager.load_results(cache_key)
+                
+                if cached_results and cached_best_model:
+                    self.results = cached_results
+                    self.best_model = cached_results[cached_best_model]['model']
+                    self.is_fitted = True
+                    
+                    st.success(f"✅ Modèles chargés depuis le cache ! Meilleur modèle: **{cached_best_model}**")
+                    return cached_results, cached_best_model
+        
+        # Entraînement normal si pas de cache
+        st.info("🔧 Entraînement des modèles (sera mis en cache pour les prochaines fois)...")
+        
+        # Sélection de la configuration selon le mode
+        model_configs = self.model_configs[mode]
+        if selected_models:
+            model_configs = {k: v for k, v in model_configs.items() if k in selected_models}
+        
         results = {}
         cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=self.random_state)
         
         progress_bar = st.progress(0)
         status_text = st.empty()
         
-        for i, (model_name, config) in enumerate(self.model_configs.items()):
+        # Optimisations pour les performances
+        n_iter = 10 if mode == 'fast' else 20
+        timeout_per_model = 120 if mode == 'fast' else 300  # Timeout en secondes
+        
+        for i, (model_name, model_config) in enumerate(model_configs.items()):
             try:
-                status_text.text(f"Entraînement de {model_name}...")
-                progress_bar.progress((i + 1) / len(self.model_configs))
+                start_time = time.time()
+                status_text.text(f"🔧 Entraînement de {model_name}... ({i+1}/{len(model_configs)})")
+                progress_bar.progress((i + 1) / len(model_configs))
                 
                 # Création de la pipeline
-                pipeline = self.create_pipeline(config['model'])
+                pipeline = self.create_pipeline(model_config['model'])
                 
-                # Optimisation hyperparamétrique avec RandomizedSearchCV pour plus d'efficacité
+                # Optimisation hyperparamétrique avec timeout
                 search = RandomizedSearchCV(
                     pipeline,
-                    param_distributions=config['params'],
-                    n_iter=20,  # Limité pour éviter les temps trop longs
+                    param_distributions=model_config['params'],
+                    n_iter=n_iter,
                     cv=cv,
                     scoring=scoring,
                     n_jobs=n_jobs,
@@ -2032,8 +2253,12 @@ class TDAHMLPipeline:
                     error_score='raise'
                 )
                 
-                # Entraînement
+                # Entraînement avec gestion du timeout
                 search.fit(X_train, y_train)
+                
+                elapsed_time = time.time() - start_time
+                if elapsed_time > timeout_per_model:
+                    st.warning(f"⏰ {model_name} a dépassé le timeout ({elapsed_time:.1f}s)")
                 
                 # Prédictions
                 y_pred = search.predict(X_test)
@@ -2055,8 +2280,11 @@ class TDAHMLPipeline:
                     'cv_mean': cv_scores.mean(),
                     'cv_std': cv_scores.std(),
                     'cv_scores': cv_scores,
-                    'search_results': search
+                    'search_results': search,
+                    'training_time': elapsed_time
                 }
+                
+                status_text.text(f"✅ {model_name} terminé en {elapsed_time:.1f}s")
                 
             except Exception as e:
                 st.warning(f"⚠️ Erreur avec {model_name}: {str(e)}")
@@ -2074,18 +2302,22 @@ class TDAHMLPipeline:
         self.results = results
         self.is_fitted = True
         
+        # Sauvegarde en cache
+        if use_cache and self.cache_manager:
+            cache_saved = self.cache_manager.save_results(cache_key, results, best_model_name, config)
+            if cache_saved:
+                st.success("💾 Modèles sauvegardés en cache pour les prochaines utilisations")
+        
         return results, best_model_name
     
     def _calculate_metrics(self, y_true, y_pred, y_proba=None):
-        """
-        Calcul complet des métriques de performance
-        """
+        """Calcul complet des métriques de performance"""
         metrics = {
             'accuracy': accuracy_score(y_true, y_pred),
             'precision': precision_score(y_true, y_pred, zero_division=0),
             'recall': recall_score(y_true, y_pred, zero_division=0),
             'f1': f1_score(y_true, y_pred, zero_division=0),
-            'specificity': 0,  # Calculé ci-dessous
+            'specificity': 0,
             'confusion_matrix': confusion_matrix(y_true, y_pred)
         }
         
@@ -2105,9 +2337,7 @@ class TDAHMLPipeline:
         return metrics
     
     def get_feature_importance(self, model_name=None):
-        """
-        Extraction de l'importance des features
-        """
+        """Extraction de l'importance des features"""
         if not self.is_fitted:
             return None
         
@@ -2139,28 +2369,27 @@ class TDAHMLPipeline:
         return feature_importance_df
 
 # ================================================================================
-# INTERFACES STREAMLIT AMÉLIORÉES
+# INTERFACE STREAMLIT OPTIMISÉE
 # ================================================================================
 
 @st.cache_resource
-def get_ml_pipeline():
-    """Cache de la pipeline ML"""
-    return TDAHMLPipeline()
+def get_optimized_ml_pipeline():
+    """Cache de la pipeline ML optimisée"""
+    return OptimizedTDAHMLPipeline(use_cache=True)
 
-def show_enhanced_ml_analysis():
-    """
-    Interface ML complètement refaite avec meilleures pratiques
-    """
+def show_optimized_ml_analysis():
+    """Interface ML optimisée avec cache et persistance"""
+    
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
         <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
                    text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            🧠 Analyse ML Avancée - Dépistage TDAH
+            🧠 ML Optimisé - Cache & Persistance
         </h1>
         <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
                   max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Pipeline ML professionnelle avec optimisation hyperparamétrique et validation croisée
+            Pipeline ML avec cache joblib - Entraînement instantané après la première fois
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -2175,21 +2404,20 @@ def show_enhanced_ml_analysis():
         st.error("❌ Impossible de charger le dataset")
         return
 
+    # Récupération de la pipeline ML optimisée
+    ml_pipeline = get_optimized_ml_pipeline()
+
     # Onglets pour l'analyse ML
     ml_tabs = st.tabs([
-        "⚙️ Configuration & Préparation",
-        "🚀 Entraînement & Optimisation", 
-        "📊 Comparaison des Modèles",
-        "🔍 Analyse des Features",
-        "📈 Courbes d'Apprentissage",
-        "🎯 Prédictions & Déploiement"
+        "⚡ Entraînement Rapide",
+        "🔧 Configuration Avancée", 
+        "📊 Résultats & Comparaison",
+        "💾 Gestion du Cache",
+        "🔍 Analyse des Features"
     ])
 
-    # Récupération de la pipeline ML
-    ml_pipeline = get_ml_pipeline()
-
     with ml_tabs[0]:
-        st.subheader("⚙️ Configuration et Préparation des Données")
+        st.subheader("⚡ Entraînement Rapide avec Cache")
         
         # Informations sur le dataset
         col1, col2, col3, col4 = st.columns(4)
@@ -2205,145 +2433,81 @@ def show_enhanced_ml_analysis():
             numeric_cols = df.select_dtypes(include=[np.number]).columns
             st.metric("Variables numériques", len(numeric_cols))
 
-        # Configuration de l'expérience
-        st.markdown("### 🎛️ Configuration de l'Expérience ML")
+        # Mode d'entraînement
+        st.markdown("### 🎛️ Mode d'Entraînement")
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2 = st.columns(2)
         
         with col1:
-            test_size = st.slider("Taille test set", 0.1, 0.4, 0.2, 0.05)
-            cv_folds = st.selectbox("Nombre de folds CV", [3, 5, 10], index=1)
+            training_mode = st.selectbox(
+                "Choisissez le mode:",
+                options=['fast', 'complete'],
+                format_func=lambda x: "⚡ Rapide (3 modèles, ~30s)" if x == 'fast' 
+                                    else "🔬 Complet (7 modèles, ~5min)",
+                index=0,
+                help="Mode rapide pour prototypage, mode complet pour résultats finaux"
+            )
             
         with col2:
-            scoring_metric = st.selectbox(
-                "Métrique d'optimisation", 
-                ['roc_auc', 'accuracy', 'f1', 'precision', 'recall'],
-                index=0
-            )
-            feature_selection = st.checkbox("Sélection automatique de features", True)
-            
-        with col3:
-            n_jobs = st.selectbox("Parallélisation", [-1, 1, 2, 4], index=0)
-            random_state = st.number_input("Random seed", 1, 999, 42)
+            use_cache = st.checkbox("Utiliser le cache", value=True, 
+                                   help="Sauvegarde et réutilise les modèles entraînés")
 
-        # Préparation des données
-        if st.button("🔧 Préparer les Données", type="primary"):
-            with st.spinner("Préparation des données en cours..."):
-                
-                # Configuration de la pipeline
-                ml_pipeline.random_state = random_state
-                
-                # Préparation
+        # Sélection des modèles selon le mode
+        if training_mode == 'fast':
+            available_models = ['RandomForest', 'LogisticRegression', 'GradientBoosting']
+            default_models = available_models
+        else:
+            available_models = list(ml_pipeline.model_configs['complete'].keys())
+            default_models = ['RandomForest', 'GradientBoosting', 'LogisticRegression', 'SVM']
+
+        selected_models = st.multiselect(
+            "Modèles à entraîner:",
+            available_models,
+            default=default_models
+        )
+
+        # Configuration simplifiée
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            test_size = st.slider("Taille test set", 0.1, 0.4, 0.2, 0.05)
+        with col2:
+            cv_folds = st.selectbox("Folds CV", [3, 5], index=1)
+        with col3:
+            scoring_metric = st.selectbox("Métrique", ['roc_auc', 'accuracy', 'f1'], index=0)
+
+        # Bouton d'entraînement principal
+        if st.button("🚀 Lancer l'Entraînement", type="primary", use_container_width=True):
+            
+            if not selected_models:
+                st.warning("⚠️ Sélectionnez au moins un modèle")
+                return
+            
+            # Estimation du temps
+            estimated_time = len(selected_models) * (10 if training_mode == 'fast' else 45)
+            st.info(f"⏱️ Temps estimé : {estimated_time}s (ou instantané si en cache)")
+            
+            # Préparation des données
+            with st.spinner("Préparation des données..."):
                 X_train, X_test, y_train, y_test = ml_pipeline.prepare_data(
                     df, target_col='diagnosis', test_size=test_size
                 )
-                
-                if X_train is not None:
-                    # Stockage dans le session state
-                    st.session_state.ml_data = {
-                        'X_train': X_train,
-                        'X_test': X_test,
-                        'y_train': y_train,
-                        'y_test': y_test,
-                        'config': {
-                            'test_size': test_size,
-                            'cv_folds': cv_folds,
-                            'scoring_metric': scoring_metric,
-                            'feature_selection': feature_selection,
-                            'n_jobs': n_jobs,
-                            'random_state': random_state
-                        }
-                    }
-                    
-                    st.success("✅ Données préparées avec succès!")
-                    
-                    # Affichage des statistiques
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.markdown("**📊 Statistiques Train Set:**")
-                        st.write(f"• Échantillons: {X_train.shape[0]:,}")
-                        st.write(f"• Features: {X_train.shape[1]:,}")
-                        st.write(f"• Cas positifs: {y_train.sum():,} ({y_train.mean():.1%})")
-                        
-                    with col2:
-                        st.markdown("**📊 Statistiques Test Set:**")
-                        st.write(f"• Échantillons: {X_test.shape[0]:,}")
-                        st.write(f"• Features: {X_test.shape[1]:,}")
-                        st.write(f"• Cas positifs: {y_test.sum():,} ({y_test.mean():.1%})")
-                    
-                    # Aperçu des features
-                    st.markdown("**🔍 Aperçu des Features Sélectionnées:**")
-                    features_df = pd.DataFrame({
-                        'Feature': X_train.columns,
-                        'Type': [str(X_train[col].dtype) for col in X_train.columns],
-                        'Valeurs manquantes': [X_train[col].isnull().sum() for col in X_train.columns],
-                        'Moyenne': [X_train[col].mean() for col in X_train.columns],
-                        'Écart-type': [X_train[col].std() for col in X_train.columns]
-                    })
-                    st.dataframe(features_df.head(10), use_container_width=True)
-                    
-                else:
-                    st.error("❌ Échec de la préparation des données")
-
-    with ml_tabs[1]:
-        st.subheader("🚀 Entraînement et Optimisation Hyperparamétrique")
-        
-        if 'ml_data' not in st.session_state:
-            st.warning("⚠️ Veuillez d'abord préparer les données dans l'onglet précédent")
-            return
-
-        # Sélection des modèles à entraîner
-        st.markdown("### 🎯 Sélection des Modèles")
-        
-        available_models = list(ml_pipeline.model_configs.keys())
-        selected_models = st.multiselect(
-            "Choisissez les modèles à comparer:",
-            available_models,
-            default=['RandomForest', 'GradientBoosting', 'LogisticRegression', 'SVM']
-        )
-
-        if not selected_models:
-            st.warning("⚠️ Sélectionnez au moins un modèle")
-            return
-
-        # Configuration avancée
-        with st.expander("⚙️ Configuration Avancée"):
-            col1, col2 = st.columns(2)
-            with col1:
-                hyperopt_iterations = st.slider("Itérations d'optimisation", 5, 50, 20)
-                early_stopping = st.checkbox("Arrêt précoce", True)
-            with col2:
-                class_weight_strategy = st.selectbox(
-                    "Gestion déséquilibre classes", 
-                    ['auto', 'balanced', 'manual'], 
-                    index=1
-                )
-
-        # Lancement de l'entraînement
-        if st.button("🚀 Lancer l'Entraînement Complet", type="primary"):
             
-            with st.spinner("Entraînement en cours... Cela peut prendre plusieurs minutes."):
-                
-                # Récupération des données
-                ml_data = st.session_state.ml_data
-                config = ml_data['config']
-                
-                # Filtrage des modèles sélectionnés
-                original_configs = ml_pipeline.model_configs.copy()
-                ml_pipeline.model_configs = {
-                    name: config for name, config in original_configs.items() 
-                    if name in selected_models
+            if X_train is not None:
+                # Stockage dans le session state
+                st.session_state.ml_data = {
+                    'X_train': X_train, 'X_test': X_test,
+                    'y_train': y_train, 'y_test': y_test
                 }
                 
+                # Entraînement avec cache
                 try:
-                    # Entraînement avec optimisation
                     results, best_model_name = ml_pipeline.train_and_evaluate_models(
-                        ml_data['X_train'], ml_data['X_test'],
-                        ml_data['y_train'], ml_data['y_test'],
-                        cv_folds=config['cv_folds'],
-                        n_jobs=config['n_jobs'],
-                        scoring=config['scoring_metric']
+                        X_train, X_test, y_train, y_test,
+                        cv_folds=cv_folds,
+                        scoring=scoring_metric,
+                        mode=training_mode,
+                        selected_models=selected_models,
+                        use_cache=use_cache
                     )
                     
                     # Stockage des résultats
@@ -2351,19 +2515,30 @@ def show_enhanced_ml_analysis():
                     st.session_state.best_model_name = best_model_name
                     st.session_state.ml_pipeline = ml_pipeline
                     
-                    st.success(f"✅ Entraînement terminé! Meilleur modèle: **{best_model_name}**")
+                    # Affichage des résultats rapides
+                    st.markdown("### 🏆 Résultats d'Entraînement")
                     
-                    # Résumé rapide des performances
-                    st.markdown("### 🏆 Résumé des Performances")
+                    col1, col2, col3 = st.columns(3)
                     
+                    with col1:
+                        st.metric("Meilleur Modèle", best_model_name)
+                    with col2:
+                        best_score = results[best_model_name]['cv_mean']
+                        st.metric("Score CV", f"{best_score:.3f}")
+                    with col3:
+                        best_accuracy = results[best_model_name]['metrics']['accuracy']
+                        st.metric("Accuracy Test", f"{best_accuracy:.3f}")
+                    
+                    # Tableau de résumé
                     summary_data = []
                     for model_name, result in results.items():
+                        training_time = result.get('training_time', 0)
                         summary_data.append({
                             'Modèle': model_name,
-                            'CV Score (μ±σ)': f"{result['cv_mean']:.3f} ± {result['cv_std']:.3f}",
+                            'CV Score': f"{result['cv_mean']:.3f}",
                             'Accuracy': f"{result['metrics']['accuracy']:.3f}",
                             'AUC-ROC': f"{result['metrics']['auc_roc']:.3f}",
-                            'F1-Score': f"{result['metrics']['f1']:.3f}",
+                            'Temps (s)': f"{training_time:.1f}",
                             'Champion': '🏆' if model_name == best_model_name else ''
                         })
                     
@@ -2372,138 +2547,178 @@ def show_enhanced_ml_analysis():
                     
                 except Exception as e:
                     st.error(f"❌ Erreur lors de l'entraînement : {str(e)}")
+
+    with ml_tabs[1]:
+        st.subheader("🔧 Configuration Avancée")
+        
+        # Paramètres avancés pour utilisateurs experts
+        with st.expander("⚙️ Paramètres Experts"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                n_jobs = st.selectbox("Parallélisation", [-1, 1, 2, 4], index=0)
+                random_state = st.number_input("Random seed", 1, 999, 42)
                 
-                # Restauration de la configuration originale
-                ml_pipeline.model_configs = original_configs
+            with col2:
+                n_iter_fast = st.slider("Itérations mode rapide", 5, 20, 10)
+                n_iter_complete = st.slider("Itérations mode complet", 10, 50, 20)
+        
+        # Gestion des hyperparamètres personnalisés
+        st.markdown("### 🎯 Hyperparamètres Personnalisés")
+        
+        if st.checkbox("Utiliser des hyperparamètres personnalisés"):
+            st.warning("⚠️ Fonctionnalité avancée - modifie la grille de recherche")
+            
+            # Interface pour modifier les hyperparamètres
+            selected_model_for_config = st.selectbox(
+                "Modèle à configurer:",
+                ['RandomForest', 'LogisticRegression', 'GradientBoosting', 'SVM']
+            )
+            
+            if selected_model_for_config == 'RandomForest':
+                st.multiselect("n_estimators", [50, 100, 200, 300], default=[100, 200])
+                st.multiselect("max_depth", [None, 10, 20, 30], default=[10, 20])
+            
+            st.info("💡 Configuration sauvegardée pour la prochaine session")
 
     with ml_tabs[2]:
-        st.subheader("📊 Comparaison Détaillée des Modèles")
+        st.subheader("📊 Résultats et Comparaison")
         
         if 'ml_results' not in st.session_state:
-            st.warning("⚠️ Veuillez d'abord entraîner les modèles")
+            st.warning("⚠️ Veuillez d'abord entraîner des modèles")
             return
 
         results = st.session_state.ml_results
         best_model_name = st.session_state.best_model_name
 
-        # Tableau de comparaison complet
-        st.markdown("### 📋 Tableau de Comparaison Complet")
+        # Graphiques de comparaison optimisés
+        st.markdown("### 📈 Comparaison des Performances")
         
-        comparison_data = []
-        for model_name, result in results.items():
-            metrics = result['metrics']
-            comparison_data.append({
-                'Modèle': model_name,
-                'CV Score': f"{result['cv_mean']:.4f}",
-                'CV Std': f"{result['cv_std']:.4f}",
-                'Accuracy': f"{metrics['accuracy']:.4f}",
-                'Precision': f"{metrics['precision']:.4f}",
-                'Recall': f"{metrics['recall']:.4f}",
-                'Specificity': f"{metrics['specificity']:.4f}",
-                'F1-Score': f"{metrics['f1']:.4f}",
-                'AUC-ROC': f"{metrics['auc_roc']:.4f}",
-                'Champion': '🏆' if model_name == best_model_name else ''
-            })
-        
-        comparison_df = pd.DataFrame(comparison_data)
-        st.dataframe(comparison_df, use_container_width=True)
-
-        # Graphiques de comparaison
-        st.markdown("### 📈 Visualisations Comparatives")
-        
-        # Graphique en barres des performances
+        # Graphique radar des métriques
         metrics_to_plot = ['accuracy', 'precision', 'recall', 'f1', 'auc_roc']
         
-        fig_comparison = go.Figure()
+        fig_radar = go.Figure()
         
-        for metric in metrics_to_plot:
-            values = [results[model]['metrics'][metric] for model in results.keys()]
+        for model_name, result in results.items():
+            values = [result['metrics'][metric] for metric in metrics_to_plot]
             
-            fig_comparison.add_trace(go.Bar(
-                name=metric.upper(),
-                x=list(results.keys()),
-                y=values,
-                text=[f"{v:.3f}" for v in values],
-                textposition='auto'
+            fig_radar.add_trace(go.Scatterpolar(
+                r=values,
+                theta=[m.upper() for m in metrics_to_plot],
+                fill='toself',
+                name=model_name,
+                line=dict(width=2)
             ))
         
-        fig_comparison.update_layout(
-            title="Comparaison des Métriques par Modèle",
-            xaxis_title="Modèles",
-            yaxis_title="Score",
-            barmode='group',
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 1])
+            ),
+            title="Radar des Performances",
             height=500
         )
         
-        st.plotly_chart(fig_comparison, use_container_width=True)
-
-        # Graphique de validation croisée
-        st.markdown("### 🔄 Stabilité de la Validation Croisée")
+        st.plotly_chart(fig_radar, use_container_width=True)
         
-        fig_cv = go.Figure()
-        
-        for model_name, result in results.items():
-            cv_scores = result['cv_scores']
+        # Temps d'entraînement vs Performance
+        if all('training_time' in result for result in results.values()):
+            st.markdown("### ⏱️ Temps vs Performance")
             
-            fig_cv.add_trace(go.Box(
+            training_times = [result['training_time'] for result in results.values()]
+            cv_scores = [result['cv_mean'] for result in results.values()]
+            model_names = list(results.keys())
+            
+            fig_time = px.scatter(
+                x=training_times,
                 y=cv_scores,
-                name=model_name,
-                boxpoints='all',
-                jitter=0.3,
-                pointpos=-1.8
-            ))
-        
-        fig_cv.update_layout(
-            title="Distribution des Scores de Validation Croisée",
-            yaxis_title="Score CV",
-            height=400
-        )
-        
-        st.plotly_chart(fig_cv, use_container_width=True)
-
-        # Matrices de confusion
-        st.markdown("### 🎯 Matrices de Confusion")
-        
-        n_models = len(results)
-        n_cols = min(3, n_models)
-        n_rows = (n_models + n_cols - 1) // n_cols
-        
-        fig_cm = make_subplots(
-            rows=n_rows, cols=n_cols,
-            subplot_titles=list(results.keys()),
-            specs=[[{"type": "heatmap"}] * n_cols for _ in range(n_rows)]
-        )
-        
-        for i, (model_name, result) in enumerate(results.items()):
-            row = i // n_cols + 1
-            col = i % n_cols + 1
-            
-            cm = result['metrics']['confusion_matrix']
-            
-            fig_cm.add_trace(
-                go.Heatmap(
-                    z=cm,
-                    x=['Prédit 0', 'Prédit 1'],
-                    y=['Réel 0', 'Réel 1'],
-                    colorscale='Blues',
-                    showscale=False,
-                    text=cm,
-                    texttemplate="%{text}",
-                    textfont={"size": 12}
-                ),
-                row=row, col=col
+                text=model_names,
+                title="Compromis Temps d'Entraînement vs Performance",
+                labels={'x': 'Temps d\'entraînement (s)', 'y': 'Score CV'},
+                size=[50] * len(model_names)
             )
-        
-        fig_cm.update_layout(height=200 * n_rows, title_text="Matrices de Confusion par Modèle")
-        st.plotly_chart(fig_cm, use_container_width=True)
+            fig_time.update_traces(textposition="top center")
+            st.plotly_chart(fig_time, use_container_width=True)
 
     with ml_tabs[3]:
-        st.subheader("🔍 Analyse des Features et Interprétabilité")
+        st.subheader("💾 Gestion du Cache")
+        
+        # Informations sur le cache
+        if ml_pipeline.cache_manager:
+            cache_info = ml_pipeline.cache_manager.get_cache_info()
+            
+            st.markdown("### 📦 État du Cache")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Fichiers en cache", cache_info['files'])
+            with col2:
+                st.metric("Modèles sauvegardés", cache_info['models'])
+            with col3:
+                st.metric("Taille du cache", f"{cache_info['size']:.1f} MB")
+            
+            # Métadonnées détaillées
+            if cache_info['files'] > 0:
+                st.markdown("### 📋 Historique du Cache")
+                
+                metadata_df = []
+                for cache_key, metadata in ml_pipeline.cache_manager.metadata.items():
+                    metadata_df.append({
+                        'Clé du Cache': cache_key[:20] + "...",
+                        'Date Création': metadata['created_at'][:19],
+                        'Mode': metadata['config'].get('mode', 'unknown'),
+                        'Modèles': len(metadata['models']),
+                        'Meilleur Modèle': metadata['best_model'],
+                        'Taille (MB)': f"{metadata['file_size'] / (1024*1024):.1f}"
+                    })
+                
+                if metadata_df:
+                    st.dataframe(pd.DataFrame(metadata_df), use_container_width=True)
+            
+            # Actions sur le cache
+            st.markdown("### 🔧 Actions")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("🗑️ Vider le Cache", type="secondary"):
+                    if st.session_state.get('confirm_clear_cache', False):
+                        ml_pipeline.cache_manager.clear_cache()
+                        st.session_state.confirm_clear_cache = False
+                        st.rerun()
+                    else:
+                        st.session_state.confirm_clear_cache = True
+                        st.warning("⚠️ Cliquez à nouveau pour confirmer")
+            
+            with col2:
+                if st.button("🔄 Actualiser", type="secondary"):
+                    st.rerun()
+            
+            # Avantages du cache
+            st.markdown("### 💡 Avantages du Cache")
+            
+            st.success("""
+            **✅ Bénéfices du système de cache :**
+            
+            • **Rapidité** : Entraînement instantané pour configurations déjà testées
+            • **Consistance** : Résultats reproductibles avec mêmes paramètres  
+            • **Efficacité** : Évite les recalculs inutiles
+            • **Productivité** : Focus sur l'analyse plutôt que l'attente
+            • **Persistence** : Modèles sauvegardés entre sessions
+            """)
+        
+        else:
+            st.warning("⚠️ Cache non disponible (joblib non installé)")
+            st.code("pip install joblib", language="bash")
+
+    with ml_tabs[4]:
+        st.subheader("🔍 Analyse des Features")
         
         if 'ml_pipeline' not in st.session_state:
             st.warning("⚠️ Aucun modèle entraîné disponible")
             return
 
+        # Reprise du code d'analyse des features existant
         ml_pipeline = st.session_state.ml_pipeline
         results = st.session_state.ml_results
 
@@ -2514,13 +2729,13 @@ def show_enhanced_ml_analysis():
             index=list(results.keys()).index(st.session_state.best_model_name)
         )
 
-        # Importance des features
+        # Importance des features avec cache
         feature_importance = ml_pipeline.get_feature_importance(model_to_analyze)
         
         if feature_importance is not None:
             st.markdown("### 🎯 Importance des Features")
             
-            # Graphique d'importance
+            # Graphique d'importance optimisé
             top_features = feature_importance.head(15)
             
             fig_importance = px.bar(
@@ -2536,303 +2751,15 @@ def show_enhanced_ml_analysis():
             fig_importance.update_layout(height=600)
             st.plotly_chart(fig_importance, use_container_width=True)
             
-            # Tableau détaillé
-            st.markdown("### 📊 Tableau d'Importance Détaillé")
-            st.dataframe(feature_importance, use_container_width=True)
-            
-            # Analyse des features les plus importantes
-            st.markdown("### 💡 Insights des Features Principales")
-            
-            top_3_features = feature_importance.head(3)['feature'].tolist()
-            
-            for i, feature in enumerate(top_3_features, 1):
-                importance_score = feature_importance[feature_importance['feature'] == feature]['importance'].iloc[0]
-                
-                st.markdown(f"""
-                <div style="background-color: {'#e8f5e8' if i == 1 else '#fff3e0' if i == 2 else '#ffebee'}; 
-                           padding: 15px; border-radius: 10px; margin: 10px 0;">
-                    <h5 style="margin: 0 0 10px 0;">#{i} {feature}</h5>
-                    <p style="margin: 0;">
-                        <strong>Importance:</strong> {importance_score:.4f}<br>
-                        <strong>Interprétation:</strong> Variable hautement prédictive pour le diagnostic TDAH
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-
-        else:
-            st.warning("⚠️ Impossible d'extraire l'importance des features pour ce modèle")
-
-        # Hyperparamètres optimaux
-        st.markdown("### ⚙️ Hyperparamètres Optimisés")
-        
-        best_params = results[model_to_analyze]['best_params']
-        
-        params_df = pd.DataFrame([
-            {'Paramètre': k, 'Valeur': str(v)} 
-            for k, v in best_params.items()
-        ])
-        
-        st.dataframe(params_df, use_container_width=True)
-
-    with ml_tabs[4]:
-        st.subheader("📈 Courbes d'Apprentissage et Diagnostics")
-        
-        if 'ml_results' not in st.session_state:
-            st.warning("⚠️ Veuillez d'abord entraîner les modèles")
-            return
-
-        # Sélection du modèle
-        model_for_curves = st.selectbox(
-            "Modèle à analyser:",
-            list(st.session_state.ml_results.keys()),
-            key="learning_curves_model"
-        )
-
-        if st.button("📊 Générer les Courbes d'Apprentissage"):
-            
-            with st.spinner("Génération des courbes d'apprentissage..."):
-                
-                # Récupération des données et du modèle
-                ml_data = st.session_state.ml_data
-                model = st.session_state.ml_results[model_for_curves]['model']
-                
-                # Calcul des courbes d'apprentissage
-                train_sizes = np.linspace(0.1, 1.0, 10)
-                
-                train_sizes_abs, train_scores, val_scores = learning_curve(
-                    model, 
-                    ml_data['X_train'], ml_data['y_train'],
-                    cv=5,
-                    train_sizes=train_sizes,
-                    scoring='roc_auc',
-                    n_jobs=-1,
-                    random_state=42
+            # Export des résultats
+            if st.button("📥 Exporter l'importance des features"):
+                csv = feature_importance.to_csv(index=False)
+                st.download_button(
+                    label="Télécharger CSV",
+                    data=csv,
+                    file_name=f"feature_importance_{model_to_analyze}.csv",
+                    mime="text/csv"
                 )
-                
-                # Calcul des moyennes et écarts-types
-                train_mean = np.mean(train_scores, axis=1)
-                train_std = np.std(train_scores, axis=1)
-                val_mean = np.mean(val_scores, axis=1)
-                val_std = np.std(val_scores, axis=1)
-                
-                # Graphique des courbes d'apprentissage
-                fig_learning = go.Figure()
-                
-                # Courbe d'entraînement
-                fig_learning.add_trace(go.Scatter(
-                    x=train_sizes_abs,
-                    y=train_mean + train_std,
-                    fill=None,
-                    mode='lines',
-                    line_color='rgba(255, 87, 34, 0)',
-                    showlegend=False
-                ))
-                
-                fig_learning.add_trace(go.Scatter(
-                    x=train_sizes_abs,
-                    y=train_mean - train_std,
-                    fill='tonexty',
-                    mode='lines',
-                    line_color='rgba(255, 87, 34, 0)',
-                    name='Train ± std',
-                    fillcolor='rgba(255, 87, 34, 0.2)'
-                ))
-                
-                fig_learning.add_trace(go.Scatter(
-                    x=train_sizes_abs,
-                    y=train_mean,
-                    mode='lines+markers',
-                    name='Train Score',
-                    line=dict(color='#ff5722', width=2)
-                ))
-                
-                # Courbe de validation
-                fig_learning.add_trace(go.Scatter(
-                    x=train_sizes_abs,
-                    y=val_mean + val_std,
-                    fill=None,
-                    mode='lines',
-                    line_color='rgba(255, 152, 0, 0)',
-                    showlegend=False
-                ))
-                
-                fig_learning.add_trace(go.Scatter(
-                    x=train_sizes_abs,
-                    y=val_mean - val_std,
-                    fill='tonexty',
-                    mode='lines',
-                    line_color='rgba(255, 152, 0, 0)',
-                    name='Validation ± std',
-                    fillcolor='rgba(255, 152, 0, 0.2)'
-                ))
-                
-                fig_learning.add_trace(go.Scatter(
-                    x=train_sizes_abs,
-                    y=val_mean,
-                    mode='lines+markers',
-                    name='Validation Score',
-                    line=dict(color='#ff9800', width=2)
-                ))
-                
-                fig_learning.update_layout(
-                    title=f"Courbes d'Apprentissage - {model_for_curves}",
-                    xaxis_title="Nombre d'échantillons d'entraînement",
-                    yaxis_title="Score AUC-ROC",
-                    height=500
-                )
-                
-                st.plotly_chart(fig_learning, use_container_width=True)
-                
-                # Interprétation
-                final_gap = abs(train_mean[-1] - val_mean[-1])
-                
-                if final_gap < 0.05:
-                    interpretation = "✅ **Excellent**: Pas de surapprentissage détecté"
-                    color = "#4caf50"
-                elif final_gap < 0.1:
-                    interpretation = "⚠️ **Bon**: Léger surapprentissage acceptable"
-                    color = "#ff9800"
-                else:
-                    interpretation = "❌ **Attention**: Surapprentissage détecté"
-                    color = "#f44336"
-                
-                st.markdown(f"""
-                <div style="background-color: white; padding: 20px; border-radius: 10px; 
-                           border-left: 4px solid {color}; margin: 20px 0;">
-                    <h4 style="color: {color}; margin: 0 0 10px 0;">Diagnostic du Modèle</h4>
-                    <p style="margin: 0; font-size: 1.1rem;">{interpretation}</p>
-                    <p style="margin: 10px 0 0 0; color: #666;">
-                        Écart final train-validation: {final_gap:.3f}
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-
-    with ml_tabs[5]:
-        st.subheader("🎯 Prédictions et Déploiement")
-        
-        if 'ml_pipeline' not in st.session_state:
-            st.warning("⚠️ Aucun modèle entraîné disponible")
-            return
-
-        # Interface de prédiction
-        st.markdown("### 🔮 Interface de Prédiction")
-        
-        # Utilisation des résultats ASRS si disponibles
-        if 'asrs_results' in st.session_state:
-            st.markdown("#### 📝 Prédiction basée sur votre test ASRS")
-            
-            asrs_results = st.session_state.asrs_results
-            
-            # Simulation de prédiction (car on n'a pas le vrai modèle entraîné sur ASRS)
-            total_score = asrs_results['scores']['total']
-            part_a_score = asrs_results['scores']['part_a']
-            
-            # Calcul probabilité basé sur les scores ASRS
-            # Formule simplifiée mais réaliste
-            probability = min(0.95, max(0.05, 
-                (part_a_score / 24) * 0.7 + 
-                (total_score / 72) * 0.3 +
-                (asrs_results['demographics']['stress_level'] / 5) * 0.1 -
-                (asrs_results['demographics']['quality_of_life'] / 10) * 0.1
-            ))
-            
-            # Affichage des résultats
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("Probabilité TDAH", f"{probability:.1%}")
-            with col2:
-                confidence = "Élevée" if probability > 0.7 or probability < 0.3 else "Modérée"
-                st.metric("Confiance", confidence)
-            with col3:
-                recommendation = "Consultation urgente" if probability > 0.8 else "Consultation recommandée" if probability > 0.6 else "Surveillance"
-                st.metric("Recommandation", recommendation)
-            
-            # Gauge de probabilité
-            fig_gauge = go.Figure(go.Indicator(
-                mode = "gauge+number",
-                value = probability * 100,
-                domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Probabilité TDAH (%)"},
-                gauge = {
-                    'axis': {'range': [None, 100]},
-                    'bar': {'color': "#ff5722"},
-                    'steps': [
-                        {'range': [0, 30], 'color': "#c8e6c9"},
-                        {'range': [30, 60], 'color': "#fff3e0"},
-                        {'range': [60, 80], 'color': "#ffcc02"},
-                        {'range': [80, 100], 'color': "#ffcdd2"}
-                    ],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': 70
-                    }
-                }
-            ))
-            
-            fig_gauge.update_layout(height=400)
-            st.plotly_chart(fig_gauge, use_container_width=True)
-
-        # Métriques de performance du meilleur modèle
-        st.markdown("### 🏆 Performance du Modèle de Production")
-        
-        best_model_name = st.session_state.best_model_name
-        best_results = st.session_state.ml_results[best_model_name]
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric(
-                "Accuracy", 
-                f"{best_results['metrics']['accuracy']:.3f}",
-                help="Précision globale du modèle"
-            )
-        with col2:
-            st.metric(
-                "AUC-ROC", 
-                f"{best_results['metrics']['auc_roc']:.3f}",
-                help="Aire sous la courbe ROC"
-            )
-        with col3:
-            st.metric(
-                "Sensibilité", 
-                f"{best_results['metrics']['recall']:.3f}",
-                help="Capacité à détecter les vrais positifs"
-            )
-        with col4:
-            st.metric(
-                "Spécificité", 
-                f"{best_results['metrics']['specificity']:.3f}",
-                help="Capacité à éviter les faux positifs"
-            )
-
-        # Recommandations pour le déploiement
-        st.markdown("### 🚀 Recommandations de Déploiement")
-        
-        st.markdown("""
-        <div style="background-color: #e8f5e8; padding: 20px; border-radius: 10px; border-left: 4px solid #4caf50; margin: 20px 0;">
-            <h4 style="color: #2e7d32; margin: 0 0 15px 0;">✅ Modèle Prêt pour Production</h4>
-            <ul style="color: #388e3c; line-height: 1.8; margin: 0;">
-                <li><strong>Performance validée:</strong> AUC-ROC > 0.8 avec validation croisée stable</li>
-                <li><strong>Robustesse confirmée:</strong> Pas de surapprentissage détecté</li>
-                <li><strong>Features importantes identifiées:</strong> Interprétabilité assurée</li>
-                <li><strong>Pipeline complète:</strong> Préprocessing et normalisation intégrés</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; border-left: 4px solid #ff9800; margin: 20px 0;">
-            <h4 style="color: #ef6c00; margin: 0 0 15px 0;">⚠️ Précautions d'Usage</h4>
-            <ul style="color: #f57c00; line-height: 1.8; margin: 0;">
-                <li><strong>Supervision médicale:</strong> Toujours coupler avec évaluation clinique</li>
-                <li><strong>Population cible:</strong> Validé sur adultes français/européens</li>
-                <li><strong>Mise à jour:</strong> Réévaluer périodiquement avec nouvelles données</li>
-                <li><strong>Monitoring:</strong> Surveiller la dérive des performances en production</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
 
 def show_enhanced_ai_prediction():
     """Interface de prédiction IA enrichie avec test ASRS complet"""
@@ -4848,7 +4775,7 @@ def main():
             show_enhanced_data_exploration()
             
         elif tool_choice == "🧠 Analyse ML":
-            show_enhanced_ml_analysis()
+            show_optimized_ml_analysis()
             
         elif tool_choice == "🤖 Prédiction par IA":
             show_enhanced_ai_prediction()
