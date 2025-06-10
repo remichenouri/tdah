@@ -559,10 +559,7 @@ def load_enhanced_dataset():
         
         # Chargement du dataset
         df = pd_local.read_csv(download_url)
-        
-        # Vérification de l'intégrité des données
-        st.success(f"✅ Dataset chargé avec succès ! {len(df)} participants, {len(df.columns)} variables")
-        
+ 
         return df
         
     except Exception as e:
@@ -1577,8 +1574,7 @@ def load_ml_libraries():
         # Test immédiat de fonctionnement
         test_array = np.array([1, 2, 3])
         test_df = pd.DataFrame({'test': [1, 2, 3]})
-        
-        st.success("✅ NumPy et Pandas chargés avec succès")
+
         
         # Imports ML avec protection
         try:
@@ -1609,8 +1605,7 @@ def load_ml_libraries():
                 'f1_score': f1_score,
                 'roc_auc_score': roc_auc_score
             })
-            
-            st.success("✅ Scikit-learn chargé avec succès")
+
             return True
             
         except ImportError as e:
@@ -1632,8 +1627,6 @@ def prepare_ml_data_safe(df):
         # Import local sécurisé
         import numpy as np_safe
         import pandas as pd_safe
-        
-        st.info("🔄 Préparation des données en cours...")
         
         # Vérification du dataset
         if df is None or len(df) == 0:
@@ -1667,8 +1660,6 @@ def prepare_ml_data_safe(df):
             st.error("❌ Aucune variable numérique trouvée")
             return None, None, None, None
         
-        st.success(f"✅ {len(numeric_features)} variables numériques sélectionnées")
-        
         # Préparation des données
         X = df[numeric_features].copy()
         y = df['diagnosis'].copy()
@@ -1688,9 +1679,7 @@ def prepare_ml_data_safe(df):
                 random_state=42,
                 stratify=y if len(np_safe.unique(y)) > 1 else None
             )
-            
-            st.success(f"✅ Division réussie : Train={X_train.shape[0]}, Test={X_test.shape[0]}")
-            
+        
             return X_train, X_test, y_train, y_test
             
         except Exception as e:
@@ -1723,7 +1712,6 @@ def train_simple_models_safe(X_train, X_test, y_train, y_test):
         # Entraînement de chaque modèle
         for model_name, model_config in models_to_test.items():
             try:
-                st.info(f"🔄 Entraînement {model_name}...")
                 
                 # Initialisation du modèle
                 model = model_config['class'](**model_config['params'])
@@ -1756,8 +1744,6 @@ def train_simple_models_safe(X_train, X_test, y_train, y_test):
                         'f1': f1,
                         'auc': auc
                     }
-                    
-                    st.success(f"✅ {model_name} : Accuracy={accuracy:.3f}")
                     
                 except Exception as metric_error:
                     st.warning(f"⚠️ Erreur métriques {model_name}: {metric_error}")
@@ -2022,7 +2008,6 @@ def show_enhanced_ml_analysis():
                     }
                     
                     # Affichage des informations
-                    st.success("✅ Données préparées avec succès !")
                     
                     col1, col2 = st.columns(2)
                     with col1:
