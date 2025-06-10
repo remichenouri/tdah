@@ -34,7 +34,6 @@ try:
     globals()['np'] = np
     globals()['pd'] = pd
     NUMPY_AVAILABLE = True
-    st.success("✅ NumPy et Pandas chargés avec succès")
 except ImportError as e:
     st.error(f"❌ Erreur critique : {e}")
     st.error("Veuillez installer numpy et pandas : pip install numpy pandas")
@@ -66,7 +65,6 @@ try:
     from scipy import stats
     from scipy.stats import mannwhitneyu, chi2_contingency, pearsonr, spearmanr
     SKLEARN_AVAILABLE = True
-    st.success("✅ Scikit-learn chargé avec succès")
 except ImportError as e:
     SKLEARN_AVAILABLE = False
     st.warning(f"⚠️ Scikit-learn non disponible : {e}")
