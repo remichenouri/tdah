@@ -1177,7 +1177,7 @@ def show_enhanced_data_exploration():
 
         # Structure des données améliorée
         st.subheader("📂 Structure des données")
-
+        
         # Catégorisation des variables
         asrs_questions = [col for col in df.columns if col.startswith('asrs_q')]
         asrs_scores = [col for col in df.columns if col.startswith('asrs_') and not col.startswith('asrs_q')]
@@ -1185,269 +1185,126 @@ def show_enhanced_data_exploration():
         psychometric_vars = [col for col in df.columns if col.startswith('iq_')]
         quality_vars = ['quality_of_life', 'stress_level', 'sleep_problems']
         
-        # CSS simplifié et compatible
-        st.markdown("""
-        <style>
-        .category-card-simple {
-            background: linear-gradient(135deg, #fff3e0, #fffaf5);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 10px 0;
-            box-shadow: 0 4px 12px rgba(255,87,34,0.1);
-            border-left: 5px solid #ff9800;
-            border: 1px solid #ffcc02;
-        }
-        
-        .category-card-demo {
-            background: linear-gradient(135deg, #e3f2fd, #f8fbff);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 10px 0;
-            box-shadow: 0 4px 12px rgba(33,150,243,0.1);
-            border-left: 5px solid #2196f3;
-            border: 1px solid #64b5f6;
-        }
-        
-        .category-card-psycho {
-            background: linear-gradient(135deg, #f3e5f5, #fdf8fe);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 10px 0;
-            box-shadow: 0 4px 12px rgba(156,39,176,0.1);
-            border-left: 5px solid #9c27b0;
-            border: 1px solid #ba68c8;
-        }
-        
-        .category-card-quality {
-            background: linear-gradient(135deg, #e8f5e8, #f8fdf8);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 10px 0;
-            box-shadow: 0 4px 12px rgba(76,175,80,0.1);
-            border-left: 5px solid #4caf50;
-            border: 1px solid #81c784;
-        }
-        
-        .category-title {
-            color: #d84315;
-            font-size: 1.3rem;
-            font-weight: 600;
-            margin: 0 0 10px 0;
-            display: flex;
-            align-items: center;
-        }
-        
-        .category-icon {
-            font-size: 1.8rem;
-            margin-right: 10px;
-        }
-        
-        .category-description {
-            color: #666;
-            font-size: 0.95rem;
-            margin: 10px 0;
-            font-style: italic;
-        }
-        
-        .stats-container {
-            display: flex;
-            justify-content: space-around;
-            margin: 15px 0;
-            padding: 15px;
-            background: rgba(255,255,255,0.7);
-            border-radius: 8px;
-        }
-        
-        .stat-box {
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #ff5722;
-        }
-        
-        .stat-label {
-            font-size: 0.8rem;
-            color: #666;
-            text-transform: uppercase;
-        }
-        
-        .variable-tags {
-            margin-top: 15px;
-        }
-        
-        .variable-tag {
-            display: inline-block;
-            background: #ff5722;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 12px;
-            margin: 2px;
-            font-size: 0.8rem;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        # Configuration des catégories simplifiée
+        # Création d'une liste de catégories simple et fiable
         categories = [
             {
                 "title": "Variables ASRS (questionnaire)",
                 "icon": "📝",
                 "variables": asrs_questions + asrs_scores,
                 "description": f"{len(asrs_questions)} questions individuelles + {len(asrs_scores)} scores calculés",
-                "css_class": "category-card-simple",
-                "color": "#ef6c00"
+                "bg_color": "#fff3e0",
+                "accent_color": "#ff9800"
             },
             {
                 "title": "Variables démographiques", 
                 "icon": "👥",
                 "variables": [var for var in demographic_vars if var in df.columns],
                 "description": "Caractéristiques sociodémographiques des participants",
-                "css_class": "category-card-demo",
-                "color": "#1976d2"
+                "bg_color": "#e3f2fd",
+                "accent_color": "#2196f3"
             },
             {
                 "title": "Variables psychométriques",
                 "icon": "🧠", 
                 "variables": [var for var in psychometric_vars if var in df.columns],
                 "description": "Tests de QI et évaluations cognitives standardisées",
-                "css_class": "category-card-psycho",
-                "color": "#7b1fa2"
+                "bg_color": "#f3e5f5",
+                "accent_color": "#9c27b0"
             },
             {
                 "title": "Variables de qualité de vie",
                 "icon": "💚",
                 "variables": [var for var in quality_vars if var in df.columns], 
                 "description": "Bien-être, stress et facteurs environnementaux",
-                "css_class": "category-card-quality",
-                "color": "#2e7d32"
+                "bg_color": "#e8f5e8",
+                "accent_color": "#4caf50"
             }
         ]
-
         
-        # Affichage des cartes en 2x2
-        for i in range(0, len(categories_config), 2):
+        # Affichage simple des catégories en grille 2x2
+        for i in range(0, len(categories), 2):
             col1, col2 = st.columns(2)
             
+            # Première carte
             with col1:
-                cat = categories_config[i]
-                st.markdown(f"""
-                <div class="category-card" style="
-                    --bg-color: {cat['bg_color']};
-                    --bg-light: {cat['bg_light']};
-                    --accent-color: {cat['accent_color']};
-                    --icon-bg: {cat['icon_bg']};
-                    --text-color: {cat['text_color']};
-                ">
-                    <div class="category-header">
-                        <span class="category-icon">{cat['icon']}</span>
-                        <div>
-                            <h3 class="category-title">{cat['title']}</h3>
-                            <p style="margin: 5px 0 0 0; color: {cat['text_color']}; opacity: 0.8;">
-                                {cat['description']}
-                            </p>
-                        </div>
-                    </div>
+                cat = categories[i]
+                
+                # Style simplifié sans HTML complexe
+                st.markdown(f"### {cat['icon']} {cat['title']}")
+                st.markdown(f"*{cat['description']}*")
+                
+                # Métriques dans des colonnes
+                subcol1, subcol2, subcol3 = st.columns(3)
+                with subcol1:
+                    st.metric("Variables", len(cat['variables']))
+                with subcol2:
+                    st.metric("Disponibles", len(cat['variables']))
+                with subcol3:
+                    st.metric("Complétude", "100%" if len(cat['variables']) > 0 else "0%")
+                
+                # Exemples de variables avec style simple
+                st.markdown("**Exemples de variables :**")
+                vars_to_show = cat['variables'][:6]
+                if vars_to_show:
+                    # Utilisation d'un conteneur pour les variables
+                    with st.container():
+                        chips_html = "<div style='display: flex; flex-wrap: wrap; gap: 5px;'>"
+                        for var in vars_to_show:
+                            chips_html += f"<span style='background-color: {cat['accent_color']}; color: white; padding: 3px 8px; border-radius: 12px; margin: 2px; font-size: 0.8rem;'>{var}</span>"
+                        chips_html += "</div>"
+                        st.markdown(chips_html, unsafe_allow_html=True)
                     
-                    <div class="category-stats">
-                        <div class="stat-item">
-                            <span class="stat-number">{len(cat['variables'])}</span>
-                            <span class="stat-label">Variables</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-number">{cat['details'][list(cat['details'].keys())[-1]]}</span>
-                            <span class="stat-label">Total</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-number">{"100%" if len(cat['variables']) > 0 else "0%"}</span>
-                            <span class="stat-label">Complétude</span>
-                        </div>
-                    </div>
-                    
-                    <div class="variable-list">
-                        <strong style="color: {cat['text_color']};">Exemples de variables :</strong><br>
-                        {' '.join([f'<span class="variable-item">{var}</span>' for var in cat['variables'][:6]])}
-                        {f'<span style="color: {cat["text_color"]}; font-style: italic;">... et {len(cat["variables"]) - 6} autres</span>' if len(cat['variables']) > 6 else ''}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    if len(cat['variables']) > 6:
+                        st.caption(f"... et {len(cat['variables']) - 6} autres")
+                else:
+                    st.caption("Aucune variable disponible")
             
-            if i + 1 < len(categories_config):
+            # Deuxième carte (si elle existe)
+            if i + 1 < len(categories):
                 with col2:
-                    cat = categories_config[i + 1]
-                    st.markdown(f"""
-                    <div class="category-card" style="
-                        --bg-color: {cat['bg_color']};
-                        --bg-light: {cat['bg_light']};
-                        --accent-color: {cat['accent_color']};
-                        --icon_bg: {cat['icon_bg']};
-                        --text-color: {cat['text_color']};
-                    ">
-                        <div class="category-header">
-                            <span class="category-icon">{cat['icon']}</span>
-                            <div>
-                                <h3 class="category-title">{cat['title']}</h3>
-                                <p style="margin: 5px 0 0 0; color: {cat['text_color']}; opacity: 0.8;">
-                                    {cat['description']}
-                                </p>
-                            </div>
-                        </div>
+                    cat = categories[i + 1]
+                    
+                    # Style simplifié identique
+                    st.markdown(f"### {cat['icon']} {cat['title']}")
+                    st.markdown(f"*{cat['description']}*")
+                    
+                    # Métriques dans des colonnes
+                    subcol1, subcol2, subcol3 = st.columns(3)
+                    with subcol1:
+                        st.metric("Variables", len(cat['variables']))
+                    with subcol2:
+                        st.metric("Disponibles", len(cat['variables']))
+                    with subcol3:
+                        st.metric("Complétude", "100%" if len(cat['variables']) > 0 else "0%")
+                    
+                    # Exemples de variables avec style simple
+                    st.markdown("**Exemples de variables :**")
+                    vars_to_show = cat['variables'][:6]
+                    if vars_to_show:
+                        # Utilisation d'un conteneur pour les variables
+                        with st.container():
+                            chips_html = "<div style='display: flex; flex-wrap: wrap; gap: 5px;'>"
+                            for var in vars_to_show:
+                                chips_html += f"<span style='background-color: {cat['accent_color']}; color: white; padding: 3px 8px; border-radius: 12px; margin: 2px; font-size: 0.8rem;'>{var}</span>"
+                            chips_html += "</div>"
+                            st.markdown(chips_html, unsafe_allow_html=True)
                         
-                        <div class="category-stats">
-                            <div class="stat-item">
-                                <span class="stat-number">{len(cat['variables'])}</span>
-                                <span class="stat-label">Variables</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-number">{cat['details'][list(cat['details'].keys())[-1]]}</span>
-                                <span class="stat-label">Total</span>
-                            </div>
-                            <div class="stat-item">
-                                <span class="stat-number">{"100%" if len(cat['variables']) > 0 else "0%"}</span>
-                                <span class="stat-label">Complétude</span>
-                            </div>
-                        </div>
-                        
-                        <div class="variable-list">
-                            <strong style="color: {cat['text_color']};">Exemples de variables :</strong><br>
-                            {' '.join([f'<span class="variable-item">{var}</span>' for var in cat['variables'][:6]])}
-                            {f'<span style="color: {cat["text_color"]}; font-style: italic;">... et {len(cat["variables"]) - 6} autres</span>' if len(cat['variables']) > 6 else ''}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        if len(cat['variables']) > 6:
+                            st.caption(f"... et {len(cat['variables']) - 6} autres")
+                    else:
+                        st.caption("Aucune variable disponible")
         
-        # Résumé global avec design amélioré
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #ff5722, #ff9800); 
-                   padding: 25px; border-radius: 15px; margin: 30px 0; text-align: center;
-                   box-shadow: 0 8px 25px rgba(255,87,34,0.2);">
-            <h3 style="color: white; margin: 0 0 15px 0; font-size: 1.5rem;">
-                📊 Résumé Global du Dataset
-            </h3>
-            <div style="display: flex; justify-content: space-around; color: white;">
-                <div>
-                    <div style="font-size: 2rem; font-weight: bold;">{len(df.columns)}</div>
-                    <div style="opacity: 0.9;">Variables totales</div>
-                </div>
-                <div>
-                    <div style="font-size: 2rem; font-weight: bold;">{len(df):,}</div>
-                    <div style="opacity: 0.9;">Participants</div>
-                </div>
-                <div>
-                    <div style="font-size: 2rem; font-weight: bold;">{df['diagnosis'].sum() if 'diagnosis' in df.columns else 'N/A'}</div>
-                    <div style="opacity: 0.9;">Cas TDAH</div>
-                </div>
-                <div>
-                    <div style="font-size: 2rem; font-weight: bold;">
-                        {f"{(df.isnull().sum().sum() / (len(df) * len(df.columns)) * 100):.1f}%" if len(df) > 0 else "N/A"}
-                    </div>
-                    <div style="opacity: 0.9;">Données manquantes</div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        # Résumé global avec design simplifié
+        st.markdown("### 📊 Résumé Global du Dataset")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Variables totales", len(df.columns))
+        with col2:
+            st.metric("Participants", f"{len(df):,}")
+        with col3:
+            st.metric("Cas TDAH", f"{df['diagnosis'].sum() if 'diagnosis' in df.columns else 'N/A'}")
+        with col4:
+            st.metric("Données manquantes", f"{(df.isnull().sum().sum() / (len(df) * len(df.columns)) * 100):.1f}%" if len(df) > 0 else "N/A")
 
 
         # Aperçu des données
