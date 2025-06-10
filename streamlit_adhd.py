@@ -648,8 +648,291 @@ def create_fallback_dataset():
     
     return df
 
+def generate_realistic_tdah_dataset(n_samples=6500, random_state=42):
+    """Génère un dataset TDAH scientifiquement cohérent - Version corrigée"""
+    np.random.seed(random_state)
+    
+    def generate_demographics(n):
+        """Génère des caractéristiques démographiques réalistes"""
+        data = {
+            'subject_id': [f'TDH_{i:05d}' for i in range(1, n+1)],
+            'age': np.clip(np.round(stats.skewnorm.rvs(5, loc=32, scale=12, size=n)), 18, 65).astype(int),
+            'gender': np.random.choice(['M', 'F'], n, p=[0.55, 0.45]),
+            'education': np.random.choice(['Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'], n, p=[0.15, 0.25, 0.35, 0.2, 0.05]),
+            'job_status': np.random.choice(['CDI', 'CDD', 'Freelance', 'Étudiant', 'Chômeur'], n, p=[0.4, 0.25, 0.15, 0.15, 0.05]),
+            'marital_status': np.random.choice(['Célibataire', 'En couple', 'Marié(e)', 'Divorcé(e)'], n, p=[0.3, 0.25, 0.35, 0.1]),
+            'site': np.random.choice(['Site_Paris', 'Site_Lyon', 'Site_Marseille'], n, p=[0.5, 0.3, 0.2])
+        }
+        return pd.DataFrame(data)
 
+    def generate_asrs_scores_realistic(diagnosis, n):
+        """Génère des scores ASRS avec corrélations réalistes selon le diagnostic"""
+        scores = np.zeros((n, 18))
+        
+        # Patterns différents selon le diagnostic
+        for i in range(n):
+            if diagnosis[i] == 1:  # TDAH positif
+                # Scores plus élevés avec variabilité réaliste
+                base_scores = np.random.normal(2.5, 0.9, 18)
+                # Augmentation pour questions clés (partie A)
+                base_scores[:6] *= 1.3
+            else:  # TDAH négatif
+                # Scores plus faibles
+                base_scores = np.random.normal(1.1, 0.7, 18)
+            
+            # Ajout de corrélations entre symptômes similaires
+            # Questions d'inattention (1-4, 7-9)
+            inatt_bonus = np.random.normal(0, 0.3)
+            base_scores[[0,1,2,3,6,7,8]] += inatt_bonus
+            
+            # Questions d'hyperactivité (5,6,10-18)  
+            hyper_bonus = np.random.normal(0, 0.3)
+            base_scores[[4,5] + list(range(9,18))] += hyper_bonus
+            
+            scores[i] = np.clip(np.round(base_scores), 0, 4)
+        
+        return {f'asrs_q{i+1}': scores[:, i].astype(int) for i in range(18)}
 
+    def generate_psychosocial_realistic(df, diagnosis):
+        """Génère des variables psychosociales corrélées au diagnostic"""
+        n = len(df)
+        
+        # Qualité de vie inversement corrélée au TDAH
+        qol_base = np.where(diagnosis == 1, 
+                           np.random.normal(5.5, 1.8, n),  # TDAH+: QoL plus faible
+                           np.random.normal(7.2, 1.5, n))  # TDAH-: QoL normale
+        
+        # Stress positivement corrélé au TDAH
+        stress_base = np.where(diagnosis == 1,
+                              np.random.normal(3.8, 0.9, n),  # TDAH+: stress élevé
+                              np.random.normal(2.5, 0.8, n))  # TDAH-: stress normal
+        
+        # Problèmes de sommeil corrélés
+        sleep_base = np.where(diagnosis == 1,
+                             np.random.normal(3.5, 1.0, n),  # TDAH+: troubles sommeil
+                             np.random.normal(2.2, 0.9, n))  # TDAH-: sommeil normal
+        
+        return {
+            'quality_of_life': np.clip(qol_base, 1, 10),
+            'stress_level': np.clip(stress_base, 1, 5),
+            'sleep_problems': np.clip(sleep_base, 1, 5),
+            'work_impairment': np.clip(diagnosis*2.5 + np.random.normal(0, 1.2, n), 1, 10)
+        }
+
+    def generate_comorbidities_realistic(diagnosis, n):
+        """Génère des comorbidités avec odds ratio cliniques réalistes"""
+        comorbidities = {}
+        
+        # Définition des prévalences et odds ratios basés sur la littérature
+        conditions = {
+            'anxiety': {'base_prev': 0.15, 'or': 3.2},
+            'depression': {'base_prev': 0.12, 'or': 2.8}, 
+            'sleep_disorder': {'base_prev': 0.08, 'or': 4.5},
+            'addiction': {'base_prev': 0.05, 'or': 2.1}
+        }
+        
+        for cond, params in conditions.items():
+            # Calcul des probabilités selon le diagnostic
+            prob_tdah_neg = params['base_prev']
+            prob_tdah_pos = min(0.95, params['base_prev'] * params['or'])
+            
+            probabilities = np.where(diagnosis == 1, prob_tdah_pos, prob_tdah_neg)
+            comorbidities[cond] = np.random.binomial(1, probabilities)
+            
+        return comorbidities
+
+    def apply_dsm5_criteria_realistic(asrs_data, n):
+        """Application des critères DSM-5 avec prévalence réaliste"""
+        # Critères simplifiés mais réalistes
+        part_a_scores = np.array([asrs_data[f'asrs_q{i}'] for i in range(1, 7)]).T
+        part_a_sum = part_a_scores.sum(axis=1)
+        
+        # Seuil adaptatif pour obtenir ~4-5% de prévalence
+        threshold = np.percentile(part_a_sum, 95)  # Top 5%
+        
+        return (part_a_sum >= threshold).astype(int)
+
+    try:
+        # 1. Génération des données démographiques
+        df = generate_demographics(n_samples)
+        
+        # 2. Génération temporaire des scores ASRS pour calculer le diagnostic
+        temp_asrs = generate_asrs_scores_realistic(np.zeros(n_samples), n_samples)
+        diagnosis = apply_dsm5_criteria_realistic(temp_asrs, n_samples)
+        
+        # 3. Regénération des scores ASRS avec vraies corrélations
+        asrs_data = generate_asrs_scores_realistic(diagnosis, n_samples)
+        df = df.assign(**asrs_data)
+        
+        # 4. Calcul des scores ASRS selon la structure officielle
+        # Questions d'inattention : 1,2,3,4,7,8,9 (selon DSM-5)
+        inatt_cols = ['asrs_q1', 'asrs_q2', 'asrs_q3', 'asrs_q4', 'asrs_q7', 'asrs_q8', 'asrs_q9']
+        df['asrs_inattention'] = df[inatt_cols].sum(axis=1)
+        
+        # Questions d'hyperactivité : 5,6,10-18
+        hyper_cols = ['asrs_q5', 'asrs_q6'] + [f'asrs_q{i}' for i in range(10, 19)]
+        df['asrs_hyperactivity'] = df[hyper_cols].sum(axis=1)
+        
+        # Scores totaux
+        df['asrs_total'] = df['asrs_inattention'] + df['asrs_hyperactivity']
+        df['asrs_part_a'] = df[['asrs_q1', 'asrs_q2', 'asrs_q3', 'asrs_q4', 'asrs_q5', 'asrs_q6']].sum(axis=1)
+        df['asrs_part_b'] = df[[f'asrs_q{i}' for i in range(7, 19)]].sum(axis=1)
+        
+        # 5. Variables psychosociales corrélées
+        psychosocial = generate_psychosocial_realistic(df, diagnosis)
+        df = df.assign(**psychosocial)
+        
+        # 6. Comorbidités réalistes
+        comorbidities = generate_comorbidities_realistic(diagnosis, n_samples)
+        df = df.assign(**comorbidities)
+        
+        # 7. Diagnostic final
+        df['diagnosis'] = diagnosis
+        
+        # 8. Validation et métadonnées
+        if not validate_dataset_quality(df):
+            raise ValueError("Dataset généré ne respecte pas les critères de qualité")
+        
+        # Ajout des métadonnées
+        df['data_source'] = 'synthetic_realistic'
+        df['creation_date'] = pd.Timestamp.now().strftime('%Y-%m-%d')
+        df['data_quality'] = compute_quality_score_realistic(df)
+        df['validation_status'] = 'validated'
+        
+        return df
+        
+    except Exception as e:
+        st.error(f"Erreur génération dataset réaliste : {str(e)}")
+        return create_simple_fallback_dataset()
+
+def validate_dataset_quality(df):
+    """Valide la qualité du dataset généré"""
+    checks = []
+    
+    # 1. Vérification des scores ASRS
+    asrs_cols = [f'asrs_q{i}' for i in range(1, 19)]
+    if not all(df[asrs_cols].between(0, 4).all()):
+        checks.append("❌ Valeurs ASRS hors limites [0,4]")
+    
+    # 2. Vérification de la prévalence TDAH (doit être 3-7%)
+    prevalence = df['diagnosis'].mean()
+    if not (0.03 <= prevalence <= 0.07):
+        checks.append(f"❌ Prévalence TDAH anormale: {prevalence:.1%} (attendu: 3-7%)")
+    
+    # 3. Cohérence interne des scores
+    calculated_total = df['asrs_inattention'] + df['asrs_hyperactivity']
+    if not np.allclose(calculated_total, df['asrs_total'], atol=1):
+        checks.append("❌ Incohérence scores inattention + hyperactivité ≠ total")
+    
+    # 4. Différence significative entre groupes TDAH+/-
+    group_diff = df.groupby('diagnosis')['asrs_total'].mean().diff().iloc[-1]
+    if group_diff < 15:
+        checks.append(f"❌ Différence insuffisante entre groupes: {group_diff:.1f} (min 15)")
+    
+    # 5. Répartition par âge réaliste
+    age_mean = df['age'].mean()
+    if not (25 <= age_mean <= 45):
+        checks.append(f"❌ Âge moyen irréaliste: {age_mean:.1f} (attendu: 25-45)")
+    
+    if checks:
+        st.warning("⚠️ Problèmes de validation détectés :")
+        for check in checks:
+            st.write(check)
+        return False
+    
+    return True
+
+def compute_quality_score_realistic(df):
+    """Calcule un score de qualité pour le dataset"""
+    scores = []
+    
+    # Complétude (100% car pas de valeurs manquantes dans synthétique)
+    scores.append(100)
+    
+    # Cohérence interne des corrélations
+    corr_asrs_diag = abs(df['asrs_total'].corr(df['diagnosis']))
+    scores.append(corr_asrs_diag * 100)
+    
+    # Variabilité appropriée
+    cv_asrs = df['asrs_total'].std() / df['asrs_total'].mean()
+    variability_score = min(100, cv_asrs * 200)  # Normalisation
+    scores.append(variability_score)
+    
+    # Prévalence réaliste
+    prevalence = df['diagnosis'].mean()
+    if 0.04 <= prevalence <= 0.06:
+        prev_score = 100
+    elif 0.03 <= prevalence <= 0.07:
+        prev_score = 80
+    else:
+        prev_score = 50
+    scores.append(prev_score)
+    
+    return np.mean(scores)
+
+def create_simple_fallback_dataset():
+    """Dataset de secours simple en cas d'erreur"""
+    np.random.seed(42)
+    n = 1500
+    
+    data = {
+        'subject_id': [f'FALLBACK_{i:05d}' for i in range(1, n+1)],
+        'age': np.random.randint(18, 65, n),
+        'gender': np.random.choice(['M', 'F'], n),
+        'diagnosis': np.random.binomial(1, 0.05, n),  # 5% prévalence
+        'site': np.random.choice(['Site_Paris', 'Site_Lyon', 'Site_Marseille'], n),
+    }
+    
+    # Questions ASRS basiques
+    for i in range(1, 19):
+        data[f'asrs_q{i}'] = np.random.randint(0, 5, n)
+    
+    # Scores calculés
+    data['asrs_inattention'] = np.random.randint(0, 28, n)
+    data['asrs_hyperactivity'] = np.random.randint(0, 44, n) 
+    data['asrs_total'] = data['asrs_inattention'] + data['asrs_hyperactivity']
+    data['asrs_part_a'] = np.random.randint(0, 24, n)
+    data['asrs_part_b'] = np.random.randint(0, 48, n)
+    
+    # Variables supplémentaires
+    data.update({
+        'education': np.random.choice(['Bac', 'Bac+2', 'Bac+3'], n),
+        'quality_of_life': np.random.uniform(1, 10, n),
+        'stress_level': np.random.uniform(1, 5, n),
+        'data_source': 'fallback_simple'
+    })
+    
+    return pd.DataFrame(data)
+
+@st.cache_data(ttl=86400)
+def load_enhanced_dataset_corrected():
+    """Version corrigée du chargement de dataset"""
+    try:
+        # Tentative de chargement depuis Google Drive (SANS parse_dates)
+        url = 'https://drive.google.com/file/d/15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR/view?usp=drive_link'
+        file_id = url.split('/d/')[1].split('/')[0]
+        download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+        
+        # Chargement sans parsing de dates pour éviter l'erreur
+        df = pd.read_csv(download_url)
+        
+        # Vérification de la taille du dataset
+        if len(df) < 5000:
+            st.info(f"Dataset distant petit ({len(df)} lignes), génération d'un dataset réaliste...")
+            return generate_realistic_tdah_dataset(6500)
+        
+        return df
+        
+    except Exception as e:
+        st.warning(f"Chargement distant échoué : {str(e)}")
+        st.info("🔧 Génération d'un dataset réaliste de 6500 participants...")
+        return generate_realistic_tdah_dataset(6500)
+
+# Remplacement de la fonction dans le code principal
+def load_enhanced_dataset():
+    """Fonction principale de chargement - REMPLACE l'ancienne version"""
+    return load_enhanced_dataset_corrected()
+    
 def test_numpy_availability():
     """Test de disponibilité de numpy et pandas"""
     try:
