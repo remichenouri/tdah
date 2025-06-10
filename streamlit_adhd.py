@@ -544,74 +544,110 @@ def calculate_std_safe(values):
         return variance ** 0.5
 
 
-@st.cache_data(ttl=86400)
+@st.cache_data(ttl=86400, show_spinner="Chargement des données TDAH...")
 def load_enhanced_dataset():
-    """Charge le dataset TDAH enrichi depuis Google Drive avec gestion d'erreur"""
+    """Charge le dataset TDAH depuis Google Drive avec validation complète"""
     try:
-        # Import local de pandas pour éviter les erreurs de portée
-        import pandas as pd_local
-        import numpy as np_local
+        # Configuration de l'URL
+        file_id = "15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR"
+        gdrive_url = f"https://drive.google.com/uc?export=download&id={file_id}"
         
-        # URL du dataset Google Drive
-        url = 'https://drive.google.com/file/d/15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR/view?usp=drive_link'
-        file_id = url.split('/d/')[1].split('/')[0]
-        download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+        # Chargement avec vérification du timeout
+        df = pd.read_csv(
+            gdrive_url,
+            dtype={
+                'subject_id': 'string',
+                'gender': 'category',
+                'site': 'category',
+                'diagnosis': 'int8'
+            },
+            parse_dates=['date_naissance'],
+            encoding='utf-8',
+            engine='c'
+        )
         
-        # Chargement du dataset
-        df = pd_local.read_csv(download_url)
- 
+        # Validation des colonnes essentielles
+        required_columns = {
+            'diagnosis': 'int8',
+            'asrs_total': 'int16',
+            'age': 'int16',
+            'gender': 'category'
+        }
+        
+        for col, dtype in required_columns.items():
+            if col not in df.columns:
+                raise ValueError(f"Colonne manquante: {col}")
+            if df[col].dtype != dtype:
+                df[col] = df[col].astype(dtype)
+        
+        # Nettoyage des données
+        df = df.dropna(subset=['diagnosis']) \
+               .sort_values('subject_id') \
+               .reset_index(drop=True)
+        
+        # Calcul des scores ASRS si nécessaire
+        asrs_questions = [f'asrs_q{i}' for i in range(1, 19)]
+        if all(q in df.columns for q in asrs_questions):
+            df['asrs_total'] = df[asrs_questions].sum(axis=1)
+            df['asrs_inattention'] = df[[f'asrs_q{i}' for i in [1,2,3,4,7,8,9]]].sum(axis=1)
+            df['asrs_hyperactivity'] = df[[f'asrs_q{i}' for i in [5,6]+list(range(10,19))]].sum(axis=1)
+        
         return df
         
     except Exception as e:
-        st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
-        st.info("Utilisation de données simulées à la place")
+        st.error(f"Erreur de chargement : {str(e)}")
+        st.info("Chargement des données de démo...")
         return create_fallback_dataset()
 
 def create_fallback_dataset():
-    """Crée un dataset de fallback avec imports locaux sécurisés"""
-    try:
-        import numpy as np_fallback
-        import pandas as pd_fallback
+    """Génère un dataset synthétique réaliste pour l'exploration"""
+    rng = np.random.default_rng(42)
+    n_samples = 1500
+    
+    # Structure de base
+    data = {
+        'subject_id': [f'SUBJ_{i:05d}' for i in range(1, n_samples+1)],
+        'age': rng.integers(18, 65, n_samples),
+        'gender': rng.choice(['M', 'F'], n_samples, p=[0.45, 0.55]),
+        'diagnosis': rng.binomial(1, 0.32, n_samples),
+        'site': rng.choice(['Paris', 'Lyon', 'Marseille'], n_samples),
+        'date_naissance': pd.date_range('1950-01-01', '2010-12-31', periods=n_samples)
+    }
+    
+    # Génération des réponses ASRS réalistes
+    asrs_questions = {}
+    for q in range(1, 19):
+        # Distribution bimodale pour simuler les cas TDAH
+        if q <= 6:  # Partie A
+            weights = [0.1, 0.2, 0.3, 0.25, 0.15] if data['diagnosis'][0] else [0.3, 0.4, 0.2, 0.08, 0.02]
+        else:       # Partie B
+            weights = [0.05, 0.15, 0.3, 0.35, 0.15] if data['diagnosis'][0] else [0.2, 0.3, 0.3, 0.15, 0.05]
         
-        np_fallback.random.seed(42)
-        n_samples = 1500
-        
-        # Structure basée sur le vrai dataset
-        data = {
-            'subject_id': [f'FALLBACK_{str(i).zfill(5)}' for i in range(1, n_samples + 1)],
-            'age': np_fallback.random.randint(18, 65, n_samples),
-            'gender': np_fallback.random.choice(['M', 'F'], n_samples),
-            'diagnosis': np_fallback.random.binomial(1, 0.3, n_samples),
-            'site': np_fallback.random.choice(['Site_Paris', 'Site_Lyon', 'Site_Marseille'], n_samples),
-        }
-        
-        # Questions ASRS
-        for i in range(1, 19):
-            data[f'asrs_q{i}'] = np_fallback.random.randint(0, 5, n_samples)
-        
-        # Scores calculés
-        data['asrs_inattention'] = np_fallback.random.randint(0, 36, n_samples)
-        data['asrs_hyperactivity'] = np_fallback.random.randint(0, 36, n_samples)
-        data['asrs_total'] = data['asrs_inattention'] + data['asrs_hyperactivity']
-        data['asrs_part_a'] = np_fallback.random.randint(0, 24, n_samples)
-        data['asrs_part_b'] = np_fallback.random.randint(0, 48, n_samples)
-        
-        # Variables supplémentaires
-        data.update({
-            'education': np_fallback.random.choice(['Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'], n_samples),
-            'job_status': np_fallback.random.choice(['CDI', 'CDD', 'Freelance', 'Étudiant', 'Chômeur'], n_samples),
-            'marital_status': np_fallback.random.choice(['Célibataire', 'En couple', 'Marié(e)', 'Divorcé(e)'], n_samples),
-            'quality_of_life': np_fallback.random.uniform(1, 10, n_samples),
-            'stress_level': np_fallback.random.uniform(1, 5, n_samples),
-            'sleep_problems': np_fallback.random.uniform(1, 5, n_samples),
-        })
-        
-        return pd_fallback.DataFrame(data)
-        
-    except Exception as e:
-        st.error(f"Erreur critique dans la création du dataset de fallback : {e}")
-        # Retourner un DataFrame vide plutôt que de planter
-        return pd.DataFrame()
+        asrs_questions[f'asrs_q{q}'] = rng.choice([0,1,2,3,4], n_samples, p=np.array(weights)/sum(weights))
+    
+    # Calcul des scores
+    data.update(asrs_questions)
+    data['asrs_total'] = sum(asrs_questions.values())
+    data['asrs_inattention'] = sum(v for k,v in asrs_questions.items() if int(k.split('_q')[1]) in [1,2,3,4,7,8,9])
+    data['asrs_hyperactivity'] = data['asrs_total'] - data['asrs_inattention']
+    
+    # Variables complémentaires
+    data.update({
+        'education': rng.choice(['Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'], n_samples, p=[0.15,0.25,0.35,0.2,0.05]),
+        'quality_of_life': np.clip(rng.normal(6.5, 2.5, n_samples), 1, 10),
+        'stress_level': np.clip(rng.gamma(2, 1, n_samples), 1, 5),
+        'medication': rng.binomial(1, 0.18, n_samples)
+    })
+    
+    df = pd.DataFrame(data).astype({
+        'diagnosis': 'int8',
+        'medication': 'int8',
+        'site': 'category',
+        'gender': 'category'
+    })
+    
+    return df
+
 
 
 def test_numpy_availability():
@@ -634,43 +670,6 @@ def test_numpy_availability():
 if 'numpy_tested' not in st.session_state:
     st.session_state.numpy_tested = test_numpy_availability()
 
-
-def create_fallback_dataset():
-    """Crée un dataset de fallback compatible avec la structure attendue"""
-    np.random.seed(42)
-    n_samples = 1500
-    
-    # Structure basée sur le vrai dataset
-    data = {
-        'subject_id': [f'FALLBACK_{str(i).zfill(5)}' for i in range(1, n_samples + 1)],
-        'age': np.random.randint(18, 65, n_samples),
-        'gender': np.random.choice(['M', 'F'], n_samples),
-        'diagnosis': np.random.binomial(1, 0.3, n_samples),
-        'site': np.random.choice(['Site_Paris', 'Site_Lyon', 'Site_Marseille'], n_samples),
-    }
-    
-    # Questions ASRS
-    for i in range(1, 19):
-        data[f'asrs_q{i}'] = np.random.randint(0, 5, n_samples)
-    
-    # Scores calculés
-    data['asrs_inattention'] = np.random.randint(0, 36, n_samples)
-    data['asrs_hyperactivity'] = np.random.randint(0, 36, n_samples)
-    data['asrs_total'] = data['asrs_inattention'] + data['asrs_hyperactivity']
-    data['asrs_part_a'] = np.random.randint(0, 24, n_samples)
-    data['asrs_part_b'] = np.random.randint(0, 48, n_samples)
-    
-    # Variables supplémentaires
-    data.update({
-        'education': np.random.choice(['Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'], n_samples),
-        'job_status': np.random.choice(['CDI', 'CDD', 'Freelance', 'Étudiant', 'Chômeur'], n_samples),
-        'marital_status': np.random.choice(['Célibataire', 'En couple', 'Marié(e)', 'Divorcé(e)'], n_samples),
-        'quality_of_life': np.random.uniform(1, 10, n_samples),
-        'stress_level': np.random.uniform(1, 5, n_samples),
-        'sleep_problems': np.random.uniform(1, 5, n_samples),
-    })
-    
-    return pd.DataFrame(data)
 
 def perform_statistical_tests(df):
     """Effectue des tests statistiques avancés sur le dataset"""
