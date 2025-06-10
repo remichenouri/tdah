@@ -1177,7 +1177,7 @@ def show_enhanced_data_exploration():
 
         # Structure des données améliorée
         st.subheader("📂 Structure des données")
-        
+
         # Catégorisation des variables
         asrs_questions = [col for col in df.columns if col.startswith('asrs_q')]
         asrs_scores = [col for col in df.columns if col.startswith('asrs_') and not col.startswith('asrs_q')]
@@ -1185,175 +1185,147 @@ def show_enhanced_data_exploration():
         psychometric_vars = [col for col in df.columns if col.startswith('iq_')]
         quality_vars = ['quality_of_life', 'stress_level', 'sleep_problems']
         
-        # Création des cartes catégories avec design moderne
+        # CSS simplifié et compatible
         st.markdown("""
         <style>
-        .category-card {
-            background: linear-gradient(135deg, var(--bg-color), var(--bg-light));
-            border-radius: 15px;
-            padding: 25px;
-            margin: 15px 0;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-            border-left: 5px solid var(--accent-color);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .category-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 35px rgba(0,0,0,0.15);
-        }
-        
-        .category-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 100px;
-            height: 100px;
-            background: var(--icon-bg);
-            border-radius: 50%;
-            transform: translate(30px, -30px);
-            opacity: 0.1;
-        }
-        
-        .category-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        
-        .category-icon {
-            font-size: 2.5rem;
-            margin-right: 15px;
-            padding: 15px;
-            background: var(--icon-bg);
+        .category-card-simple {
+            background: linear-gradient(135deg, #fff3e0, #fffaf5);
             border-radius: 12px;
-            display: inline-block;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 12px rgba(255,87,34,0.1);
+            border-left: 5px solid #ff9800;
+            border: 1px solid #ffcc02;
+        }
+        
+        .category-card-demo {
+            background: linear-gradient(135deg, #e3f2fd, #f8fbff);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 12px rgba(33,150,243,0.1);
+            border-left: 5px solid #2196f3;
+            border: 1px solid #64b5f6;
+        }
+        
+        .category-card-psycho {
+            background: linear-gradient(135deg, #f3e5f5, #fdf8fe);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 12px rgba(156,39,176,0.1);
+            border-left: 5px solid #9c27b0;
+            border: 1px solid #ba68c8;
+        }
+        
+        .category-card-quality {
+            background: linear-gradient(135deg, #e8f5e8, #f8fdf8);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 4px 12px rgba(76,175,80,0.1);
+            border-left: 5px solid #4caf50;
+            border: 1px solid #81c784;
         }
         
         .category-title {
-            color: var(--text-color);
-            font-size: 1.4rem;
+            color: #d84315;
+            font-size: 1.3rem;
             font-weight: 600;
-            margin: 0;
+            margin: 0 0 10px 0;
+            display: flex;
+            align-items: center;
         }
         
-        .category-stats {
+        .category-icon {
+            font-size: 1.8rem;
+            margin-right: 10px;
+        }
+        
+        .category-description {
+            color: #666;
+            font-size: 0.95rem;
+            margin: 10px 0;
+            font-style: italic;
+        }
+        
+        .stats-container {
             display: flex;
-            justify-content: space-between;
+            justify-content: space-around;
             margin: 15px 0;
             padding: 15px;
             background: rgba(255,255,255,0.7);
-            border-radius: 10px;
+            border-radius: 8px;
         }
         
-        .stat-item {
+        .stat-box {
             text-align: center;
         }
         
         .stat-number {
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             font-weight: bold;
-            color: var(--accent-color);
-            display: block;
+            color: #ff5722;
         }
         
         .stat-label {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: #666;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
         
-        .variable-list {
-            background: rgba(255,255,255,0.5);
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 10px;
+        .variable-tags {
+            margin-top: 15px;
         }
         
-        .variable-item {
+        .variable-tag {
             display: inline-block;
-            background: var(--accent-color);
+            background: #ff5722;
             color: white;
-            padding: 4px 12px;
-            border-radius: 15px;
-            margin: 3px;
-            font-size: 0.85rem;
-            font-weight: 500;
+            padding: 3px 8px;
+            border-radius: 12px;
+            margin: 2px;
+            font-size: 0.8rem;
         }
         </style>
         """, unsafe_allow_html=True)
         
-        # Configuration des couleurs pour chaque catégorie
-        categories_config = [
+        # Configuration des catégories simplifiée
+        categories = [
             {
                 "title": "Variables ASRS (questionnaire)",
                 "icon": "📝",
                 "variables": asrs_questions + asrs_scores,
                 "description": f"{len(asrs_questions)} questions individuelles + {len(asrs_scores)} scores calculés",
-                "bg_color": "#fff3e0",
-                "bg_light": "#fffaf5", 
-                "accent_color": "#ff9800",
-                "icon_bg": "rgba(255, 152, 0, 0.15)",
-                "text_color": "#ef6c00",
-                "details": {
-                    "Questions Q1-Q18": len(asrs_questions),
-                    "Scores calculés": len(asrs_scores),
-                    "Total ASRS": len(asrs_questions) + len(asrs_scores)
-                }
+                "css_class": "category-card-simple",
+                "color": "#ef6c00"
             },
             {
                 "title": "Variables démographiques", 
                 "icon": "👥",
                 "variables": [var for var in demographic_vars if var in df.columns],
                 "description": "Caractéristiques sociodémographiques des participants",
-                "bg_color": "#e3f2fd",
-                "bg_light": "#f8fbff",
-                "accent_color": "#2196f3", 
-                "icon_bg": "rgba(33, 150, 243, 0.15)",
-                "text_color": "#1976d2",
-                "details": {
-                    "Âge": "Numérique" if 'age' in df.columns else "N/A",
-                    "Genre": f"{df['gender'].nunique()} modalités" if 'gender' in df.columns else "N/A",
-                    "Variables": len([var for var in demographic_vars if var in df.columns])
-                }
+                "css_class": "category-card-demo",
+                "color": "#1976d2"
             },
             {
                 "title": "Variables psychométriques",
                 "icon": "🧠", 
                 "variables": [var for var in psychometric_vars if var in df.columns],
                 "description": "Tests de QI et évaluations cognitives standardisées",
-                "bg_color": "#f3e5f5",
-                "bg_light": "#fdf8fe",
-                "accent_color": "#9c27b0",
-                "icon_bg": "rgba(156, 39, 176, 0.15)", 
-                "text_color": "#7b1fa2",
-                "details": {
-                    "QI Total": "✓" if any('total' in col for col in psychometric_vars if col in df.columns) else "✗",
-                    "QI Verbal": "✓" if any('verbal' in col for col in psychometric_vars if col in df.columns) else "✗", 
-                    "Variables": len([var for var in psychometric_vars if var in df.columns])
-                }
+                "css_class": "category-card-psycho",
+                "color": "#7b1fa2"
             },
             {
                 "title": "Variables de qualité de vie",
                 "icon": "💚",
                 "variables": [var for var in quality_vars if var in df.columns], 
                 "description": "Bien-être, stress et facteurs environnementaux",
-                "bg_color": "#e8f5e8",
-                "bg_light": "#f8fdf8",
-                "accent_color": "#4caf50",
-                "icon_bg": "rgba(76, 175, 80, 0.15)",
-                "text_color": "#2e7d32",
-                "details": {
-                    "Qualité de vie": "1-10" if 'quality_of_life' in df.columns else "N/A",
-                    "Niveau stress": "1-5" if 'stress_level' in df.columns else "N/A",
-                    "Variables": len([var for var in quality_vars if var in df.columns])
-                }
+                "css_class": "category-card-quality",
+                "color": "#2e7d32"
             }
         ]
+
         
         # Affichage des cartes en 2x2
         for i in range(0, len(categories_config), 2):
