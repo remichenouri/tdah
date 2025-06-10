@@ -3267,6 +3267,73 @@ def show_enhanced_ai_prediction():
             st.warning("Veuillez d'abord entraîner les modèles pour voir les recommandations.")
 
 def show_enhanced_ai_prediction():
+    def create_clear_asrs_interface():
+    # CSS amélioré pour des boutons radio clairs
+    st.markdown("""
+    <style>
+    .asrs-response-container {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        margin: 15px 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .response-option {
+        text-align: center;
+        padding: 12px;
+        margin: 5px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .response-option:hover {
+        border-color: #ff9800;
+        background-color: #fff3e0;
+    }
+    .response-selected {
+        border-color: #ff5722 !important;
+        background-color: #ffebee !important;
+        font-weight: bold;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Interface de réponse améliorée
+    for i, question in enumerate(questions, 1):
+        st.markdown(f"### Question {i}")
+        st.markdown(f"**{question}**")
+        
+        # Colonnes pour les options de réponse
+        cols = st.columns(5)
+        options = ["Jamais", "Rarement", "Parfois", "Souvent", "Très souvent"]
+        
+        selected_response = None
+        for j, (col, option) in enumerate(zip(cols, options)):
+            with col:
+                if st.button(option, key=f"q{i}_opt{j}", use_container_width=True):
+                    st.session_state[f'asrs_q{i}'] = j
+                    selected_response = j
+        
+        # Feedback visuel immédiat
+        if f'asrs_q{i}' in st.session_state:
+            selected_option = options[st.session_state[f'asrs_q{i}']]
+            st.success(f"✅ Réponse sélectionnée : **{selected_option}**")
+
+    def validate_asrs_responses():
+    missing_questions = []
+    for i in range(1, 19):  # 18 questions ASRS
+        if f'asrs_q{i}' not in st.session_state:
+            missing_questions.append(i)
+    
+    if missing_questions:
+        st.error(f"❌ Veuillez répondre aux questions : {', '.join(map(str, missing_questions))}")
+        return False
+    
+    st.success("✅ Toutes les questions ont été complétées")
+    return True
+
+
     """Interface de prédiction IA enrichie avec test ASRS complet"""
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
