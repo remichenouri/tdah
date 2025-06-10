@@ -1175,7 +1175,7 @@ def show_enhanced_data_exploration():
         </div>
         """, unsafe_allow_html=True)
 
-        # Structure des données
+        # Structure des données améliorée
         st.subheader("📂 Structure des données")
         
         # Catégorisation des variables
@@ -1185,28 +1185,298 @@ def show_enhanced_data_exploration():
         psychometric_vars = [col for col in df.columns if col.startswith('iq_')]
         quality_vars = ['quality_of_life', 'stress_level', 'sleep_problems']
         
-        col1, col2 = st.columns(2)
+        # Création des cartes catégories avec design moderne
+        st.markdown("""
+        <style>
+        .category-card {
+            background: linear-gradient(135deg, var(--bg-color), var(--bg-light));
+            border-radius: 15px;
+            padding: 25px;
+            margin: 15px 0;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border-left: 5px solid var(--accent-color);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
         
-        with col1:
-            st.markdown("**📝 Variables ASRS (questionnaire) :**")
-            st.write(f"• {len(asrs_questions)} questions individuelles (Q1-Q18)")
-            st.write(f"• {len(asrs_scores)} scores calculés (total, sous-échelles)")
+        .category-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.15);
+        }
+        
+        .category-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: var(--icon-bg);
+            border-radius: 50%;
+            transform: translate(30px, -30px);
+            opacity: 0.1;
+        }
+        
+        .category-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .category-icon {
+            font-size: 2.5rem;
+            margin-right: 15px;
+            padding: 15px;
+            background: var(--icon-bg);
+            border-radius: 12px;
+            display: inline-block;
+        }
+        
+        .category-title {
+            color: var(--text-color);
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .category-stats {
+            display: flex;
+            justify-content: space-between;
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 10px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .variable-list {
+            background: rgba(255,255,255,0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        .variable-item {
+            display: inline-block;
+            background: var(--accent-color);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            margin: 3px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Configuration des couleurs pour chaque catégorie
+        categories_config = [
+            {
+                "title": "Variables ASRS (questionnaire)",
+                "icon": "📝",
+                "variables": asrs_questions + asrs_scores,
+                "description": f"{len(asrs_questions)} questions individuelles + {len(asrs_scores)} scores calculés",
+                "bg_color": "#fff3e0",
+                "bg_light": "#fffaf5", 
+                "accent_color": "#ff9800",
+                "icon_bg": "rgba(255, 152, 0, 0.15)",
+                "text_color": "#ef6c00",
+                "details": {
+                    "Questions Q1-Q18": len(asrs_questions),
+                    "Scores calculés": len(asrs_scores),
+                    "Total ASRS": len(asrs_questions) + len(asrs_scores)
+                }
+            },
+            {
+                "title": "Variables démographiques", 
+                "icon": "👥",
+                "variables": [var for var in demographic_vars if var in df.columns],
+                "description": "Caractéristiques sociodémographiques des participants",
+                "bg_color": "#e3f2fd",
+                "bg_light": "#f8fbff",
+                "accent_color": "#2196f3", 
+                "icon_bg": "rgba(33, 150, 243, 0.15)",
+                "text_color": "#1976d2",
+                "details": {
+                    "Âge": "Numérique" if 'age' in df.columns else "N/A",
+                    "Genre": f"{df['gender'].nunique()} modalités" if 'gender' in df.columns else "N/A",
+                    "Variables": len([var for var in demographic_vars if var in df.columns])
+                }
+            },
+            {
+                "title": "Variables psychométriques",
+                "icon": "🧠", 
+                "variables": [var for var in psychometric_vars if var in df.columns],
+                "description": "Tests de QI et évaluations cognitives standardisées",
+                "bg_color": "#f3e5f5",
+                "bg_light": "#fdf8fe",
+                "accent_color": "#9c27b0",
+                "icon_bg": "rgba(156, 39, 176, 0.15)", 
+                "text_color": "#7b1fa2",
+                "details": {
+                    "QI Total": "✓" if any('total' in col for col in psychometric_vars if col in df.columns) else "✗",
+                    "QI Verbal": "✓" if any('verbal' in col for col in psychometric_vars if col in df.columns) else "✗", 
+                    "Variables": len([var for var in psychometric_vars if var in df.columns])
+                }
+            },
+            {
+                "title": "Variables de qualité de vie",
+                "icon": "💚",
+                "variables": [var for var in quality_vars if var in df.columns], 
+                "description": "Bien-être, stress et facteurs environnementaux",
+                "bg_color": "#e8f5e8",
+                "bg_light": "#f8fdf8",
+                "accent_color": "#4caf50",
+                "icon_bg": "rgba(76, 175, 80, 0.15)",
+                "text_color": "#2e7d32",
+                "details": {
+                    "Qualité de vie": "1-10" if 'quality_of_life' in df.columns else "N/A",
+                    "Niveau stress": "1-5" if 'stress_level' in df.columns else "N/A",
+                    "Variables": len([var for var in quality_vars if var in df.columns])
+                }
+            }
+        ]
+        
+        # Affichage des cartes en 2x2
+        for i in range(0, len(categories_config), 2):
+            col1, col2 = st.columns(2)
             
-            st.markdown("**👥 Variables démographiques :**")
-            for var in demographic_vars:
-                if var in df.columns:
-                    st.write(f"• {var}: {df[var].dtype}")
+            with col1:
+                cat = categories_config[i]
+                st.markdown(f"""
+                <div class="category-card" style="
+                    --bg-color: {cat['bg_color']};
+                    --bg-light: {cat['bg_light']};
+                    --accent-color: {cat['accent_color']};
+                    --icon-bg: {cat['icon_bg']};
+                    --text-color: {cat['text_color']};
+                ">
+                    <div class="category-header">
+                        <span class="category-icon">{cat['icon']}</span>
+                        <div>
+                            <h3 class="category-title">{cat['title']}</h3>
+                            <p style="margin: 5px 0 0 0; color: {cat['text_color']}; opacity: 0.8;">
+                                {cat['description']}
+                            </p>
+                        </div>
+                    </div>
                     
-        with col2:
-            st.markdown("**🧠 Variables psychométriques :**")
-            for var in psychometric_vars:
-                if var in df.columns:
-                    st.write(f"• {var}: {df[var].dtype}")
+                    <div class="category-stats">
+                        <div class="stat-item">
+                            <span class="stat-number">{len(cat['variables'])}</span>
+                            <span class="stat-label">Variables</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">{cat['details'][list(cat['details'].keys())[-1]]}</span>
+                            <span class="stat-label">Total</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">{"100%" if len(cat['variables']) > 0 else "0%"}</span>
+                            <span class="stat-label">Complétude</span>
+                        </div>
+                    </div>
+                    
+                    <div class="variable-list">
+                        <strong style="color: {cat['text_color']};">Exemples de variables :</strong><br>
+                        {' '.join([f'<span class="variable-item">{var}</span>' for var in cat['variables'][:6]])}
+                        {f'<span style="color: {cat["text_color"]}; font-style: italic;">... et {len(cat["variables"]) - 6} autres</span>' if len(cat['variables']) > 6 else ''}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             
-            st.markdown("**💚 Variables de qualité de vie :**")
-            for var in quality_vars:
-                if var in df.columns:
-                    st.write(f"• {var}: {df[var].dtype}")
+            if i + 1 < len(categories_config):
+                with col2:
+                    cat = categories_config[i + 1]
+                    st.markdown(f"""
+                    <div class="category-card" style="
+                        --bg-color: {cat['bg_color']};
+                        --bg-light: {cat['bg_light']};
+                        --accent-color: {cat['accent_color']};
+                        --icon_bg: {cat['icon_bg']};
+                        --text-color: {cat['text_color']};
+                    ">
+                        <div class="category-header">
+                            <span class="category-icon">{cat['icon']}</span>
+                            <div>
+                                <h3 class="category-title">{cat['title']}</h3>
+                                <p style="margin: 5px 0 0 0; color: {cat['text_color']}; opacity: 0.8;">
+                                    {cat['description']}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="category-stats">
+                            <div class="stat-item">
+                                <span class="stat-number">{len(cat['variables'])}</span>
+                                <span class="stat-label">Variables</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number">{cat['details'][list(cat['details'].keys())[-1]]}</span>
+                                <span class="stat-label">Total</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number">{"100%" if len(cat['variables']) > 0 else "0%"}</span>
+                                <span class="stat-label">Complétude</span>
+                            </div>
+                        </div>
+                        
+                        <div class="variable-list">
+                            <strong style="color: {cat['text_color']};">Exemples de variables :</strong><br>
+                            {' '.join([f'<span class="variable-item">{var}</span>' for var in cat['variables'][:6]])}
+                            {f'<span style="color: {cat["text_color"]}; font-style: italic;">... et {len(cat["variables"]) - 6} autres</span>' if len(cat['variables']) > 6 else ''}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+        
+        # Résumé global avec design amélioré
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #ff5722, #ff9800); 
+                   padding: 25px; border-radius: 15px; margin: 30px 0; text-align: center;
+                   box-shadow: 0 8px 25px rgba(255,87,34,0.2);">
+            <h3 style="color: white; margin: 0 0 15px 0; font-size: 1.5rem;">
+                📊 Résumé Global du Dataset
+            </h3>
+            <div style="display: flex; justify-content: space-around; color: white;">
+                <div>
+                    <div style="font-size: 2rem; font-weight: bold;">{len(df.columns)}</div>
+                    <div style="opacity: 0.9;">Variables totales</div>
+                </div>
+                <div>
+                    <div style="font-size: 2rem; font-weight: bold;">{len(df):,}</div>
+                    <div style="opacity: 0.9;">Participants</div>
+                </div>
+                <div>
+                    <div style="font-size: 2rem; font-weight: bold;">{df['diagnosis'].sum() if 'diagnosis' in df.columns else 'N/A'}</div>
+                    <div style="opacity: 0.9;">Cas TDAH</div>
+                </div>
+                <div>
+                    <div style="font-size: 2rem; font-weight: bold;">
+                        {f"{(df.isnull().sum().sum() / (len(df) * len(df.columns)) * 100):.1f}%" if len(df) > 0 else "N/A"}
+                    </div>
+                    <div style="opacity: 0.9;">Données manquantes</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 
         # Aperçu des données
         st.subheader("👀 Aperçu des données")
