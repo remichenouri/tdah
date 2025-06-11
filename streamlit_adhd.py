@@ -409,6 +409,20 @@ def set_custom_theme():
             border-left: 4px solid #ff5722;
             box-shadow: 0 3px 10px rgba(255,87,34,0.1);
         }
+        
+        .info-card-modern {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 15px 0;
+            box-shadow: 0 4px 15px rgba(255,87,34,0.08);
+            border-left: 4px solid #ff5722;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .info-card-modern:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(255,87,34,0.15);
+        }
 
         .asrs-option-container {
             display: flex;
@@ -1166,41 +1180,65 @@ def show_enhanced_data_exploration():
         </div>
         """, unsafe_allow_html=True)
 
-        # Structure des données
-        st.subheader("📂 Structure des données")
-
-        # Catégorisation des variables
-        asrs_questions = [col for col in df.columns if col.startswith('asrs_q')]
-        asrs_scores = [col for col in df.columns if col.startswith('asrs_') and not col.startswith('asrs_q')]
-        demographic_vars = ['age', 'gender', 'education', 'job_status', 'marital_status', 'children_count']
-        psychometric_vars = [col for col in df.columns if col.startswith('iq_')]
-        quality_vars = ['quality_of_life', 'stress_level', 'sleep_problems']
-
+      st.markdown("""
+        <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                    padding: 30px 20px; border-radius: 18px; margin-bottom: 30px; text-align: center;">
+            <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px; font-weight: 600;">
+                📂 Structure des données
+            </h2>
+            <p style="color: rgba(255,255,255,0.95); font-size: 1.15rem; max-width: 700px; margin: 0 auto;">
+                Aperçu des principales variables du dataset TDAH utilisé pour l'analyse et la prédiction.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # --- Deux colonnes principales ---
         col1, col2 = st.columns(2)
-
+        
         with col1:
-            st.markdown("**📝 Variables ASRS (questionnaire) :**")
-            st.write(f"• {len(asrs_questions)} questions individuelles (Q1-Q18)")
-            st.write(f"• {len(asrs_scores)} scores calculés (total, sous-échelles)")
-
-            st.markdown("**👥 Variables démographiques :**")
-            for var in demographic_vars:
-                if var in df.columns:
-                    st.write(f"• {var}: {df[var].dtype}")
-
+            st.markdown("""
+            <div class="info-card-modern">
+                <h4 style="color: #ff5722; margin-top: 0;">📝 Variables ASRS (questionnaire)</h4>
+                <ul style="color: #d84315; line-height: 1.7; font-size: 1rem;">
+                    <li>18 questions individuelles (Q1-Q18)</li>
+                    <li>5 scores calculés (total, sous-échelles)</li>
+                </ul>
+                <h4 style="color: #ff5722; margin-top: 18px;">👥 Variables démographiques</h4>
+                <ul style="color: #d84315; line-height: 1.7; font-size: 1rem;">
+                    <li>age : int64</li>
+                    <li>gender : object</li>
+                    <li>education : object</li>
+                    <li>job_status : object</li>
+                    <li>marital_status : object</li>
+                    <li>children_count : int64</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        
         with col2:
-            st.markdown("**🧠 Variables psychométriques :**")
-            for var in psychometric_vars:
-                if var in df.columns:
-                    st.write(f"• {var}: {df[var].dtype}")
-
-            st.markdown("**💚 Variables de qualité de vie :**")
-            for var in quality_vars:
-                if var in df.columns:
-                    st.write(f"• {var}: {df[var].dtype}")
-
-        # Aperçu des données
-        st.subheader("👀 Aperçu des données")
+            st.markdown("""
+            <div class="info-card-modern">
+                <h4 style="color: #d84315; margin-top: 0;">🧠 Variables psychométriques</h4>
+                <ul style="color: #d84315; line-height: 1.7; font-size: 1rem;">
+                    <li>iq_total : int64</li>
+                    <li>iq_verbal : int64</li>
+                    <li>iq_performance : int64</li>
+                </ul>
+                <h4 style="color: #388e3c; margin-top: 18px;">💚 Variables de qualité de vie</h4>
+                <ul style="color: #388e3c; line-height: 1.7; font-size: 1rem;">
+                    <li>quality_of_life : float64</li>
+                    <li>stress_level : float64</li>
+                    <li>sleep_problems : float64</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # --- Aperçu des données ---
+        st.markdown("""
+        <div style="margin-top: 35px;">
+            <h3 style="color: #ff5722; margin-bottom: 15px;">👀 Aperçu des données</h3>
+        </div>
+        """, unsafe_allow_html=True)
         st.dataframe(df.head(10), use_container_width=True)
 
     with tabs[1]:
