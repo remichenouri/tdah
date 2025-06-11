@@ -1941,12 +1941,6 @@ def show_enhanced_data_exploration():
                 mime="text/csv"
             )
 
-# -*- coding: utf-8 -*-
-"""
-PARTIE ML OPTIMISÉE - Dépistage TDAH
-Version avec persistance joblib et cache avancé
-"""
-
 import streamlit as st
 import numpy as np
 import pandas as pd
