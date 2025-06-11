@@ -1180,7 +1180,7 @@ def show_enhanced_data_exploration():
         </div>
         """, unsafe_allow_html=True)
 
-      st.markdown("""
+        st.markdown("""
         <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                     padding: 30px 20px; border-radius: 18px; margin-bottom: 30px; text-align: center;">
             <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px; font-weight: 600;">
