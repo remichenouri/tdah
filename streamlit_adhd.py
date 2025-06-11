@@ -30,9 +30,6 @@ import sys
 try:
     import numpy as np
     import pandas as pd
-    # Rendre numpy accessible globalement
-    globals()['np'] = np
-    globals()['pd'] = pd
     NUMPY_AVAILABLE = True
 except ImportError as e:
     st.error(f"❌ Erreur critique : {e}")
