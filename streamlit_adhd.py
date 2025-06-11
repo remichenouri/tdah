@@ -10,7 +10,11 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
+if 'gdpr_compliant' not in st.session_state or not st.session_state.gdpr_compliant:
+    st.session_state.tool_choice = "🔒 RGPD & Droits"
+    GDPRConsentManager.show_consent_form()
+    st.stop()
+    
 # 3. IMPORTS DES AUTRES BIBLIOTHÈQUES APRÈS
 import os
 import pickle
