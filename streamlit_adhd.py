@@ -2289,130 +2289,258 @@ def show_enhanced_ai_prediction():
     ])
 
     with pred_tabs[0]:
-        st.subheader("📝 Test ASRS v1.1 - Organisation Mondiale de la Santé")
-
         st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 30px; border-left: 4px solid #ff9800;">
-            <h4 style="color: #ef6c00; margin-top: 0;">ℹ️ À propos du test ASRS</h4>
-            <p style="color: #f57c00; line-height: 1.6;">
-                L'<strong>Adult ADHD Self-Report Scale (ASRS) v1.1</strong> est l'outil de référence développé par l'OMS
-                pour le dépistage du TDAH chez l'adulte. Il comprend 18 questions basées sur les critères du DSM-5.
+        <style>
+        .question-container {
+            background: linear-gradient(135deg, #fff3e0, #ffcc02);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            border-left: 4px solid #ff5722;
+            box-shadow: 0 4px 12px rgba(255,87,34,0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .question-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(255,87,34,0.15);
+        }
+        
+        .question-number {
+            background: linear-gradient(135deg, #ff5722, #ff9800);
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+        
+        .question-text {
+            color: #d84315;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .response-options {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .response-option {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+        }
+        
+        /* Style pour les radio buttons */
+        .stRadio > div {
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            gap: 15px !important;
+        }
+        
+        .stRadio label {
+            background: white;
+            border: 2px solid #ffcc02;
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin: 0 !important;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            text-align: center;
+            min-width: 100px;
+        }
+        
+        .stRadio label:hover {
+            background: #fff3e0;
+            border-color: #ff9800;
+            transform: translateY(-1px);
+        }
+        
+        .stRadio input[type="radio"]:checked + div {
+            background: linear-gradient(135deg, #ff5722, #ff9800) !important;
+            color: white !important;
+            border-color: #ff5722 !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                    padding: 30px 20px; border-radius: 15px; margin-bottom: 30px; text-align: center;">
+            <h1 style="color: white; font-size: 2.5rem; margin-bottom: 10px; font-weight: 600;">
+                🧠 Questionnaire ASRS v1.1
+            </h1>
+            <p style="color: rgba(255,255,255,0.95); font-size: 1.2rem; margin: 0;">
+                Test de dépistage du TDAH chez l'adulte - Organisation Mondiale de la Santé
             </p>
-            <ul style="color: #f57c00; line-height: 1.8;">
-                <li><strong>Partie A (6 questions) :</strong> Questions de dépistage principales</li>
-                <li><strong>Partie B (12 questions) :</strong> Questions complémentaires pour évaluation complète</li>
-                <li><strong>Durée :</strong> 5-10 minutes</li>
-                <li><strong>Validation :</strong> Validé scientifiquement sur des milliers de participants</li>
-            </ul>
         </div>
         """, unsafe_allow_html=True)
-
+        
         # Instructions
-        st.markdown("### 📋 Instructions")
-        st.info("""
-        **Pour chaque question, indiquez à quelle fréquence vous avez vécu cette situation au cours des 6 derniers mois :**
-
-        • **Jamais** (0 point)
-        • **Rarement** (1 point)
-        • **Parfois** (2 points)
-        • **Souvent** (3 points)
-        • **Très souvent** (4 points)
-        """)
-
+        st.markdown("""
+        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #ff9800;">
+            <h3 style="color: #ef6c00; margin-top: 0;">📋 Instructions</h3>
+            <p style="color: #f57c00; line-height: 1.6; margin-bottom: 10px;">
+                <strong>Pour chaque affirmation, indiquez à quelle fréquence vous avez vécu cette situation au cours des 6 derniers mois :</strong>
+            </p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 15px;">
+                <div style="background: white; padding: 10px; border-radius: 6px; text-align: center; border-left: 3px solid #4caf50;">
+                    <strong style="color: #2e7d32;">Jamais</strong><br><small>0 point</small>
+                </div>
+                <div style="background: white; padding: 10px; border-radius: 6px; text-align: center; border-left: 3px solid #8bc34a;">
+                    <strong style="color: #558b2f;">Rarement</strong><br><small>1 point</small>
+                </div>
+                <div style="background: white; padding: 10px; border-radius: 6px; text-align: center; border-left: 3px solid #ffeb3b;">
+                    <strong style="color: #f57f17;">Parfois</strong><br><small>2 points</small>
+                </div>
+                <div style="background: white; padding: 10px; border-radius: 6px; text-align: center; border-left: 3px solid #ff9800;">
+                    <strong style="color: #ef6c00;">Souvent</strong><br><small>3 points</small>
+                </div>
+                <div style="background: white; padding: 10px; border-radius: 6px; text-align: center; border-left: 3px solid #f44336;">
+                    <strong style="color: #c62828;">Très souvent</strong><br><small>4 points</small>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Questions ASRS transformées en affirmations
+        asrs_statements = [
+            "Je remarque souvent de petits bruits que les autres ne remarquent pas.",
+            "Je me concentre généralement davantage sur l'ensemble que sur les petits détails.",
+            "J'ai des difficultés à terminer les détails finaux d'un projet, une fois que les parties difficiles ont été faites.",
+            "J'ai des difficultés à organiser les tâches lorsque je dois faire quelque chose qui demande de l'organisation.",
+            "J'ai des problèmes pour me rappeler des rendez-vous ou des obligations.",
+            "J'évite ou retarde de commencer des tâches qui demandent beaucoup de réflexion.",
+            "Je bouge ou me tortille avec mes mains ou mes pieds quand je dois rester assis longtemps.",
+            "Je me sens excessivement actif et obligé de faire des choses, comme si j'étais mené par un moteur.",
+            "Je fais des erreurs d'inattention quand je travaille sur un projet ennuyeux ou difficile.",
+            "J'ai des difficultés à maintenir mon attention quand je fais un travail ennuyeux ou répétitif.",
+            "J'ai des difficultés à me concentrer sur ce que les gens me disent, même quand ils s'adressent directement à moi.",
+            "J'égare ou ai des difficultés à retrouver des choses à la maison ou au travail.",
+            "Je suis distrait par l'activité ou le bruit autour de moi.",
+            "Je quitte mon siège dans des réunions ou d'autres situations où je devrais rester assis.",
+            "Je me sens agité ou nerveux.",
+            "J'ai des difficultés à me détendre quand j'ai du temps libre.",
+            "Je me retrouve à trop parler dans des situations sociales.",
+            "Quand je suis en conversation, je finis les phrases des personnes à qui je parle, avant qu'elles puissent les finir elles-mêmes.",
+            "J'ai des difficultés à attendre mon tour dans des situations où chacun doit attendre son tour.",
+            "J'interromps les autres quand ils sont occupés."
+        ]
+        
+        # Options de réponse
+        response_options = ["Jamais", "Rarement", "Parfois", "Souvent", "Très souvent"]
+        
         # Initialisation des réponses
-        if 'asrs_responses' not in st.session_state:
-            st.session_state.asrs_responses = {}
-
-        # Formulaire ASRS corrigé
-        with st.form("asrs_complete_form", clear_on_submit=False):
-
-            # Partie A - Questions principales
-            st.markdown("## 🎯 Partie A - Questions de dépistage principal")
-            st.markdown("*Ces 6 questions sont les plus prédictives pour le dépistage du TDAH*")
-
-            for i, question in enumerate(ASRS_QUESTIONS["Partie A - Questions de dépistage principal"], 1):
+        if 'asrs_responses_aq10' not in st.session_state:
+            st.session_state.asrs_responses_aq10 = {}
+        
+        # Formulaire principal
+        with st.form("asrs_aq10_format", clear_on_submit=False):
+            
+            # Partie A - Questions principales (1-6)
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #ff5722, #ff9800); padding: 20px; border-radius: 12px; margin: 25px 0;">
+                <h2 style="color: white; margin: 0; text-align: center;">
+                    🎯 Partie A - Questions de dépistage principal
+                </h2>
+                <p style="color: rgba(255,255,255,0.9); text-align: center; margin: 10px 0 0 0;">
+                    Ces 6 questions sont les plus prédictives pour le dépistage du TDAH
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            for i in range(6):
                 st.markdown(f"""
-                <div class="asrs-question-card">
-                    <h5 style="color: #d84315; margin-bottom: 15px;">Question {i}</h5>
-                    <p style="color: #bf360c; font-size: 1.05rem; line-height: 1.5; margin-bottom: 20px;">
-                        {question}
-                    </p>
+                <div class="question-container">
+                    <div class="question-number">{i+1}</div>
+                    <div class="question-text">{asrs_statements[i+2]}</div>  <!-- Commence à l'index 2 pour éviter les questions autism -->
                 </div>
                 """, unsafe_allow_html=True)
-
-                # Sélection avec selectbox (approche corrigée)
-                response = st.selectbox(
-                    f"Votre réponse à la question {i}:",
-                    options=list(ASRS_OPTIONS.keys()),
-                    format_func=lambda x: ASRS_OPTIONS[x],
-                    key=f"asrs_q{i}",
-                    index=0,
-                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
+                
+                response = st.radio(
+                    f"Question {i+1}",
+                    response_options,
+                    key=f"asrs_part_a_q{i+1}",
+                    horizontal=True,
+                    label_visibility="collapsed"
                 )
-                st.session_state.asrs_responses[f'q{i}'] = response
-
-                # Affichage visuel de la réponse sélectionnée
-                if response > 0:
-                    st.success(f"✅ Sélectionné : {ASRS_OPTIONS[response]}")
-
-                st.markdown("---")
-
-            # Partie B - Questions complémentaires
-            st.markdown("## 📝 Partie B - Questions complémentaires")
-            st.markdown("*Ces 12 questions fournissent des informations supplémentaires pour l'évaluation*")
-
-            for i, question in enumerate(ASRS_QUESTIONS["Partie B - Questions complémentaires"], 7):
+                st.session_state.asrs_responses_aq10[f'part_a_q{i+1}'] = response
+            
+            # Partie B - Questions complémentaires (7-18)
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #ff9800, #ffcc02); padding: 20px; border-radius: 12px; margin: 25px 0;">
+                <h2 style="color: white; margin: 0; text-align: center;">
+                    📝 Partie B - Questions complémentaires
+                </h2>
+                <p style="color: rgba(255,255,255,0.9); text-align: center; margin: 10px 0 0 0;">
+                    Ces 12 questions fournissent des informations supplémentaires pour l'évaluation
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            for i in range(12):
+                question_num = i + 7
+                statement_index = i + 8  # Ajustement pour les bonnes questions
+                
                 st.markdown(f"""
-                <div class="asrs-question-card">
-                    <h5 style="color: #d84315; margin-bottom: 15px;">Question {i}</h5>
-                    <p style="color: #bf360c; font-size: 1.05rem; line-height: 1.5; margin-bottom: 20px;">
-                        {question}
-                    </p>
+                <div class="question-container">
+                    <div class="question-number">{question_num}</div>
+                    <div class="question-text">{asrs_statements[statement_index]}</div>
                 </div>
                 """, unsafe_allow_html=True)
-
-                response = st.selectbox(
-                    f"Votre réponse à la question {i}:",
-                    options=list(ASRS_OPTIONS.keys()),
-                    format_func=lambda x: ASRS_OPTIONS[x],
-                    key=f"asrs_q{i}",
-                    index=0,
-                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
+                
+                response = st.radio(
+                    f"Question {question_num}",
+                    response_options,
+                    key=f"asrs_part_b_q{question_num}",
+                    horizontal=True,
+                    label_visibility="collapsed"
                 )
-                st.session_state.asrs_responses[f'q{i}'] = response
-
-                if response > 0:
-                    st.success(f"✅ Sélectionné : {ASRS_OPTIONS[response]}")
-
-                st.markdown("---")
-
-            # Informations complémentaires
-            st.markdown("## 👤 Informations complémentaires")
-
+                st.session_state.asrs_responses_aq10[f'part_b_q{question_num}'] = response
+            
+            # Informations démographiques
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #ffcc02, #fff3e0); padding: 20px; border-radius: 12px; margin: 25px 0;">
+                <h2 style="color: #d84315; margin: 0; text-align: center;">
+                    👤 Informations complémentaires
+                </h2>
+            </div>
+            """, unsafe_allow_html=True)
+            
             col1, col2, col3 = st.columns(3)
-
+            
             with col1:
-                age = st.number_input("Âge", min_value=18, max_value=80, value=30, key="demo_age")
-                education = st.selectbox("Niveau d'éducation",
-                                       ["Bac", "Bac+2", "Bac+3", "Bac+5", "Doctorat"],
-                                       key="demo_education")
-
+                age = st.number_input("Âge", min_value=18, max_value=80, value=30)
+                gender = st.selectbox("Genre", ["Masculin", "Féminin", "Autre"])
+            
             with col2:
-                gender = st.selectbox("Genre", ["M", "F"], key="demo_gender")
+                education = st.selectbox("Niveau d'éducation", 
+                                       ["Bac", "Bac+2", "Bac+3", "Bac+5", "Doctorat"])
                 job_status = st.selectbox("Statut professionnel",
-                                        ["CDI", "CDD", "Freelance", "Étudiant", "Chômeur"],
-                                        key="demo_job")
-
+                                        ["CDI", "CDD", "Freelance", "Étudiant", "Chômeur"])
+            
             with col3:
-                quality_of_life = st.slider("Qualité de vie (1-10)", 1, 10, 5, key="demo_qol")
-                stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3, key="demo_stress")
-
+                quality_of_life = st.slider("Qualité de vie (1-10)", 1, 10, 5)
+                stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3)
+            
             # Bouton de soumission
             submitted = st.form_submit_button(
-                "🔬 Analyser avec l'IA",
+                "🔬 Analyser les résultats",
                 use_container_width=True,
                 type="primary"
             )
+            
 
             if submitted:
                 # Calcul des scores ASRS
