@@ -1176,181 +1176,181 @@ def show_enhanced_data_exploration():
         """, unsafe_allow_html=True)
 
         def show_data_structure_improved():
-        '''Affichage amélioré de la structure des données avec présentation plus claire'''
-        
-        st.markdown('''
-        <div style="background: linear-gradient(135deg, #ff5722, #ff9800); 
-                    padding: 25px; border-radius: 15px; margin-bottom: 30px;">
-            <h2 style="color: white; margin: 0; text-align: center; font-size: 1.8rem;">
-                📂 Structure des Données TDAH
-            </h2>
-        </div>
-        ''', unsafe_allow_html=True)
-        
-        # Chargement du dataset
-        df = load_enhanced_dataset()
-        
-        if df is None or len(df) == 0:
-            st.error("❌ Impossible de charger le dataset")
-            return
-        
-        # Section informations générales avec design amélioré
-        st.markdown("### 📊 Informations Générales")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
+            '''Affichage amélioré de la structure des données avec présentation plus claire'''
+            
             st.markdown('''
-            <div style="background: white; padding: 20px; border-radius: 12px; 
-                       box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
-                       border-left: 4px solid #ff5722;">
-                <h3 style="color: #ff5722; margin: 0; font-size: 2rem;">{:,}</h3>
-                <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Participants</p>
+            <div style="background: linear-gradient(135deg, #ff5722, #ff9800); 
+                        padding: 25px; border-radius: 15px; margin-bottom: 30px;">
+                <h2 style="color: white; margin: 0; text-align: center; font-size: 1.8rem;">
+                    📂 Structure des Données TDAH
+                </h2>
             </div>
-            '''.format(len(df)), unsafe_allow_html=True)
-        
-        with col2:
-            if 'diagnosis' in df.columns:
-                tdah_count = df['diagnosis'].sum()
-                percentage = (tdah_count / len(df)) * 100
+            ''', unsafe_allow_html=True)
+            
+            # Chargement du dataset
+            df = load_enhanced_dataset()
+            
+            if df is None or len(df) == 0:
+                st.error("❌ Impossible de charger le dataset")
+                return
+            
+            # Section informations générales avec design amélioré
+            st.markdown("### 📊 Informations Générales")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
                 st.markdown('''
                 <div style="background: white; padding: 20px; border-radius: 12px; 
                            box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
-                           border-left: 4px solid #ff9800;">
-                    <h3 style="color: #ff9800; margin: 0; font-size: 2rem;">{:,}</h3>
-                    <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Cas TDAH ({:.1f}%)</p>
+                           border-left: 4px solid #ff5722;">
+                    <h3 style="color: #ff5722; margin: 0; font-size: 2rem;">{:,}</h3>
+                    <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Participants</p>
                 </div>
-                '''.format(tdah_count, percentage), unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown('''
-            <div style="background: white; padding: 20px; border-radius: 12px; 
-                       box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
-                       border-left: 4px solid #ffcc02;">
-                <h3 style="color: #f57c00; margin: 0; font-size: 2rem;">{}</h3>
-                <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Variables</p>
-            </div>
-            '''.format(len(df.columns)), unsafe_allow_html=True)
-        
-        with col4:
-            if 'age' in df.columns:
-                avg_age = df['age'].mean()
+                '''.format(len(df)), unsafe_allow_html=True)
+            
+            with col2:
+                if 'diagnosis' in df.columns:
+                    tdah_count = df['diagnosis'].sum()
+                    percentage = (tdah_count / len(df)) * 100
+                    st.markdown('''
+                    <div style="background: white; padding: 20px; border-radius: 12px; 
+                               box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
+                               border-left: 4px solid #ff9800;">
+                        <h3 style="color: #ff9800; margin: 0; font-size: 2rem;">{:,}</h3>
+                        <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Cas TDAH ({:.1f}%)</p>
+                    </div>
+                    '''.format(tdah_count, percentage), unsafe_allow_html=True)
+            
+            with col3:
                 st.markdown('''
                 <div style="background: white; padding: 20px; border-radius: 12px; 
                            box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
-                           border-left: 4px solid #4caf50;">
-                    <h3 style="color: #4caf50; margin: 0; font-size: 2rem;">{:.1f}</h3>
-                    <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Âge moyen</p>
+                           border-left: 4px solid #ffcc02;">
+                    <h3 style="color: #f57c00; margin: 0; font-size: 2rem;">{}</h3>
+                    <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Variables</p>
                 </div>
-                '''.format(avg_age), unsafe_allow_html=True)
+                '''.format(len(df.columns)), unsafe_allow_html=True)
+            
+            with col4:
+                if 'age' in df.columns:
+                    avg_age = df['age'].mean()
+                    st.markdown('''
+                    <div style="background: white; padding: 20px; border-radius: 12px; 
+                               box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
+                               border-left: 4px solid #4caf50;">
+                        <h3 style="color: #4caf50; margin: 0; font-size: 2rem;">{:.1f}</h3>
+                        <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Âge moyen</p>
+                    </div>
+                    '''.format(avg_age), unsafe_allow_html=True)
         
-        st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
             # Catégorisation améliorée des variables
-    st.markdown("### 🏗️ Catégories de Variables")
-    
-    # Identification des catégories
-    asrs_questions = [col for col in df.columns if col.startswith('asrs_q')]
-    asrs_scores = [col for col in df.columns if col.startswith('asrs_') and not col.startswith('asrs_q')]
-    demographic_vars = ['age', 'gender', 'education', 'job_status', 'marital_status', 'children_count']
-    psychometric_vars = [col for col in df.columns if col.startswith('iq_')]
-    quality_vars = ['quality_of_life', 'stress_level', 'sleep_problems']
-    
-    # Présentation en colonnes avec icônes et couleurs
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Variables ASRS
-        st.markdown('''
-        <div style="background: linear-gradient(135deg, #fff3e0, #ffcc02); 
-                   padding: 20px; border-radius: 12px; margin-bottom: 20px;
-                   border-left: 5px solid #ff9800;">
-            <h4 style="color: #ef6c00; margin: 0 0 15px 0;">
-                📝 Variables ASRS (Questionnaire)
-            </h4>
-            <div style="color: #f57c00; line-height: 1.8;">
-                <p><strong>• {} questions individuelles</strong> (Q1-Q18)</p>
-                <p><strong>• {} scores calculés</strong> (total, sous-échelles)</p>
-                <p><strong>• Échelle :</strong> 0-4 points par question</p>
-                <p><strong>• Basé sur :</strong> Critères DSM-5</p>
-            </div>
-        </div>
-        '''.format(len(asrs_questions), len(asrs_scores)), unsafe_allow_html=True)
+        st.markdown("### 🏗️ Catégories de Variables")
         
-        # Variables démographiques
-        demo_vars_present = [var for var in demographic_vars if var in df.columns]
-        st.markdown('''
-        <div style="background: linear-gradient(135deg, #e8f5e8, #c8e6c9); 
-                   padding: 20px; border-radius: 12px; margin-bottom: 20px;
-                   border-left: 5px solid #4caf50;">
-            <h4 style="color: #2e7d32; margin: 0 0 15px 0;">
-                👥 Variables Démographiques
-            </h4>
-            <div style="color: #388e3c; line-height: 1.8;">
-        ''', unsafe_allow_html=True)
+        # Identification des catégories
+        asrs_questions = [col for col in df.columns if col.startswith('asrs_q')]
+        asrs_scores = [col for col in df.columns if col.startswith('asrs_') and not col.startswith('asrs_q')]
+        demographic_vars = ['age', 'gender', 'education', 'job_status', 'marital_status', 'children_count']
+        psychometric_vars = [col for col in df.columns if col.startswith('iq_')]
+        quality_vars = ['quality_of_life', 'stress_level', 'sleep_problems']
         
-        for var in demo_vars_present:
-            dtype = str(df[var].dtype)
-            unique_values = df[var].nunique() if df[var].dtype == 'object' else 'continue'
-            st.markdown(f"<p><strong>• {var}:</strong> {dtype} ({unique_values} valeurs)</p>", unsafe_allow_html=True)
-        
-        st.markdown('</div></div>', unsafe_allow_html=True)
-
-
-        st.markdown("### 👀 Aperçu des Données")
-        
-        st.markdown('''
-        <div style="background: white; padding: 20px; border-radius: 12px; 
-                   box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 20px 0;">
-            <h4 style="color: #ff5722; margin: 0 0 15px 0;">
-                📋 Échantillon des données (10 premiers participants)
-            </h4>
-        </div>
-        ''', unsafe_allow_html=True)
-        
-        # Configuration de l'affichage du dataframe
-        st.dataframe(
-            df.head(10), 
-            use_container_width=True,
-            height=400
-        )
-        
-        # Informations sur la qualité des données
-        st.markdown("### 🔍 Qualité des Données")
-        
-        col1, col2, col3 = st.columns(3)
+        # Présentation en colonnes avec icônes et couleurs
+        col1, col2 = st.columns(2)
         
         with col1:
-            missing_total = df.isnull().sum().sum()
-            missing_pct = (missing_total / (len(df) * len(df.columns))) * 100
+            # Variables ASRS
             st.markdown('''
-            <div style="background: white; padding: 15px; border-radius: 10px; 
-                       text-align: center; border-left: 4px solid #ff5722;">
-                <h3 style="color: #ff5722; margin: 0;">{:.1f}%</h3>
-                <p style="color: #666; margin: 5px 0 0 0;">Données manquantes</p>
+            <div style="background: linear-gradient(135deg, #fff3e0, #ffcc02); 
+                       padding: 20px; border-radius: 12px; margin-bottom: 20px;
+                       border-left: 5px solid #ff9800;">
+                <h4 style="color: #ef6c00; margin: 0 0 15px 0;">
+                    📝 Variables ASRS (Questionnaire)
+                </h4>
+                <div style="color: #f57c00; line-height: 1.8;">
+                    <p><strong>• {} questions individuelles</strong> (Q1-Q18)</p>
+                    <p><strong>• {} scores calculés</strong> (total, sous-échelles)</p>
+                    <p><strong>• Échelle :</strong> 0-4 points par question</p>
+                    <p><strong>• Basé sur :</strong> Critères DSM-5</p>
+                </div>
             </div>
-            '''.format(missing_pct), unsafe_allow_html=True)
-        
-        with col2:
-            duplicates = df.duplicated().sum()
+            '''.format(len(asrs_questions), len(asrs_scores)), unsafe_allow_html=True)
+            
+            # Variables démographiques
+            demo_vars_present = [var for var in demographic_vars if var in df.columns]
             st.markdown('''
-            <div style="background: white; padding: 15px; border-radius: 10px; 
-                       text-align: center; border-left: 4px solid #ff9800;">
-                <h3 style="color: #ff9800; margin: 0;">{}</h3>
-                <p style="color: #666; margin: 5px 0 0 0;">Doublons</p>
+            <div style="background: linear-gradient(135deg, #e8f5e8, #c8e6c9); 
+                       padding: 20px; border-radius: 12px; margin-bottom: 20px;
+                       border-left: 5px solid #4caf50;">
+                <h4 style="color: #2e7d32; margin: 0 0 15px 0;">
+                    👥 Variables Démographiques
+                </h4>
+                <div style="color: #388e3c; line-height: 1.8;">
+            ''', unsafe_allow_html=True)
+            
+            for var in demo_vars_present:
+                dtype = str(df[var].dtype)
+                unique_values = df[var].nunique() if df[var].dtype == 'object' else 'continue'
+                st.markdown(f"<p><strong>• {var}:</strong> {dtype} ({unique_values} valeurs)</p>", unsafe_allow_html=True)
+            
+            st.markdown('</div></div>', unsafe_allow_html=True)
+    
+    
+            st.markdown("### 👀 Aperçu des Données")
+            
+            st.markdown('''
+            <div style="background: white; padding: 20px; border-radius: 12px; 
+                       box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 20px 0;">
+                <h4 style="color: #ff5722; margin: 0 0 15px 0;">
+                    📋 Échantillon des données (10 premiers participants)
+                </h4>
             </div>
-            '''.format(duplicates), unsafe_allow_html=True)
-        
-        with col3:
-            if 'subject_id' in df.columns:
-                unique_subjects = df['subject_id'].nunique()
+            ''', unsafe_allow_html=True)
+            
+            # Configuration de l'affichage du dataframe
+            st.dataframe(
+                df.head(10), 
+                use_container_width=True,
+                height=400
+            )
+            
+            # Informations sur la qualité des données
+            st.markdown("### 🔍 Qualité des Données")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                missing_total = df.isnull().sum().sum()
+                missing_pct = (missing_total / (len(df) * len(df.columns))) * 100
                 st.markdown('''
                 <div style="background: white; padding: 15px; border-radius: 10px; 
-                           text-align: center; border-left: 4px solid #4caf50;">
-                    <h3 style="color: #4caf50; margin: 0;">{:,}</h3>
-                    <p style="color: #666; margin: 5px 0 0 0;">Sujets uniques</p>
+                           text-align: center; border-left: 4px solid #ff5722;">
+                    <h3 style="color: #ff5722; margin: 0;">{:.1f}%</h3>
+                    <p style="color: #666; margin: 5px 0 0 0;">Données manquantes</p>
                 </div>
-                '''.format(unique_subjects), unsafe_allow_html=True)
-                
+                '''.format(missing_pct), unsafe_allow_html=True)
+            
+            with col2:
+                duplicates = df.duplicated().sum()
+                st.markdown('''
+                <div style="background: white; padding: 15px; border-radius: 10px; 
+                           text-align: center; border-left: 4px solid #ff9800;">
+                    <h3 style="color: #ff9800; margin: 0;">{}</h3>
+                    <p style="color: #666; margin: 5px 0 0 0;">Doublons</p>
+                </div>
+                '''.format(duplicates), unsafe_allow_html=True)
+            
+            with col3:
+                if 'subject_id' in df.columns:
+                    unique_subjects = df['subject_id'].nunique()
+                    st.markdown('''
+                    <div style="background: white; padding: 15px; border-radius: 10px; 
+                               text-align: center; border-left: 4px solid #4caf50;">
+                        <h3 style="color: #4caf50; margin: 0;">{:,}</h3>
+                        <p style="color: #666; margin: 5px 0 0 0;">Sujets uniques</p>
+                    </div>
+                    '''.format(unique_subjects), unsafe_allow_html=True)
+                    
     
 
     with tabs[1]:
