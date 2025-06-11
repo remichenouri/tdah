@@ -544,35 +544,102 @@ def calculate_std_safe(values):
         return variance ** 0.5
 
 
-@st.cache_data(ttl=86400, show_spinner="Chargement du dataset TDAH ultra-réaliste...")
+def generate_education_by_age(age):
+    """Génère un niveau d'éducation réaliste selon l'âge"""
+    if age < 25:
+        return np.random.choice(["Bac", "Bac+2", "Bac+3"], p=[0.3, 0.4, 0.3])
+    elif age < 35:
+        return np.random.choice(["Bac+2", "Bac+3", "Bac+5"], p=[0.2, 0.5, 0.3])
+    else:
+        return np.random.choice(["Bac", "Bac+2", "Bac+3", "Bac+5"], p=[0.2, 0.3, 0.3, 0.2])
+
+@st.cache_data(ttl=86400, show_spinner="Chargement du dataset TDAH avec données réelles...")
 def load_enhanced_dataset():
     """
-    Charge un dataset TDAH ultra-réaliste de 7500 participants
-    Basé sur les dernières données scientifiques et épidémiologiques
+    Charge un dataset TDAH combinant données réelles et synthétiques
+    Basé sur les dernières données scientifiques françaises 2024
     """
     try:
-        # Tentative de chargement depuis Google Drive
-        file_id = "15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR"
-        gdrive_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        # Votre lien Google Drive mis à jour
+        your_drive_url = "https://drive.google.com/file/d/191cQ9ATj9HJKWKWDlNKnQOTz9SQk-uiz/view?usp=drive_link"
         
+        # Extraction correcte de l'ID
+        if "/d/" in your_drive_url:
+            file_id = your_drive_url.split('/d/')[1].split('/')[0]
+        else:
+            file_id = your_drive_url.split('/')[-2]
+        
+        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        
+        # Tentative de chargement des données réelles
         try:
-            df_external = pd.read_csv(gdrive_url, nrows=1000)  # Test de connexion
-            st.info("📡 Connexion externe détectée - Génération d'un dataset enrichi...")
-        except:
-            st.info("🔧 Mode hors-ligne - Génération d'un dataset synthétique ultra-réaliste...")
-            df_external = None
+            df_real = pd.read_csv(download_url)
+            st.success(f"✅ Données réelles chargées : {len(df_real)} participants")
+            
+            # Validation étendue des colonnes
+            required_columns = ['age', 'gender', 'diagnosis']
+            recommended_columns = ['asrs_q1', 'asrs_q2', 'asrs_q3', 'asrs_q4', 'asrs_q5', 'asrs_q6']
+            
+            missing_required = [col for col in required_columns if col not in df_real.columns]
+            missing_asrs = [col for col in recommended_columns if col not in df_real.columns]
+            
+            if missing_required:
+                st.warning(f"⚠️ Colonnes essentielles manquantes : {missing_required}")
+                st.info("🔧 Basculement vers données synthétiques...")
+                df_real = None
+            elif missing_asrs:
+                st.info(f"ℹ️ Questions ASRS manquantes : {len(missing_asrs)}/6. Elles seront générées.")
+                df_real = enhance_real_data_with_missing_columns(df_real)
+            
+            # Validation des données
+            if df_real is not None:
+                df_real = validate_and_clean_real_data(df_real)
+            
+        except Exception as e:
+            st.warning(f"⚠️ Impossible de charger les données réelles : {str(e)}")
+            st.info("🔧 Basculement vers génération de données synthétiques...")
+            df_real = None
         
-        # Génération du dataset principal (augmenté à 7500)
-        return generate_enhanced_realistic_tdah_dataset(
-            n_samples=7500,  # Correction : augmenté de 6000 à 7500
-            random_state=42
-        )
+        # Calcul du nombre de données synthétiques nécessaires
+        target_size = 7500
+        n_synthetic = target_size if df_real is None else max(0, target_size - len(df_real))
+        
+        # Génération des données synthétiques si nécessaire
+        if n_synthetic > 0:
+            df_synthetic = generate_enhanced_realistic_tdah_dataset(
+                n_samples=n_synthetic,
+                random_state=42
+            )
+            st.info(f"🔬 Données synthétiques générées : {len(df_synthetic)} participants")
+        else:
+            df_synthetic = None
+        
+        # Harmonisation et combinaison des datasets
+        if df_real is not None and df_synthetic is not None:
+            df_combined = harmonize_and_combine_datasets(df_real, df_synthetic)
+            st.success(f"📊 Dataset combiné : {len(df_real)} réelles + {len(df_synthetic)} synthétiques = {len(df_combined)} total")
+            
+        elif df_real is not None:
+            df_combined = df_real
+            # Ajout du marqueur de source
+            df_combined['data_source'] = 'real'
+            st.info(f"📊 Dataset : {len(df_combined)} participants (données réelles uniquement)")
+            
+        else:
+            df_combined = df_synthetic
+            df_combined['data_source'] = 'synthetic'
+            st.info(f"📊 Dataset : {len(df_combined)} participants (données synthétiques uniquement)")
+        
+        return df_combined
         
     except Exception as e:
-        st.error(f"Erreur lors du chargement : {str(e)}")
+        st.error(f"❌ Erreur critique : {str(e)}")
         return create_simple_fallback_dataset(n_samples=6000)
 
 def generate_enhanced_realistic_tdah_dataset(n_samples=7500, random_state=42):
+    """
+    Génère un dataset TDAH ultra-réaliste basé sur les données françaises 2024
+    """
     np.random.seed(random_state)
     
     # Fonction utilitaire pour corrélations réalistes
@@ -584,54 +651,264 @@ def generate_enhanced_realistic_tdah_dataset(n_samples=7500, random_state=42):
         )
         return np.random.binomial(1, adjusted_prob)
     
-    # 1. DÉMOGRAPHIE RÉALISTE
-    # Distribution d'âge réaliste (pic 18-35 ans pour diagnostic adulte)
-    age_weights = np.array([0.15, 0.35, 0.30, 0.15, 0.05])
-    age_groups = np.random.choice([22, 30, 40, 50, 60], n_samples, p=age_weights)
-    ages = age_groups + np.random.randint(-4, 5, n_samples)
+    # 1. DÉMOGRAPHIE RÉALISTE selon données françaises 2024
+    # Distribution d'âge réaliste (pic 25-35 ans pour diagnostic adulte)
+    age_weights = np.array([0.18, 0.42, 0.25, 0.12, 0.03])
+    age_groups = np.random.choice([24, 32, 42, 52, 62], n_samples, p=age_weights)
+    ages = age_groups + np.random.randint(-3, 4, n_samples)
     ages = np.clip(ages, 18, 65)
     
-    # Genre avec ratio réaliste H/F = 2.5:1 selon la littérature
-    gender_prob = 0.714  # 71.4% hommes pour ratio 2.5:1
+    # Genre avec ratio réaliste ADULTE 1:1 (données 2024)
+    gender_prob = 0.52  # 52% hommes, 48% femmes chez les adultes TDAH
     genders = np.random.choice(['M', 'F'], n_samples, p=[gender_prob, 1-gender_prob])
     
-    # 2. DIAGNOSTIC TDAH (Prévalence exacte 3.5%)
-    target_prevalence = 0.035  # Basé sur les études françaises
+    # 2. DIAGNOSTIC TDAH - Prévalence 3% selon études françaises 2024
+    target_prevalence = 0.030  # Données HandiConnect 2024
     n_positive = int(n_samples * target_prevalence)
     positive_indices = np.random.choice(n_samples, n_positive, replace=False)
     diagnosis = np.zeros(n_samples, dtype=int)
     diagnosis[positive_indices] = 1
 
-    def generate_education_by_age(age):
-    """Génère un niveau d'éducation réaliste selon l'âge"""
-    if age < 25:
-        return np.random.choice(["Bac", "Bac+2", "Bac+3"], p=[0.3, 0.4, 0.3])
-    elif age < 35:
-        return np.random.choice(["Bac+2", "Bac+3", "Bac+5"], p=[0.2, 0.5, 0.3])
-    else:
-        return np.random.choice(["Bac", "Bac+2", "Bac+3", "Bac+5"], p=[0.2, 0.3, 0.3, 0.2])
-
-
-def test_numpy_availability():
-    """Test de disponibilité de numpy et pandas"""
-    try:
-        import numpy as test_np
-        import pandas as test_pd
+    # 3. SCORES ASRS ULTRA-RÉALISTES basés sur validation Harvard 2024
+    def generate_realistic_asrs_scores(diagnosis, n_subjects):
+        scores = np.zeros((n_subjects, 18))
         
-        # Test simple
-        test_array = test_np.array([1, 2, 3, 4, 5])
-        test_std = test_np.std(test_array)
-        test_df = test_pd.DataFrame({'test': [1, 2, 3]})
-        return True
+        for i in range(n_subjects):
+            if diagnosis[i] == 1:  # TDAH positif
+                # Partie A : seuil 14+ sur 24 selon Harvard 2024
+                part_a_base = np.random.gamma(3.5, 1.0, 6)
+                part_b_base = np.random.gamma(2.8, 0.9, 12)
+                
+                # Ajustements selon sous-types
+                subtype = np.random.choice(['inattentif', 'hyperactif', 'mixte'], p=[0.47, 0.40, 0.13])
+                
+                if subtype == 'inattentif':
+                    # Scores plus élevés sur inattention (Q1-4, 7-9)
+                    part_a_base[:4] += np.random.normal(0.8, 0.3, 4)
+                    part_b_base[:3] += np.random.normal(0.6, 0.3, 3)
+                elif subtype == 'hyperactif':
+                    # Scores plus élevés sur hyperactivité (Q5-6, 10-18)
+                    part_a_base[4:] += np.random.normal(0.7, 0.3, 2)
+                    part_b_base[3:] += np.random.normal(0.5, 0.3, 9)
+                else:  # mixte
+                    part_a_base += np.random.normal(0.6, 0.2, 6)
+                    part_b_base += np.random.normal(0.4, 0.2, 12)
+                
+                scores[i, :6] = part_a_base
+                scores[i, 6:] = part_b_base
+                
+            else:  # TDAH négatif
+                scores[i] = np.random.gamma(1.1, 0.6, 18)
+                scores[i] += np.random.normal(0, 0.2, 18)
+            
+            scores[i] = np.clip(np.round(scores[i]), 0, 4)
         
-    except Exception as e:
-        st.error(f"❌ Test numpy/pandas échoué : {e}")
-        return False
+        return scores.astype(int)
+    
+    asrs_scores = generate_realistic_asrs_scores(diagnosis, n_samples)
+    
+    # 4. COMORBIDITÉS selon données cliniques françaises 2024
+    # Troubles anxieux : 30-45% chez TDAH vs 12% population générale
+    anxiety = create_correlated_binary(0.12, 3.1, diagnosis)
+    
+    # Dépression : 35-50% chez TDAH vs 15% population générale  
+    depression = create_correlated_binary(0.15, 2.7, diagnosis)
+    
+    # Troubles du sommeil : 66.8% chez TDAH vs 28.8% population générale
+    sleep_problems = create_correlated_binary(0.288, 2.3, diagnosis)
+    
+    # Addictions : 19-30% chez TDAH vs 8% population générale
+    addiction = create_correlated_binary(0.08, 3.1, diagnosis)
+    
+    # Troubles bipolaires : 11% comorbidité selon études
+    bipolar = create_correlated_binary(0.02, 5.5, diagnosis)
+    
+    # 5. VARIABLES PSYCHOSOCIALES ET FONCTIONNELLES
+    # Qualité de vie significativement dégradée chez TDAH
+    quality_of_life = np.where(
+        diagnosis == 1,
+        np.clip(np.random.normal(4.6, 1.8, n_samples), 1, 10),
+        np.clip(np.random.normal(7.3, 1.2, n_samples), 1, 10)
+    )
+    
+    # Niveau de stress chronique élevé chez TDAH  
+    stress_level = np.where(
+        diagnosis == 1,
+        np.clip(np.random.normal(4.2, 0.8, n_samples), 1, 5),
+        np.clip(np.random.normal(2.2, 0.7, n_samples), 1, 5)
+    )
+    
+    # 6. PROFILS COGNITIFS selon littérature neuropsychologique
+    # QI dans la norme avec profil hétérogène caractéristique
+    def generate_realistic_cognitive_profiles(diagnosis, n_subjects):
+        iq_scores = {}
+        
+        for i in range(n_subjects):
+            if diagnosis[i] == 1:  # TDAH
+                # QI total légèrement au-dessus de la moyenne
+                base_iq = np.random.normal(102, 13)
+                
+                # Profil hétérogène caractéristique
+                iq_scores[i] = {
+                    'iq_total': int(np.clip(base_iq, 75, 140)),
+                    'attention_index': int(np.clip(base_iq - np.random.normal(12, 4), 70, 130)),
+                    'processing_speed': int(np.clip(base_iq - np.random.normal(8, 3), 70, 130)),
+                    'working_memory': int(np.clip(base_iq - np.random.normal(10, 4), 70, 130))
+                }
+            else:  # Non-TDAH
+                base_iq = np.random.normal(100, 15)
+                iq_scores[i] = {
+                    'iq_total': int(np.clip(base_iq, 75, 140)),
+                    'attention_index': int(np.clip(base_iq + np.random.normal(0, 3), 70, 130)),
+                    'processing_speed': int(np.clip(base_iq + np.random.normal(0, 3), 70, 130)),
+                    'working_memory': int(np.clip(base_iq + np.random.normal(0, 3), 70, 130))
+                }
+        
+        return iq_scores
+    
+    cognitive_profiles = generate_realistic_cognitive_profiles(diagnosis, n_samples)
+    
+    # 7. VARIABLES SOCIO-DÉMOGRAPHIQUES RÉALISTES
+    education_levels = [generate_education_by_age(age) for age in ages]
+    
+    # Statut professionnel avec impact TDAH
+    job_statuses = []
+    for i, age in enumerate(ages):
+        base_probs = {
+            "CDI": 0.65, "CDD": 0.15, "Freelance": 0.10, 
+            "Chômeur": 0.05, "Étudiant": 0.05
+        } if age >= 30 else {
+            "CDI": 0.45, "CDD": 0.25, "Freelance": 0.10, 
+            "Chômeur": 0.08, "Étudiant": 0.12
+        }
+        
+        # Impact TDAH sur stabilité professionnelle
+        if diagnosis[i] == 1:
+            base_probs["CDI"] *= 0.8
+            base_probs["Freelance"] *= 1.4
+            base_probs["Chômeur"] *= 1.8
+        
+        # Normalisation
+        total = sum(base_probs.values())
+        normalized_probs = {k: v/total for k, v in base_probs.items()}
+        
+        job_status = np.random.choice(
+            list(normalized_probs.keys()), 
+            p=list(normalized_probs.values())
+        )
+        job_statuses.append(job_status)
+    
+    # Construction du DataFrame final
+    data = {
+        # Identifiants et démographie
+        'subject_id': [f'FR_REAL_{i:05d}' for i in range(1, n_samples + 1)],
+        'age': ages.astype(int),
+        'gender': genders,
+        'education': education_levels,
+        'job_status': job_statuses,
+        'diagnosis': diagnosis,
+        
+        # Variables psychologiques
+        'quality_of_life': np.round(quality_of_life, 1),
+        'stress_level': np.round(stress_level, 1),
+        
+        # Comorbidités
+        'anxiety': anxiety,
+        'depression': depression,
+        'sleep_problems': sleep_problems,
+        'addiction': addiction,
+        'bipolar': bipolar,
+        
+        # Profils cognitifs
+        'iq_total': [cognitive_profiles[i]['iq_total'] for i in range(n_samples)],
+        'attention_index': [cognitive_profiles[i]['attention_index'] for i in range(n_samples)],
+        'processing_speed': [cognitive_profiles[i]['processing_speed'] for i in range(n_samples)],
+        'working_memory': [cognitive_profiles[i]['working_memory'] for i in range(n_samples)],
+    }
+    
+    # Ajout des 18 questions ASRS
+    for i in range(18):
+        data[f'asrs_q{i+1}'] = asrs_scores[:, i]
+    
+    # Calcul des scores ASRS selon validation Harvard 2024
+    data['asrs_part_a'] = asrs_scores[:, :6].sum(axis=1)
+    data['asrs_part_b'] = asrs_scores[:, 6:].sum(axis=1)
+    data['asrs_total'] = asrs_scores.sum(axis=1)
+    
+    # Sous-échelles selon Stanton et al. 2018
+    inatt_indices = [0, 1, 2, 3, 6, 7, 8, 9, 10]
+    data['asrs_inattention'] = asrs_scores[:, inatt_indices].sum(axis=1)
+    
+    hyper_indices = [4, 5, 11, 12, 13, 14, 15, 16, 17]
+    data['asrs_hyperactivity'] = asrs_scores[:, hyper_indices].sum(axis=1)
+    
+    return pd.DataFrame(data)
 
-# Appeler le test au début de l'application
-if 'numpy_tested' not in st.session_state:
-    st.session_state.numpy_tested = test_numpy_availability()
+def validate_and_clean_real_data(df_real):
+    """Valide et nettoie les données réelles"""
+    # Nettoyage des âges
+    if 'age' in df_real.columns:
+        df_real['age'] = pd.to_numeric(df_real['age'], errors='coerce')
+        df_real = df_real[(df_real['age'] >= 18) & (df_real['age'] <= 65)]
+    
+    # Standardisation du genre
+    if 'gender' in df_real.columns:
+        df_real['gender'] = df_real['gender'].map({
+            'M': 'M', 'F': 'F', 'Male': 'M', 'Female': 'F',
+            'Homme': 'M', 'Femme': 'F', 'H': 'M', 1: 'M', 0: 'F'
+        })
+    
+    # Validation du diagnostic
+    if 'diagnosis' in df_real.columns:
+        df_real['diagnosis'] = pd.to_numeric(df_real['diagnosis'], errors='coerce')
+        df_real = df_real[df_real['diagnosis'].isin([0, 1])]
+    
+    return df_real.dropna(subset=['age', 'gender', 'diagnosis'])
 
+def enhance_real_data_with_missing_columns(df_real):
+    """Ajoute les colonnes manquantes aux données réelles"""
+    # Génération des scores ASRS manquants basés sur le diagnostic
+    asrs_columns = [f'asrs_q{i}' for i in range(1, 19)]
+    missing_asrs = [col for col in asrs_columns if col not in df_real.columns]
+    
+    if missing_asrs:
+        # Génération réaliste basée sur le diagnostic existant
+        for idx, row in df_real.iterrows():
+            if row['diagnosis'] == 1:
+                # Scores élevés pour TDAH+
+                base_scores = np.random.gamma(3.2, 1.0, len(missing_asrs))
+            else:
+                # Scores faibles pour TDAH-
+                base_scores = np.random.gamma(1.1, 0.7, len(missing_asrs))
+            
+            for i, col in enumerate(missing_asrs):
+                df_real.loc[idx, col] = int(np.clip(base_scores[i], 0, 4))
+    
+    return df_real
+
+def harmonize_and_combine_datasets(df_real, df_synthetic):
+    """Harmonise et combine les datasets réel et synthétique"""
+    # Identification des colonnes communes
+    common_columns = list(set(df_real.columns) & set(df_synthetic.columns))
+    
+    # Ajout du marqueur de source
+    df_real_marked = df_real[common_columns].copy()
+    df_real_marked['data_source'] = 'real'
+    
+    df_synthetic_marked = df_synthetic[common_columns].copy()
+    df_synthetic_marked['data_source'] = 'synthetic'
+    
+    # Combinaison finale
+    df_combined = pd.concat([df_real_marked, df_synthetic_marked], ignore_index=True)
+    
+    # Recalcul des scores ASRS si nécessaire
+    if all(f'asrs_q{i}' in df_combined.columns for i in range(1, 19)):
+        asrs_matrix = df_combined[[f'asrs_q{i}' for i in range(1, 19)]].values
+        df_combined['asrs_part_a'] = asrs_matrix[:, :6].sum(axis=1)
+        df_combined['asrs_part_b'] = asrs_matrix[:, 6:].sum(axis=1)
+        df_combined['asrs_total'] = asrs_matrix.sum(axis=1)
+    
+    return df_combined
 
 def perform_statistical_tests(df):
     """Effectue des tests statistiques avancés sur le dataset"""
