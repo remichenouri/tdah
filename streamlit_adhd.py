@@ -2312,7 +2312,6 @@ def show_enhanced_ai_prediction():
                     index=0,
                     help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
                 )
-                st.session_state.asrs_responses[f'q{i}'] = response
                 
                 st.markdown("---")
             
