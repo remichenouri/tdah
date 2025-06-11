@@ -2288,10 +2288,8 @@ def show_enhanced_ai_prediction():
 
         # Formulaire ASRS corrigé
         with st.form("asrs_complete_form", clear_on_submit=False):
-
-            # Partie A - Questions principales
+            # Partie A
             st.markdown("## 🎯 Partie A - Questions de dépistage principal")
-            st.markdown("*Ces 6 questions sont les plus prédictives pour le dépistage du TDAH*")
             
             for i, question in enumerate(ASRS_QUESTIONS["Partie A - Questions de dépistage principal"], 1):
                 st.markdown(f"""
@@ -2302,24 +2300,18 @@ def show_enhanced_ai_prediction():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-            
-                # UNIQUEMENT le menu déroulant - suppression des autres éléments
-                response = st.selectbox(
+        
+                st.selectbox(
                     f"Votre réponse à la question {i}:",
                     options=list(ASRS_OPTIONS.keys()),
                     format_func=lambda x: ASRS_OPTIONS[x],
                     key=f"asrs_q{i}",
-                    index=0,
-                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
+                    index=0
                 )
-                
                 st.markdown("---")
-            
-
-
-            # Partie B - Questions complémentaires
+        
+            # Partie B (identique)
             st.markdown("## 📝 Partie B - Questions complémentaires")
-            st.markdown("*Ces 12 questions fournissent des informations supplémentaires pour l'évaluation*")
             
             for i, question in enumerate(ASRS_QUESTIONS["Partie B - Questions complémentaires"], 7):
                 st.markdown(f"""
@@ -2330,17 +2322,14 @@ def show_enhanced_ai_prediction():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-            
-                response = st.selectbox(
+        
+                st.selectbox(
                     f"Votre réponse à la question {i}:",
                     options=list(ASRS_OPTIONS.keys()),
                     format_func=lambda x: ASRS_OPTIONS[x],
                     key=f"asrs_q{i}",
-                    index=0,
-                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
+                    index=0
                 )
-                st.session_state.asrs_responses[f'q{i}'] = response
-                
                 st.markdown("---")
 
 
@@ -2365,17 +2354,18 @@ def show_enhanced_ai_prediction():
                 quality_of_life = st.slider("Qualité de vie (1-10)", 1, 10, 5, key="demo_qol")
                 stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3, key="demo_stress")
 
-            # Bouton de soumission
-            submitted = st.form_submit_button(
-                "🔬 Analyser avec l'IA",
-                use_container_width=True,
-                type="primary"
-            )
-
+           # Bouton de soumission
+            submitted = st.form_submit_button("🔬 Analyser avec l'IA", use_container_width=True, type="primary")
+        
             if submitted:
-                # Calcul des scores ASRS
-                part_a_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in range(1, 7)])
-                part_b_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in range(7, 19)])
+                # CORRECTION : Récupération des valeurs APRÈS soumission
+                responses = {}
+                for i in range(1, 19):
+                    responses[f'q{i}'] = st.session_state.get(f"asrs_q{i}", 0)
+                
+                # Calculs des scores
+                part_a_score = sum([responses[f'q{i}'] for i in range(1, 7)])
+                part_b_score = sum([responses[f'q{i}'] for i in range(7, 19)])
                 total_score = part_a_score + part_b_score
 
                 # Score d'inattention (questions 1-9 selon DSM-5)
@@ -2384,9 +2374,10 @@ def show_enhanced_ai_prediction():
                 # Score d'hyperactivité-impulsivité (questions 5, 6, 10-18)
                 hyperactivity_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in [5, 6] + list(range(10, 19))])
 
-                # Stockage des résultats
+                # Stockage final
+                st.session_state.asrs_responses = responses
                 st.session_state.asrs_results = {
-                    'responses': st.session_state.asrs_responses.copy(),
+                    'responses': responses,
                     'scores': {
                         'part_a': part_a_score,
                         'part_b': part_b_score,
