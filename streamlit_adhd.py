@@ -1276,26 +1276,190 @@ def show_enhanced_data_exploration():
             </div>
             '''.format(len(asrs_questions), len(asrs_scores)), unsafe_allow_html=True)
             
-            # Variables démographiques
-            demo_vars_present = [var for var in demographic_vars if var in df.columns]
+  # Analyse détaillée par variable avec cards améliorées
+st.markdown("### 🔍 Analyse Détaillée par Variable")
+
+demographic_vars = ['age', 'gender', 'education', 'job_status', 'marital_status', 'children_count']
+available_demo_vars = [var for var in demographic_vars if var in df.columns]
+
+# Création d'une grille 2x3 pour les variables
+for i in range(0, len(available_demo_vars), 2):
+    col1, col2 = st.columns(2)
+    
+    # Première variable de la paire
+    if i < len(available_demo_vars):
+        var = available_demo_vars[i]
+        with col1:
+            create_demographic_card(df, var)
+    
+    # Deuxième variable de la paire (si elle existe)
+    if i + 1 < len(available_demo_vars):
+        var = available_demo_vars[i + 1]
+        with col2:
+            create_demographic_card(df, var)
+
+def create_demographic_card(df, var_name):
+    '''Crée une card moderne pour une variable démographique'''
+    
+    # Configuration des couleurs et icônes par variable
+    var_config = {
+        'age': {'color': '#4caf50', 'icon': '🎂', 'title': 'Âge'},
+        'gender': {'color': '#2196f3', 'icon': '👥', 'title': 'Genre'},
+        'education': {'color': '#ff9800', 'icon': '🎓', 'title': 'Éducation'},
+        'job_status': {'color': '#9c27b0', 'icon': '💼', 'title': 'Statut Professionnel'},
+        'marital_status': {'color': '#e91e63', 'icon': '💑', 'title': 'Statut Marital'},
+        'children_count': {'color': '#00bcd4', 'icon': '👶', 'title': 'Nombre d\'Enfants'}
+    }
+    
+    config = var_config.get(var_name, {'color': '#666', 'icon': '📊', 'title': var_name})
+    
+    st.markdown(f'''
+    <div style="background: linear-gradient(135deg, {config["color"]}15, {config["color"]}05); 
+               padding: 20px; border-radius: 12px; margin-bottom: 20px;
+               border-left: 5px solid {config["color"]}; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h4 style="color: {config["color"]}; margin: 0 0 15px 0; display: flex; align-items: center;">
+            <span style="font-size: 1.2em; margin-right: 8px;">{config["icon"]}</span>
+            {config["title"]}
+        </h4>
+    ''', unsafe_allow_html=True)
+    
+    # Analyse spécifique selon le type de variable
+    if df[var_name].dtype in ['object', 'category']:
+        # Variable catégorielle
+        value_counts = df[var_name].value_counts()
+        total_count = len(df)
+        
+        st.markdown(f'<div style="color: {config["color"]}; line-height: 1.8;">', unsafe_allow_html=True)
+        
+        for value, count in value_counts.head(5).items():
+            percentage = (count / total_count) * 100
+            st.markdown(f"<p><strong>• {value}:</strong> {count:,} participants ({percentage:.1f}%)</p>", 
+                       unsafe_allow_html=True)
+        
+        if len(value_counts) > 5:
+            others_count = value_counts.tail(len(value_counts) - 5).sum()
+            others_pct = (others_count / total_count) * 100
+            st.markdown(f"<p><strong>• Autres:</strong> {others_count:,} participants ({others_pct:.1f}%)</p>", 
+                       unsafe_allow_html=True)
+        
+        st.markdown(f"<p style='font-style: italic; margin-top: 10px;'><strong>Total:</strong> {len(value_counts)} catégories distinctes</p>", 
+                   unsafe_allow_html=True)
+    
+    else:
+        # Variable numérique
+        stats = df[var_name].describe()
+        st.markdown(f'<div style="color: {config["color"]}; line-height: 1.8;">', unsafe_allow_html=True)
+        st.markdown(f"<p><strong>• Moyenne:</strong> {stats['mean']:.2f}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p><strong>• Médiane:</strong> {stats['50%']:.2f}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p><strong>• Écart-type:</strong> {stats['std']:.2f}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p><strong>• Min - Max:</strong> {stats['min']:.0f} - {stats['max']:.0f}</p>", unsafe_allow_html=True)
+    
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+# Section Analyse Croisée avec Diagnostic TDAH
+st.markdown("### 🔬 Analyse Croisée avec le Diagnostic TDAH")
+
+if 'diagnosis' in df.columns:
+    
+    # Sélection de 2 variables principales pour l'analyse croisée
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Analyse par âge et diagnostic
+        if 'age' in df.columns:
             st.markdown('''
-            <div style="background: linear-gradient(135deg, #e8f5e8, #c8e6c9); 
+            <div style="background: linear-gradient(135deg, #fff3e0, #ffcc02); 
                        padding: 20px; border-radius: 12px; margin-bottom: 20px;
-                       border-left: 5px solid #4caf50;">
-                <h4 style="color: #2e7d32; margin: 0 0 15px 0;">
-                    👥 Variables Démographiques
+                       border-left: 5px solid #ff9800;">
+                <h4 style="color: #ef6c00; margin: 0 0 15px 0;">
+                    📈 Répartition par Âge et Diagnostic
                 </h4>
-                <div style="color: #388e3c; line-height: 1.8;">
+            </div>
             ''', unsafe_allow_html=True)
             
-            for var in demo_vars_present:
-                dtype = str(df[var].dtype)
-                unique_values = df[var].nunique() if df[var].dtype == 'object' else 'continue'
-                st.markdown(f"<p><strong>• {var}:</strong> {dtype} ({unique_values} valeurs)</p>", unsafe_allow_html=True)
+            age_groups = pd.cut(df['age'], bins=[0, 25, 35, 45, 55, 100], 
+                               labels=['18-25', '26-35', '36-45', '46-55', '56+'])
+            crosstab_age = pd.crosstab(age_groups, df['diagnosis'], normalize='index') * 100
             
-            st.markdown('</div></div>', unsafe_allow_html=True)
+            for age_group in crosstab_age.index:
+                tdah_pct = crosstab_age.loc[age_group, 1]
+                st.write(f"**{age_group} ans:** {tdah_pct:.1f}% de cas TDAH")
     
-    
+    with col2:
+        # Analyse par genre et diagnostic
+        if 'gender' in df.columns:
+            st.markdown('''
+            <div style="background: linear-gradient(135deg, #e3f2fd, #2196f3); 
+                       padding: 20px; border-radius: 12px; margin-bottom: 20px;
+                       border-left: 5px solid #1976d2;">
+                <h4 style="color: #1565c0; margin: 0 0 15px 0;">
+                    👫 Répartition par Genre et Diagnostic
+                </h4>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+            gender_crosstab = pd.crosstab(df['gender'], df['diagnosis'], normalize='index') * 100
+            
+            for gender in gender_crosstab.index:
+                tdah_pct = gender_crosstab.loc[gender, 1]
+                gender_label = "Hommes" if gender == 'M' else "Femmes"
+                st.write(f"**{gender_label}:** {tdah_pct:.1f}% de cas TDAH")
+            
+            # Section Tableau de Bord Démographique
+            st.markdown("### 📊 Tableau de Bord Démographique")
+            
+            # Configuration des couleurs et icônes (répété pour la cohérence)
+            var_config = {
+                'age': {'color': '#4caf50', 'icon': '🎂', 'title': 'Âge'},
+                'gender': {'color': '#2196f3', 'icon': '👥', 'title': 'Genre'},
+                'education': {'color': '#ff9800', 'icon': '🎓', 'title': 'Éducation'},
+                'job_status': {'color': '#9c27b0', 'icon': '💼', 'title': 'Statut Professionnel'},
+                'marital_status': {'color': '#e91e63', 'icon': '💑', 'title': 'Statut Marital'},
+                'children_count': {'color': '#00bcd4', 'icon': '👶', 'title': 'Nombre d\'Enfants'}
+            }
+            
+            # Création d'un tableau récapitulatif moderne
+            demo_summary_data = []
+            
+            for var in available_demo_vars:
+                if df[var].dtype in ['object', 'category']:
+                    most_frequent = df[var].mode()[0]
+                    frequency = df[var].value_counts().iloc[0]
+                    percentage = (frequency / len(df)) * 100
+                    data_type = "Catégorielle"
+                    summary_stat = f"{most_frequent} ({percentage:.1f}%)"
+                else:
+                    mean_val = df[var].mean()
+                    std_val = df[var].std()
+                    data_type = "Numérique"
+                    summary_stat = f"{mean_val:.1f} ± {std_val:.1f}"
+                
+                demo_summary_data.append({
+                    'Variable': var_config.get(var, {}).get('title', var),
+                    'Type': data_type,
+                    'Valeurs Uniques': df[var].nunique(),
+                    'Valeurs Manquantes': df[var].isnull().sum(),
+                    'Statistique Principale': summary_stat
+                })
+            
+            demo_summary_df = pd.DataFrame(demo_summary_data)
+            
+            # Affichage du tableau avec style personnalisé
+            st.markdown('''
+            <div style="background: white; padding: 20px; border-radius: 12px; 
+                       box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 20px 0;">
+                <h4 style="color: #4caf50; margin: 0 0 15px 0;">
+                    📋 Résumé des Variables Démographiques
+                </h4>
+            </div>
+            ''', unsafe_allow_html=True)
+            
+            st.dataframe(
+                demo_summary_df, 
+                use_container_width=True,
+                height=300
+            )
+
             st.markdown("### 👀 Aperçu des Données")
             
             st.markdown('''
