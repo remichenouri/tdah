@@ -1174,6 +1174,14 @@ def show_enhanced_data_exploration():
 
         def show_data_structure_improved():
             '''Affichage amélioré de la structure des données avec présentation plus claire'''
+            df = load_enhanced_dataset()  # Charger le dataset
+    
+            if df is None or len(df) == 0:
+                st.error("❌ Impossible de charger le dataset")
+                return
+            
+            # Passer df comme paramètre aux fonctions qui en ont besoin
+            create_demographic_card(df, var_name)
             
             st.markdown('''
             <div style="background: linear-gradient(135deg, #ff5722, #ff9800); 
