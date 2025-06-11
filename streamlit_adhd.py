@@ -2315,6 +2315,7 @@ def show_enhanced_ai_prediction():
                 st.session_state.asrs_responses[f'q{i}'] = response
                 
                 st.markdown("---")
+            
 
 
             # Partie B - Questions complémentaires
