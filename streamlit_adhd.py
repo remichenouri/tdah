@@ -140,202 +140,202 @@ def show_rgpd_panel():
         "🔍 Audit Trail"
     ])
     with tabs[0]:
-    st.subheader("🔐 Formulaire de Consentement RGPD")
+        st.subheader("🔐 Formulaire de Consentement RGPD")
+        
+        st.markdown("""
+        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #ff9800;">
+            <h3 style="color: #ef6c00; margin-top: 0;">📋 Protection des Données Personnelles</h3>
+            <p style="color: #f57c00; line-height: 1.6;">
+                Conformément au <strong>RGPD</strong> et à l'<strong>AI Act européen</strong>, nous collectons vos données 
+                uniquement pour l'évaluation TDAH. Votre consentement est libre et révocable à tout moment.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     
-    st.markdown("""
-    <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #ff9800;">
-        <h3 style="color: #ef6c00; margin-top: 0;">📋 Protection des Données Personnelles</h3>
-        <p style="color: #f57c00; line-height: 1.6;">
-            Conformément au <strong>RGPD</strong> et à l'<strong>AI Act européen</strong>, nous collectons vos données 
-            uniquement pour l'évaluation TDAH. Votre consentement est libre et révocable à tout moment.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Formulaire de consentement
-    with st.form("rgpd_consent_form"):
-        st.markdown("### ✅ Vos droits selon le RGPD")
-        
-        # Droits RGPD
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            **✅ Droit d'accès :** Consulter vos données personnelles
-            **✅ Droit de rectification :** Corriger vos données  
-            **✅ Droit à l'effacement :** Supprimer vos données
-            **✅ Droit à la portabilité :** Récupérer vos données
-            """)
+        # Formulaire de consentement
+        with st.form("rgpd_consent_form"):
+            st.markdown("### ✅ Vos droits selon le RGPD")
             
-        with col2:
-            st.markdown("""
-            **✅ Droit d'opposition :** Refuser le traitement
-            **✅ Droit à la limitation :** Restreindre l'usage
-            **✅ Droit au retrait :** Révoquer votre consentement
-            """)
-
-        # Cases à cocher obligatoires
-        consent_data = st.checkbox(
-            "J'accepte le traitement de mes données pour l'évaluation TDAH (obligatoire)",
-            help="Collecte des réponses ASRS et données démographiques"
-        )
-        
-        consent_ia = st.checkbox(
-            "J'accepte l'analyse par intelligence artificielle (obligatoire)", 
-            help="Conformément à l'AI Act, notre système IA est classé à risque limité"
-        )
-        
-        # Cases optionnelles
-        consent_stats = st.checkbox(
-            "J'accepte l'utilisation anonymisée pour les statistiques (optionnel)",
-            help="Amélioration des modèles de dépistage"
-        )
-        
-        consent_research = st.checkbox(
-            "J'accepte la participation à la recherche anonymisée (optionnel)",
-            help="Finalité de recherche scientifique"
-        )
-
-        submitted = st.form_submit_button("✅ Valider mon consentement")
-        
-        if submitted:
-            if consent_data and consent_ia:
-                st.session_state.rgpd_consent = {
-                    'data_processing': consent_data,
-                    'ai_analysis': consent_ia, 
-                    'anonymous_stats': consent_stats,
-                    'research': consent_research,
-                    'timestamp': datetime.now().isoformat(),
-                    'ip_hash': hashlib.sha256(st.session_state.get('user_ip', '').encode()).hexdigest()[:8]
-                }
-                st.success("✅ Consentement enregistré avec succès")
-            else:
-                st.error("❌ Les consentements obligatoires sont requis")
-    with tabs[2]:
-    st.subheader("⚖️ Exercice du Droit à l'Effacement")
-    
-    st.markdown("""
-    <div style="background-color: #ffebee; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #f44336;">
-        <h3 style="color: #c62828;">🗑️ Suppression de vos Données</h3>
-        <p style="color: #d32f2f; line-height: 1.6;">
-            Vous pouvez demander la suppression de toutes vos données personnelles.
-            Cette action est <strong>irréversible</strong>.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    with st.form("data_deletion_form"):
-        st.warning("⚠️ La suppression effacera définitivement :")
-        st.write("• Vos réponses au test ASRS")
-        st.write("• Vos données démographiques")  
-        st.write("• Vos résultats d'analyse IA")
-        st.write("• Votre historique de consentements")
-        
-        deletion_reason = st.selectbox(
-            "Motif de suppression (optionnel)",
-            ["Non spécifié", "Retrait du consentement", "Données incorrectes", 
-             "Finalité atteinte", "Opposition au traitement"]
-        )
-        
-        confirm_deletion = st.checkbox(
-            "Je confirme vouloir supprimer définitivement mes données"
-        )
-        
-        submitted = st.form_submit_button("🗑️ Supprimer mes données", type="secondary")
-        
-        if submitted and confirm_deletion:
-            # Suppression des données de session
-            keys_to_delete = ['asrs_responses', 'asrs_results', 'rgpd_consent', 'user_data']
-            for key in keys_to_delete:
-                if key in st.session_state:
-                    del st.session_state[key]
+            # Droits RGPD
+            col1, col2 = st.columns(2)
             
-            st.success("✅ Vos données ont été supprimées avec succès")
-            st.balloons()
-        elif submitted:
-            st.error("❌ Veuillez confirmer la suppression")
-    with tabs[3]:
-    st.subheader("📊 Portabilité de vos Données")
+            with col1:
+                st.markdown("""
+                **✅ Droit d'accès :** Consulter vos données personnelles
+                **✅ Droit de rectification :** Corriger vos données  
+                **✅ Droit à l'effacement :** Supprimer vos données
+                **✅ Droit à la portabilité :** Récupérer vos données
+                """)
+                
+            with col2:
+                st.markdown("""
+                **✅ Droit d'opposition :** Refuser le traitement
+                **✅ Droit à la limitation :** Restreindre l'usage
+                **✅ Droit au retrait :** Révoquer votre consentement
+                """)
     
-    if 'asrs_results' in st.session_state and 'rgpd_consent' in st.session_state:
-        st.info("Téléchargez vos données dans un format lisible par machine")
-        
-        # Préparation des données pour export
-        export_data = {
-            'données_personnelles': {
-                'age': st.session_state.asrs_results['demographics']['age'],
-                'genre': st.session_state.asrs_results['demographics']['gender'],
-                'education': st.session_state.asrs_results['demographics']['education']
-            },
-            'réponses_asrs': st.session_state.asrs_results['responses'],
-            'scores_calculés': st.session_state.asrs_results['scores'],
-            'consentements': st.session_state.rgpd_consent,
-            'export_timestamp': datetime.now().isoformat()
-        }
-        
-        # Boutons de téléchargement
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            json_data = json.dumps(export_data, indent=2, ensure_ascii=False)
-            st.download_button(
-                "📥 Télécharger en JSON",
-                json_data,
-                f"mes_donnees_tdah_{datetime.now().strftime('%Y%m%d')}.json",
-                "application/json"
+            # Cases à cocher obligatoires
+            consent_data = st.checkbox(
+                "J'accepte le traitement de mes données pour l'évaluation TDAH (obligatoire)",
+                help="Collecte des réponses ASRS et données démographiques"
             )
             
-        with col2:
-            csv_data = pd.DataFrame([export_data['données_personnelles']]).to_csv(index=False)
+            consent_ia = st.checkbox(
+                "J'accepte l'analyse par intelligence artificielle (obligatoire)", 
+                help="Conformément à l'AI Act, notre système IA est classé à risque limité"
+            )
+            
+            # Cases optionnelles
+            consent_stats = st.checkbox(
+                "J'accepte l'utilisation anonymisée pour les statistiques (optionnel)",
+                help="Amélioration des modèles de dépistage"
+            )
+            
+            consent_research = st.checkbox(
+                "J'accepte la participation à la recherche anonymisée (optionnel)",
+                help="Finalité de recherche scientifique"
+            )
+    
+            submitted = st.form_submit_button("✅ Valider mon consentement")
+            
+            if submitted:
+                if consent_data and consent_ia:
+                    st.session_state.rgpd_consent = {
+                        'data_processing': consent_data,
+                        'ai_analysis': consent_ia, 
+                        'anonymous_stats': consent_stats,
+                        'research': consent_research,
+                        'timestamp': datetime.now().isoformat(),
+                        'ip_hash': hashlib.sha256(st.session_state.get('user_ip', '').encode()).hexdigest()[:8]
+                    }
+                    st.success("✅ Consentement enregistré avec succès")
+                else:
+                    st.error("❌ Les consentements obligatoires sont requis")
+        with tabs[2]:
+        st.subheader("⚖️ Exercice du Droit à l'Effacement")
+        
+        st.markdown("""
+        <div style="background-color: #ffebee; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #f44336;">
+            <h3 style="color: #c62828;">🗑️ Suppression de vos Données</h3>
+            <p style="color: #d32f2f; line-height: 1.6;">
+                Vous pouvez demander la suppression de toutes vos données personnelles.
+                Cette action est <strong>irréversible</strong>.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+        with st.form("data_deletion_form"):
+            st.warning("⚠️ La suppression effacera définitivement :")
+            st.write("• Vos réponses au test ASRS")
+            st.write("• Vos données démographiques")  
+            st.write("• Vos résultats d'analyse IA")
+            st.write("• Votre historique de consentements")
+            
+            deletion_reason = st.selectbox(
+                "Motif de suppression (optionnel)",
+                ["Non spécifié", "Retrait du consentement", "Données incorrectes", 
+                 "Finalité atteinte", "Opposition au traitement"]
+            )
+            
+            confirm_deletion = st.checkbox(
+                "Je confirme vouloir supprimer définitivement mes données"
+            )
+            
+            submitted = st.form_submit_button("🗑️ Supprimer mes données", type="secondary")
+            
+            if submitted and confirm_deletion:
+                # Suppression des données de session
+                keys_to_delete = ['asrs_responses', 'asrs_results', 'rgpd_consent', 'user_data']
+                for key in keys_to_delete:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                
+                st.success("✅ Vos données ont été supprimées avec succès")
+                st.balloons()
+            elif submitted:
+                st.error("❌ Veuillez confirmer la suppression")
+        with tabs[3]:
+        st.subheader("📊 Portabilité de vos Données")
+        
+        if 'asrs_results' in st.session_state and 'rgpd_consent' in st.session_state:
+            st.info("Téléchargez vos données dans un format lisible par machine")
+            
+            # Préparation des données pour export
+            export_data = {
+                'données_personnelles': {
+                    'age': st.session_state.asrs_results['demographics']['age'],
+                    'genre': st.session_state.asrs_results['demographics']['gender'],
+                    'education': st.session_state.asrs_results['demographics']['education']
+                },
+                'réponses_asrs': st.session_state.asrs_results['responses'],
+                'scores_calculés': st.session_state.asrs_results['scores'],
+                'consentements': st.session_state.rgpd_consent,
+                'export_timestamp': datetime.now().isoformat()
+            }
+            
+            # Boutons de téléchargement
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                json_data = json.dumps(export_data, indent=2, ensure_ascii=False)
+                st.download_button(
+                    "📥 Télécharger en JSON",
+                    json_data,
+                    f"mes_donnees_tdah_{datetime.now().strftime('%Y%m%d')}.json",
+                    "application/json"
+                )
+                
+            with col2:
+                csv_data = pd.DataFrame([export_data['données_personnelles']]).to_csv(index=False)
+                st.download_button(
+                    "📥 Télécharger en CSV", 
+                    csv_data,
+                    f"mes_donnees_tdah_{datetime.now().strftime('%Y%m%d')}.csv",
+                    "text/csv"
+                )
+        else:
+            st.warning("Aucune donnée disponible pour l'export")
+        with tabs[4]:
+        st.subheader("🔍 Journal d'Audit")
+        
+        # Création d'un log d'audit
+        if 'audit_log' not in st.session_state:
+            st.session_state.audit_log = []
+        
+        # Fonction de logging
+        def log_action(action, details=""):
+            timestamp = datetime.now().isoformat()
+            st.session_state.audit_log.append({
+                'timestamp': timestamp,
+                'action': action,
+                'details': details,
+                'user_hash': hashlib.sha256(st.session_state.get('user_ip', '').encode()).hexdigest()[:8]
+            })
+        
+        # Affichage du journal
+        if st.session_state.audit_log:
+            st.markdown("### 📋 Historique de vos actions")
+            
+            audit_df = pd.DataFrame(st.session_state.audit_log)
+            audit_df['timestamp'] = pd.to_datetime(audit_df['timestamp']).dt.strftime('%d/%m/%Y %H:%M')
+            
+            st.dataframe(
+                audit_df[['timestamp', 'action', 'details']], 
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Export de l'audit
+            audit_csv = audit_df.to_csv(index=False)
             st.download_button(
-                "📥 Télécharger en CSV", 
-                csv_data,
-                f"mes_donnees_tdah_{datetime.now().strftime('%Y%m%d')}.csv",
+                "📥 Télécharger l'audit",
+                audit_csv,
+                f"audit_tdah_{datetime.now().strftime('%Y%m%d')}.csv",
                 "text/csv"
             )
-    else:
-        st.warning("Aucune donnée disponible pour l'export")
-    with tabs[4]:
-    st.subheader("🔍 Journal d'Audit")
+        else:
+            st.info("Aucune action enregistrée pour cette session")
     
-    # Création d'un log d'audit
-    if 'audit_log' not in st.session_state:
-        st.session_state.audit_log = []
-    
-    # Fonction de logging
-    def log_action(action, details=""):
-        timestamp = datetime.now().isoformat()
-        st.session_state.audit_log.append({
-            'timestamp': timestamp,
-            'action': action,
-            'details': details,
-            'user_hash': hashlib.sha256(st.session_state.get('user_ip', '').encode()).hexdigest()[:8]
-        })
-    
-    # Affichage du journal
-    if st.session_state.audit_log:
-        st.markdown("### 📋 Historique de vos actions")
-        
-        audit_df = pd.DataFrame(st.session_state.audit_log)
-        audit_df['timestamp'] = pd.to_datetime(audit_df['timestamp']).dt.strftime('%d/%m/%Y %H:%M')
-        
-        st.dataframe(
-            audit_df[['timestamp', 'action', 'details']], 
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Export de l'audit
-        audit_csv = audit_df.to_csv(index=False)
-        st.download_button(
-            "📥 Télécharger l'audit",
-            audit_csv,
-            f"audit_tdah_{datetime.now().strftime('%Y%m%d')}.csv",
-            "text/csv"
-        )
-    else:
-        st.info("Aucune action enregistrée pour cette session")
-
 
 def check_rgpd_consent():
     """Vérifie si le consentement RGPD est donné"""
