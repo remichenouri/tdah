@@ -4662,6 +4662,9 @@ def main():
         elif tool_choice == "📚 Documentation":
             show_enhanced_documentation()
 
+        elif tool_choice == "🔒 Panneau RGPD & Conformité IA"
+            show_rgpd_panel()
+
         elif tool_choice == "ℹ️ À propos":
             show_about()
 
