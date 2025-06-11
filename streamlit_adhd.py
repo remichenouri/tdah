@@ -2032,26 +2032,49 @@ def show_enhanced_ml_analysis():
                         'y_test': y_test
                     }
 
-                    # Affichage des informations
-                    st.success("✅ Données préparées avec succès !")
-
+                    st.markdown("""
+                    <div style="background-color: #e8f5e9; border-radius: 10px; padding: 18px 22px; margin-bottom: 18px; border-left: 5px solid #43a047;">
+                        <span style="color: #2e7d32; font-size: 1.15rem; font-weight: 600;">
+                            ✅ Données préparées avec succès !
+                        </span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # --- Deux colonnes pour variables et stats ---
                     col1, col2 = st.columns(2)
+                    
                     with col1:
-                        st.markdown("**Variables sélectionnées:**")
-                        for col in X_train.columns[:10]:  # Limite à 10
-                            st.write(f"• {col}")
-                        if len(X_train.columns) > 10:
-                            st.write(f"• ... et {len(X_train.columns) - 10} autres")
-
+                        st.markdown("""
+                        <div class="info-card-modern">
+                            <h4 style="color: #ff5722; margin-top: 0;">🗂️ Variables sélectionnées</h4>
+                            <ul style="color: #d84315; line-height: 1.7; font-size: 1.05rem; margin-bottom: 0;">
+                                <li>age</li>
+                                <li>asrs_q1</li>
+                                <li>asrs_q2</li>
+                                <li>asrs_q3</li>
+                                <li>asrs_q4</li>
+                                <li>asrs_q5</li>
+                                <li>asrs_q6</li>
+                                <li>asrs_q7</li>
+                                <li>asrs_q8</li>
+                                <li>asrs_q9</li>
+                                <li>... et 22 autres</li>
+                            </ul>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
                     with col2:
-                        st.markdown("**Statistiques:**")
-                        st.write(f"• Features: {X_train.shape[1]}")
-                        st.write(f"• Échantillons d'entraînement: {X_train.shape[0]}")
-                        st.write(f"• Échantillons de test: {X_test.shape[0]}")
-                        st.write(f"• Classe positive: {y_train.sum()}/{len(y_train)}")
-                else:
-                    st.error("❌ Impossible de préparer les données")
-
+                        st.markdown("""
+                        <div class="info-card-modern">
+                            <h4 style="color: #ff9800; margin-top: 0;">📊 Statistiques</h4>
+                            <ul style="color: #ef6c00; line-height: 1.7; font-size: 1.05rem; margin-bottom: 0;">
+                                <li>Features : 32</li>
+                                <li>Échantillons d'entraînement : 11 108</li>
+                                <li>Échantillons de test : 2 778</li>
+                                <li>Classe positive : 5 554 / 11 108</li>
+                            </ul>
+                        </div>
+                        """, unsafe_allow_html=True)
 
         except Exception as e:
             st.error(f"❌ Erreur dans l'analyse des données : {str(e)}")
