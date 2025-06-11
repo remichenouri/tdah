@@ -114,55 +114,6 @@ ASRS_OPTIONS = {
     3: "Souvent",
     4: "Très souvent"
 }
-class GDPRConsentManager:
-    """Gestionnaire des consentements RGPD"""
-    @staticmethod
-    def show_consent_form():
-        st.markdown("""
-        **Protection des Données Personnelles**
-        ### Vos droits :
-        - ✅ **Droit d'accès** : Consulter vos données personnelles
-        - ✅ **Droit de rectification** : Corriger vos données
-        - ✅ **Droit à l'effacement** : Supprimer vos données
-        - ✅ **Droit à la portabilité** : Récupérer vos données
-        - ✅ **Droit d'opposition** : Refuser le traitement
-        ### Traitement des données :
-        - 🔐 **Chiffrement AES-256** de toutes les données sensibles
-        - 🏥 **Usage médical uniquement** pour le dépistage TDAH
-        - ⏰ **Conservation limitée** : 24 mois maximum
-        - 🌍 **Pas de transfert** hors Union Européenne
-        """)
-        consent_options = st.columns(2)
-        with consent_options[0]:
-            consent_screening = st.checkbox(
-                "✅ J'accepte le traitement de mes données pour le dépistage TDAH",
-                key="consent_screening"
-            )
-        with consent_options[1]:
-            consent_research = st.radio(
-                "📊 J'accepte l'utilisation anonymisée pour la recherche",
-                options=["Non", "Oui"],
-                key="consent_research_radio",
-                horizontal=True
-            )
-        if consent_screening:
-            consent_data = {
-                'user_id': str(uuid.uuid4()),
-                'timestamp': datetime.now().isoformat(),
-                'screening_consent': True,
-                'research_consent': consent_research == "Oui",
-                'ip_hash': hashlib.sha256(st.session_state.get('client_ip', '').encode()).hexdigest()[:16]
-            }
-            st.session_state.gdpr_consent = consent_data
-            st.session_state.gdpr_compliant = True
-            st.success("✅ Consentement enregistré. Redirection...")
-            time.sleep(1.5)
-            st.session_state.tool_choice = "🏠 Accueil"
-            st.rerun()
-            return True
-        else:
-            st.warning("⚠️ Le consentement est requis pour utiliser l'outil de dépistage")
-            return False
 
 def show_rgpd_panel():
     """Affiche le panneau RGPD & Conformité IA"""
@@ -189,77 +140,56 @@ def show_rgpd_panel():
         "🔍 Audit Trail"
     ])
     with tabs[0]:
-        st.subheader("🔐 Formulaire de Consentement RGPD")
-        
-        st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #ff9800;">
-            <h3 style="color: #ef6c00; margin-top: 0;">📋 Protection des Données Personnelles</h3>
-            <p style="color: #f57c00; line-height: 1.6;">
-                Conformément au <strong>RGPD</strong> et à l'<strong>AI Act européen</strong>, nous collectons vos données 
-                uniquement pour l'évaluation TDAH. Votre consentement est libre et révocable à tout moment.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-        # Formulaire de consentement
-        with st.form("rgpd_consent_form"):
-            st.markdown("### ✅ Vos droits selon le RGPD")
-            
-            # Droits RGPD
-            col1, col2 = st.columns(2)
-            
-            with col1:
+        class GDPRConsentManager:
+            """Gestionnaire des consentements RGPD"""
+            @staticmethod
+            def show_consent_form():
                 st.markdown("""
-                **✅ Droit d'accès :** Consulter vos données personnelles
-                **✅ Droit de rectification :** Corriger vos données  
-                **✅ Droit à l'effacement :** Supprimer vos données
-                **✅ Droit à la portabilité :** Récupérer vos données
+                **Protection des Données Personnelles**
+                ### Vos droits :
+                - ✅ **Droit d'accès** : Consulter vos données personnelles
+                - ✅ **Droit de rectification** : Corriger vos données
+                - ✅ **Droit à l'effacement** : Supprimer vos données
+                - ✅ **Droit à la portabilité** : Récupérer vos données
+                - ✅ **Droit d'opposition** : Refuser le traitement
+                ### Traitement des données :
+                - 🔐 **Chiffrement AES-256** de toutes les données sensibles
+                - 🏥 **Usage médical uniquement** pour le dépistage TDAH
+                - ⏰ **Conservation limitée** : 24 mois maximum
+                - 🌍 **Pas de transfert** hors Union Européenne
                 """)
-                
-            with col2:
-                st.markdown("""
-                **✅ Droit d'opposition :** Refuser le traitement
-                **✅ Droit à la limitation :** Restreindre l'usage
-                **✅ Droit au retrait :** Révoquer votre consentement
-                """)
-    
-            # Cases à cocher obligatoires
-            consent_data = st.checkbox(
-                "J'accepte le traitement de mes données pour l'évaluation TDAH (obligatoire)",
-                help="Collecte des réponses ASRS et données démographiques"
-            )
-            
-            consent_ia = st.checkbox(
-                "J'accepte l'analyse par intelligence artificielle (obligatoire)", 
-                help="Conformément à l'AI Act, notre système IA est classé à risque limité"
-            )
-            
-            # Cases optionnelles
-            consent_stats = st.checkbox(
-                "J'accepte l'utilisation anonymisée pour les statistiques (optionnel)",
-                help="Amélioration des modèles de dépistage"
-            )
-            
-            consent_research = st.checkbox(
-                "J'accepte la participation à la recherche anonymisée (optionnel)",
-                help="Finalité de recherche scientifique"
-            )
-    
-            submitted = st.form_submit_button("✅ Valider mon consentement")
-            
-            if submitted:
-                if consent_data and consent_ia:
-                    st.session_state.rgpd_consent = {
-                        'data_processing': consent_data,
-                        'ai_analysis': consent_ia, 
-                        'anonymous_stats': consent_stats,
-                        'research': consent_research,
+                consent_options = st.columns(2)
+                with consent_options[0]:
+                    consent_screening = st.checkbox(
+                        "✅ J'accepte le traitement de mes données pour le dépistage TDAH",
+                        key="consent_screening"
+                    )
+                with consent_options[1]:
+                    consent_research = st.radio(
+                        "📊 J'accepte l'utilisation anonymisée pour la recherche",
+                        options=["Non", "Oui"],
+                        key="consent_research_radio",
+                        horizontal=True
+                    )
+                if consent_screening:
+                    consent_data = {
+                        'user_id': str(uuid.uuid4()),
                         'timestamp': datetime.now().isoformat(),
-                        'ip_hash': hashlib.sha256(st.session_state.get('user_ip', '').encode()).hexdigest()[:8]
+                        'screening_consent': True,
+                        'research_consent': consent_research == "Oui",
+                        'ip_hash': hashlib.sha256(st.session_state.get('client_ip', '').encode()).hexdigest()[:16]
                     }
-                    st.success("✅ Consentement enregistré avec succès")
+                    st.session_state.gdpr_consent = consent_data
+                    st.session_state.gdpr_compliant = True
+                    st.success("✅ Consentement enregistré. Redirection...")
+                    time.sleep(1.5)
+                    st.session_state.tool_choice = "🏠 Accueil"
+                    st.rerun()
+                    return True
                 else:
-                    st.error("❌ Les consentements obligatoires sont requis")
+                    st.warning("⚠️ Le consentement est requis pour utiliser l'outil de dépistage")
+                    return False
+            
         with tabs[2]:
             st.subheader("⚖️ Exercice du Droit à l'Effacement")
             
