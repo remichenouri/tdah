@@ -1279,6 +1279,9 @@ st.markdown("### 🔍 Analyse Détaillée par Variable")
 demographic_vars = ['age', 'gender', 'education', 'job_status', 'marital_status', 'children_count']
 available_demo_vars = [var for var in demographic_vars if var in df.columns]
 
+demographic_vars = ['age', 'gender', 'education', 'job_status', 'marital_status', 'children_count']
+available_demo_vars = [var for var in demographic_vars if var in df.columns]
+
 # Création d'une grille 2x3 pour les variables
 for i in range(0, len(available_demo_vars), 2):
     col1, col2 = st.columns(2)
