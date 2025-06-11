@@ -546,26 +546,21 @@ def calculate_std_safe(values):
 
 @st.cache_data(ttl=86400, show_spinner="Chargement du dataset TDAH")
 def load_enhanced_dataset():
+    # Tentative de chargement depuis Google Drive
+    file_id = "15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR"
+    gdrive_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        
     try:
-        # Tentative de chargement depuis Google Drive
-        file_id = "15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR"
-        gdrive_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        df_external = pd.read_csv(gdrive_url, nrows=1000)  # Test de connexion
+    except:
+        df_external = None
         
-        try:
-            df_external = pd.read_csv(gdrive_url, nrows=1000)  # Test de connexion
-        except:
-            df_external = None
-        
-        # Génération du dataset principal (augmenté à 7500)
-        return generate_enhanced_realistic_tdah_dataset(
-            n_samples=7500,  # Correction : augmenté de 6000 à 7500
-            random_state=42
-        )
+    # Génération du dataset principal (augmenté à 7500)
+    return generate_enhanced_realistic_tdah_dataset(
+        n_samples=7500,  # Correction : augmenté de 6000 à 7500
+        random_state=42)
 
 def generate_enhanced_realistic_tdah_dataset(n_samples=7500, random_state=42):
-    """
-    Génère un dataset TDAH ultra-réaliste basé sur les données scientifiques
-    """
     np.random.seed(random_state)
     
     # Fonction utilitaire pour corrélations réalistes
