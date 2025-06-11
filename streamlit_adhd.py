@@ -19,7 +19,7 @@ import warnings
 from io import BytesIO
 import hashlib
 import json
-import datetime
+from datetime import datetime
 import pandas as pd
 
 from concurrent.futures import ThreadPoolExecutor
