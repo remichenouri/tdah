@@ -200,9 +200,9 @@ def show_rgpd_panel():
         "📊 Portabilité",
         "🔍 Audit Trail"
     ])
-        with tabs[0]:
-            st.subheader("🔐 Consentement")
-            show_consent_form():
+    with tabs[0]:
+        st.subheader("🔐 Consentement")
+        show_consent_form():
                     
         with tabs[1]:
             st.subheader("🛡️ Transparence IA")
