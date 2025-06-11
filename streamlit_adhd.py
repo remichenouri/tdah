@@ -2292,7 +2292,7 @@ def show_enhanced_ai_prediction():
             # Partie A - Questions principales
             st.markdown("## 🎯 Partie A - Questions de dépistage principal")
             st.markdown("*Ces 6 questions sont les plus prédictives pour le dépistage du TDAH*")
-
+            
             for i, question in enumerate(ASRS_QUESTIONS["Partie A - Questions de dépistage principal"], 1):
                 st.markdown(f"""
                 <div class="asrs-question-card">
@@ -2302,8 +2302,8 @@ def show_enhanced_ai_prediction():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-
-                # Sélection avec selectbox (approche corrigée)
+            
+                # UNIQUEMENT le menu déroulant - suppression des autres éléments
                 response = st.selectbox(
                     f"Votre réponse à la question {i}:",
                     options=list(ASRS_OPTIONS.keys()),
@@ -2313,17 +2313,14 @@ def show_enhanced_ai_prediction():
                     help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
                 )
                 st.session_state.asrs_responses[f'q{i}'] = response
-
-                # Affichage visuel de la réponse sélectionnée
-                if response > 0:
-                    st.success(f"✅ Sélectionné : {ASRS_OPTIONS[response]}")
-
+                
                 st.markdown("---")
+
 
             # Partie B - Questions complémentaires
             st.markdown("## 📝 Partie B - Questions complémentaires")
             st.markdown("*Ces 12 questions fournissent des informations supplémentaires pour l'évaluation*")
-
+            
             for i, question in enumerate(ASRS_QUESTIONS["Partie B - Questions complémentaires"], 7):
                 st.markdown(f"""
                 <div class="asrs-question-card">
@@ -2333,7 +2330,7 @@ def show_enhanced_ai_prediction():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-
+            
                 response = st.selectbox(
                     f"Votre réponse à la question {i}:",
                     options=list(ASRS_OPTIONS.keys()),
@@ -2343,11 +2340,9 @@ def show_enhanced_ai_prediction():
                     help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
                 )
                 st.session_state.asrs_responses[f'q{i}'] = response
-
-                if response > 0:
-                    st.success(f"✅ Sélectionné : {ASRS_OPTIONS[response]}")
-
+                
                 st.markdown("---")
+
 
             # Informations complémentaires
             st.markdown("## 👤 Informations complémentaires")
