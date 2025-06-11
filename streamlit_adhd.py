@@ -1786,37 +1786,6 @@ def show_enhanced_data_exploration():
     with tabs[4]:
         st.subheader("🎯 Visualisations interactives")
 
-        # Sélecteur de variables
-        col1, col2 = st.columns(2)
-
-        with col1:
-            numeric_vars = df.select_dtypes(include=[np.number]).columns.tolist()
-            if 'diagnosis' in numeric_vars:
-                numeric_vars.remove('diagnosis')
-
-            x_var = st.selectbox("Variable X :", numeric_vars, index=0 if numeric_vars else None)
-
-        with col2:
-            y_var = st.selectbox("Variable Y :", numeric_vars, index=1 if len(numeric_vars) > 1 else 0)
-
-        if x_var and y_var and x_var != y_var:
-            # Scatter plot interactif
-            fig_scatter = px.scatter(
-                df,
-                x=x_var,
-                y=y_var,
-                color='diagnosis' if 'diagnosis' in df.columns else None,
-                title=f'Relation entre {x_var} et {y_var}',
-                color_discrete_map={0: '#ff9800', 1: '#ff5722'} if 'diagnosis' in df.columns else None,
-                hover_data=['age', 'gender'] if all(col in df.columns for col in ['age', 'gender']) else None
-            )
-            st.plotly_chart(fig_scatter, use_container_width=True)
-
-            # Calcul de corrélation
-            if x_var in df.columns and y_var in df.columns:
-                correlation, p_value = pearsonr(df[x_var].dropna(), df[y_var].dropna())
-                st.info(f"📊 Corrélation de Pearson : {correlation:.3f} (p-value: {p_value:.4f})")
-
         # Analyse par sous-groupes
         st.markdown("### 🔍 Analyse par sous-groupes")
 
