@@ -10,6 +10,63 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+import streamlit as st
+import uuid
+import hashlib
+import time
+from datetime import datetime
+
+class GDPRConsentManager:
+    """Gestionnaire des consentements RGPD"""
+    @staticmethod
+    def show_consent_form():
+        st.markdown("""
+        **Protection des Données Personnelles**
+        ### Vos droits :
+        - ✅ **Droit d'accès** : Consulter vos données personnelles
+        - ✅ **Droit de rectification** : Corriger vos données
+        - ✅ **Droit à l'effacement** : Supprimer vos données
+        - ✅ **Droit à la portabilité** : Récupérer vos données
+        - ✅ **Droit d'opposition** : Refuser le traitement
+        ### Traitement des données :
+        - 🔐 **Chiffrement AES-256** de toutes les données sensibles
+        - 🏥 **Usage médical uniquement** pour le dépistage TDAH
+        - ⏰ **Conservation limitée** : 24 mois maximum
+        - 🌍 **Pas de transfert** hors Union Européenne
+        """)
+        consent_options = st.columns(2)
+        with consent_options[0]:
+            consent_screening = st.checkbox(
+                "✅ J'accepte le traitement de mes données pour le dépistage TDAH",
+                key="consent_screening"
+            )
+        with consent_options[1]:
+            consent_research = st.radio(
+                "📊 J'accepte l'utilisation anonymisée pour la recherche",
+                options=["Non", "Oui"],
+                key="consent_research_radio",
+                horizontal=True
+            )
+        if consent_screening:
+            consent_data = {
+                'user_id': str(uuid.uuid4()),
+                'timestamp': datetime.now().isoformat(),
+                'screening_consent': True,
+                'research_consent': consent_research == "Oui",
+                'ip_hash': hashlib.sha256(st.session_state.get('client_ip', '').encode()).hexdigest()[:16]
+            }
+            st.session_state.gdpr_consent = consent_data
+            st.session_state.gdpr_compliant = True
+            st.success("✅ Consentement enregistré. Redirection...")
+            time.sleep(1.5)
+            st.session_state.tool_choice = "🏠 Accueil"
+            st.rerun()
+            return True
+        else:
+            st.warning("⚠️ Le consentement est requis pour utiliser l'outil de dépistage")
+            return False
+
 if 'gdpr_compliant' not in st.session_state or not st.session_state.gdpr_compliant:
     st.session_state.tool_choice = "🔒 RGPD & Droits"
     GDPRConsentManager.show_consent_form()
