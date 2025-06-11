@@ -330,7 +330,27 @@ def show_rgpd_panel():
         )
     else:
         st.info("Aucune action enregistrée pour cette session")
-    
+
+
+def check_rgpd_consent():
+    """Vérifie si le consentement RGPD est donné"""
+    if 'rgpd_consent' not in st.session_state:
+        st.warning("⚠️ Veuillez donner votre consentement RGPD avant de continuer")
+        if st.button("🔒 Aller au panneau RGPD"):
+            st.session_state.tool_choice = "🔒 Panneau RGPD & Conformité IA"
+            st.experimental_rerun()
+        return False
+        
+    consent = st.session_state.rgpd_consent
+    return consent.get('data_processing', False) and consent.get('ai_analysis', False)
+
+# Utilisation dans les fonctions de test
+def show_enhanced_ai_prediction():
+    """Interface de prédiction IA enrichie avec test ASRS complet"""
+    # Vérification du consentement en premier
+    if not check_rgpd_consent():
+        return
+
 def check_dependencies():
     """Vérifie la disponibilité des dépendances critiques"""
     missing_deps = []
@@ -722,6 +742,7 @@ def show_navigation_menu():
         "🧠 Analyse ML",
         "🤖 Prédiction par IA",
         "📚 Documentation",
+        "🔒 Panneau RGPD & Conformité IA",
         "ℹ️ À propos"
     ]
 
@@ -2485,6 +2506,8 @@ def show_enhanced_ml_analysis():
 
 
 def show_enhanced_ai_prediction():
+    if not check_rgpd_consent():
+        return
     """Interface de prédiction IA enrichie avec test ASRS complet"""
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
