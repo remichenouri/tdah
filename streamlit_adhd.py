@@ -2739,13 +2739,13 @@ def show_enhanced_ai_prediction():
                 </div>
                 """, unsafe_allow_html=True)
                 
-                response = st.radio(
-                    f"Question {i+1}",
-                    response_options,
-                    key=f"asrs_part_a_q{i+1}",
-                    horizontal=True,
-                    label_visibility="collapsed"
+                # APRÈS (uniquement fenêtre déroulante)
+                response = st.selectbox(
+                    f"Votre réponse à la question {i+1} :",
+                    ["Jamais", "Rarement", "Parfois", "Souvent", "Très souvent"],
+                    key=f"asrs_part_a_q{i+1}"
                 )
+
                 st.session_state.asrs_responses_aq10[f'part_a_q{i+1}'] = response
             
             # Partie B - Questions complémentaires (7-18)
