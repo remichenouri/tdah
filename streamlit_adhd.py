@@ -30,7 +30,11 @@ import sys
 try:
     import numpy as np
     import pandas as pd
+    # Rendre numpy accessible globalement
+    globals()['np'] = np
+    globals()['pd'] = pd
     NUMPY_AVAILABLE = True
+    st.success("✅ NumPy et Pandas chargés avec succès")
 except ImportError as e:
     st.error(f"❌ Erreur critique : {e}")
     st.error("Veuillez installer numpy et pandas : pip install numpy pandas")
@@ -62,6 +66,7 @@ try:
     from scipy import stats
     from scipy.stats import mannwhitneyu, chi2_contingency, pearsonr, spearmanr
     SKLEARN_AVAILABLE = True
+    st.success("✅ Scikit-learn chargé avec succès")
 except ImportError as e:
     SKLEARN_AVAILABLE = False
     st.warning(f"⚠️ Scikit-learn non disponible : {e}")
@@ -557,6 +562,9 @@ def load_enhanced_dataset():
         # Chargement du dataset
         df = pd_local.read_csv(download_url)
 
+        # Vérification de l'intégrité des données
+        st.success(f"✅ Dataset chargé avec succès ! {len(df)} participants, {len(df.columns)} variables")
+
         return df
 
     except Exception as e:
@@ -621,6 +629,8 @@ def test_numpy_availability():
         test_array = test_np.array([1, 2, 3, 4, 5])
         test_std = test_np.std(test_array)
         test_df = test_pd.DataFrame({'test': [1, 2, 3]})
+
+        st.success(f"✅ Test numpy/pandas réussi - std test: {test_std:.2f}")
         return True
 
     except Exception as e:
@@ -1172,358 +1182,42 @@ def show_enhanced_data_exploration():
         </div>
         """, unsafe_allow_html=True)
 
-        def show_data_structure_improved():
-            '''Affichage amélioré de la structure des données avec présentation plus claire'''
-            df = load_enhanced_dataset()  # Charger le dataset
-    
-            if df is None or len(df) == 0:
-                st.error("❌ Impossible de charger le dataset")
-                return
-            
-            # Passer df comme paramètre aux fonctions qui en ont besoin
-            create_demographic_card(df, var_name)
-            
-            st.markdown('''
-            <div style="background: linear-gradient(135deg, #ff5722, #ff9800); 
-                        padding: 25px; border-radius: 15px; margin-bottom: 30px;">
-                <h2 style="color: white; margin: 0; text-align: center; font-size: 1.8rem;">
-                    📂 Structure des Données TDAH
-                </h2>
-            </div>
-            ''', unsafe_allow_html=True)
-            
-            # Chargement du dataset
-            df = load_enhanced_dataset()
-            
-            if df is None or len(df) == 0:
-                st.error("❌ Impossible de charger le dataset")
-                return
-            
-            # Section informations générales avec design amélioré
-            st.markdown("### 📊 Informations Générales")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.markdown('''
-                <div style="background: white; padding: 20px; border-radius: 12px; 
-                           box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
-                           border-left: 4px solid #ff5722;">
-                    <h3 style="color: #ff5722; margin: 0; font-size: 2rem;">{:,}</h3>
-                    <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Participants</p>
-                </div>
-                '''.format(len(df)), unsafe_allow_html=True)
-            
-            with col2:
-                if 'diagnosis' in df.columns:
-                    tdah_count = df['diagnosis'].sum()
-                    percentage = (tdah_count / len(df)) * 100
-                    st.markdown('''
-                    <div style="background: white; padding: 20px; border-radius: 12px; 
-                               box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
-                               border-left: 4px solid #ff9800;">
-                        <h3 style="color: #ff9800; margin: 0; font-size: 2rem;">{:,}</h3>
-                        <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Cas TDAH ({:.1f}%)</p>
-                    </div>
-                    '''.format(tdah_count, percentage), unsafe_allow_html=True)
-            
-            with col3:
-                st.markdown('''
-                <div style="background: white; padding: 20px; border-radius: 12px; 
-                           box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
-                           border-left: 4px solid #ffcc02;">
-                    <h3 style="color: #f57c00; margin: 0; font-size: 2rem;">{}</h3>
-                    <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Variables</p>
-                </div>
-                '''.format(len(df.columns)), unsafe_allow_html=True)
-            
-            with col4:
-                if 'age' in df.columns:
-                    avg_age = df['age'].mean()
-                    st.markdown('''
-                    <div style="background: white; padding: 20px; border-radius: 12px; 
-                               box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;
-                               border-left: 4px solid #4caf50;">
-                        <h3 style="color: #4caf50; margin: 0; font-size: 2rem;">{:.1f}</h3>
-                        <p style="color: #666; margin: 5px 0 0 0; font-weight: 500;">Âge moyen</p>
-                    </div>
-                    '''.format(avg_age), unsafe_allow_html=True)
-        
-            st.markdown("<br>", unsafe_allow_html=True)
-            # Catégorisation améliorée des variables
-        st.markdown("### 🏗️ Catégories de Variables")
-        
-        # Identification des catégories
+        # Structure des données
+        st.subheader("📂 Structure des données")
+
+        # Catégorisation des variables
         asrs_questions = [col for col in df.columns if col.startswith('asrs_q')]
         asrs_scores = [col for col in df.columns if col.startswith('asrs_') and not col.startswith('asrs_q')]
         demographic_vars = ['age', 'gender', 'education', 'job_status', 'marital_status', 'children_count']
         psychometric_vars = [col for col in df.columns if col.startswith('iq_')]
         quality_vars = ['quality_of_life', 'stress_level', 'sleep_problems']
-        
-        # Présentation en colonnes avec icônes et couleurs
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
-            # Variables ASRS
-            st.markdown('''
-            <div style="background: linear-gradient(135deg, #fff3e0, #ffcc02); 
-                       padding: 20px; border-radius: 12px; margin-bottom: 20px;
-                       border-left: 5px solid #ff9800;">
-                <h4 style="color: #ef6c00; margin: 0 0 15px 0;">
-                    📝 Variables ASRS (Questionnaire)
-                </h4>
-                <div style="color: #f57c00; line-height: 1.8;">
-                    <p><strong>• {} questions individuelles</strong> (Q1-Q18)</p>
-                    <p><strong>• {} scores calculés</strong> (total, sous-échelles)</p>
-                    <p><strong>• Échelle :</strong> 0-4 points par question</p>
-                    <p><strong>• Basé sur :</strong> Critères DSM-5</p>
-                </div>
-            </div>
-            '''.format(len(asrs_questions), len(asrs_scores)), unsafe_allow_html=True)
-            
-  # Analyse détaillée par variable avec cards améliorées
-st.markdown("### 🔍 Analyse Détaillée par Variable")
+            st.markdown("**📝 Variables ASRS (questionnaire) :**")
+            st.write(f"• {len(asrs_questions)} questions individuelles (Q1-Q18)")
+            st.write(f"• {len(asrs_scores)} scores calculés (total, sous-échelles)")
 
-demographic_vars = ['age', 'gender', 'education', 'job_status', 'marital_status', 'children_count']
-available_demo_vars = [var for var in demographic_vars if var in df.columns]
+            st.markdown("**👥 Variables démographiques :**")
+            for var in demographic_vars:
+                if var in df.columns:
+                    st.write(f"• {var}: {df[var].dtype}")
 
-demographic_vars = ['age', 'gender', 'education', 'job_status', 'marital_status', 'children_count']
-available_demo_vars = [var for var in demographic_vars if var in df.columns]
-
-# Création d'une grille 2x3 pour les variables
-for i in range(0, len(available_demo_vars), 2):
-    col1, col2 = st.columns(2)
-    
-    # Première variable de la paire
-    if i < len(available_demo_vars):
-        var = available_demo_vars[i]
-        with col1:
-            create_demographic_card(df, var)
-    
-    # Deuxième variable de la paire (si elle existe)
-    if i + 1 < len(available_demo_vars):
-        var = available_demo_vars[i + 1]
         with col2:
-            create_demographic_card(df, var)
+            st.markdown("**🧠 Variables psychométriques :**")
+            for var in psychometric_vars:
+                if var in df.columns:
+                    st.write(f"• {var}: {df[var].dtype}")
 
-def create_demographic_card(df, var_name):
-    '''Crée une card moderne pour une variable démographique'''
-    
-    # Configuration des couleurs et icônes par variable
-    var_config = {
-        'age': {'color': '#4caf50', 'icon': '🎂', 'title': 'Âge'},
-        'gender': {'color': '#2196f3', 'icon': '👥', 'title': 'Genre'},
-        'education': {'color': '#ff9800', 'icon': '🎓', 'title': 'Éducation'},
-        'job_status': {'color': '#9c27b0', 'icon': '💼', 'title': 'Statut Professionnel'},
-        'marital_status': {'color': '#e91e63', 'icon': '💑', 'title': 'Statut Marital'},
-        'children_count': {'color': '#00bcd4', 'icon': '👶', 'title': 'Nombre d\'Enfants'}
-    }
-    
-    config = var_config.get(var_name, {'color': '#666', 'icon': '📊', 'title': var_name})
-    
-    st.markdown(f'''
-    <div style="background: linear-gradient(135deg, {config["color"]}15, {config["color"]}05); 
-               padding: 20px; border-radius: 12px; margin-bottom: 20px;
-               border-left: 5px solid {config["color"]}; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-        <h4 style="color: {config["color"]}; margin: 0 0 15px 0; display: flex; align-items: center;">
-            <span style="font-size: 1.2em; margin-right: 8px;">{config["icon"]}</span>
-            {config["title"]}
-        </h4>
-    ''', unsafe_allow_html=True)
-    
-    # Analyse spécifique selon le type de variable
-    if df[var_name].dtype in ['object', 'category']:
-        # Variable catégorielle
-        value_counts = df[var_name].value_counts()
-        total_count = len(df)
-        
-        st.markdown(f'<div style="color: {config["color"]}; line-height: 1.8;">', unsafe_allow_html=True)
-        
-        for value, count in value_counts.head(5).items():
-            percentage = (count / total_count) * 100
-            st.markdown(f"<p><strong>• {value}:</strong> {count:,} participants ({percentage:.1f}%)</p>", 
-                       unsafe_allow_html=True)
-        
-        if len(value_counts) > 5:
-            others_count = value_counts.tail(len(value_counts) - 5).sum()
-            others_pct = (others_count / total_count) * 100
-            st.markdown(f"<p><strong>• Autres:</strong> {others_count:,} participants ({others_pct:.1f}%)</p>", 
-                       unsafe_allow_html=True)
-        
-        st.markdown(f"<p style='font-style: italic; margin-top: 10px;'><strong>Total:</strong> {len(value_counts)} catégories distinctes</p>", 
-                   unsafe_allow_html=True)
-    
-    else:
-        # Variable numérique
-        stats = df[var_name].describe()
-        st.markdown(f'<div style="color: {config["color"]}; line-height: 1.8;">', unsafe_allow_html=True)
-        st.markdown(f"<p><strong>• Moyenne:</strong> {stats['mean']:.2f}</p>", unsafe_allow_html=True)
-        st.markdown(f"<p><strong>• Médiane:</strong> {stats['50%']:.2f}</p>", unsafe_allow_html=True)
-        st.markdown(f"<p><strong>• Écart-type:</strong> {stats['std']:.2f}</p>", unsafe_allow_html=True)
-        st.markdown(f"<p><strong>• Min - Max:</strong> {stats['min']:.0f} - {stats['max']:.0f}</p>", unsafe_allow_html=True)
-    
-    st.markdown('</div></div>', unsafe_allow_html=True)
+            st.markdown("**💚 Variables de qualité de vie :**")
+            for var in quality_vars:
+                if var in df.columns:
+                    st.write(f"• {var}: {df[var].dtype}")
 
-# Section Analyse Croisée avec Diagnostic TDAH
-st.markdown("### 🔬 Analyse Croisée avec le Diagnostic TDAH")
-
-if 'diagnosis' in df.columns:
-    
-    # Sélection de 2 variables principales pour l'analyse croisée
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Analyse par âge et diagnostic
-        if 'age' in df.columns:
-            st.markdown('''
-            <div style="background: linear-gradient(135deg, #fff3e0, #ffcc02); 
-                       padding: 20px; border-radius: 12px; margin-bottom: 20px;
-                       border-left: 5px solid #ff9800;">
-                <h4 style="color: #ef6c00; margin: 0 0 15px 0;">
-                    📈 Répartition par Âge et Diagnostic
-                </h4>
-            </div>
-            ''', unsafe_allow_html=True)
-            
-            age_groups = pd.cut(df['age'], bins=[0, 25, 35, 45, 55, 100], 
-                               labels=['18-25', '26-35', '36-45', '46-55', '56+'])
-            crosstab_age = pd.crosstab(age_groups, df['diagnosis'], normalize='index') * 100
-            
-            for age_group in crosstab_age.index:
-                tdah_pct = crosstab_age.loc[age_group, 1]
-                st.write(f"**{age_group} ans:** {tdah_pct:.1f}% de cas TDAH")
-    
-    with col2:
-        # Analyse par genre et diagnostic
-        if 'gender' in df.columns:
-            st.markdown('''
-            <div style="background: linear-gradient(135deg, #e3f2fd, #2196f3); 
-                       padding: 20px; border-radius: 12px; margin-bottom: 20px;
-                       border-left: 5px solid #1976d2;">
-                <h4 style="color: #1565c0; margin: 0 0 15px 0;">
-                    👫 Répartition par Genre et Diagnostic
-                </h4>
-            </div>
-            ''', unsafe_allow_html=True)
-            
-            gender_crosstab = pd.crosstab(df['gender'], df['diagnosis'], normalize='index') * 100
-            
-            for gender in gender_crosstab.index:
-                tdah_pct = gender_crosstab.loc[gender, 1]
-                gender_label = "Hommes" if gender == 'M' else "Femmes"
-                st.write(f"**{gender_label}:** {tdah_pct:.1f}% de cas TDAH")
-            
-            # Section Tableau de Bord Démographique
-            st.markdown("### 📊 Tableau de Bord Démographique")
-            
-            # Configuration des couleurs et icônes (répété pour la cohérence)
-            var_config = {
-                'age': {'color': '#4caf50', 'icon': '🎂', 'title': 'Âge'},
-                'gender': {'color': '#2196f3', 'icon': '👥', 'title': 'Genre'},
-                'education': {'color': '#ff9800', 'icon': '🎓', 'title': 'Éducation'},
-                'job_status': {'color': '#9c27b0', 'icon': '💼', 'title': 'Statut Professionnel'},
-                'marital_status': {'color': '#e91e63', 'icon': '💑', 'title': 'Statut Marital'},
-                'children_count': {'color': '#00bcd4', 'icon': '👶', 'title': 'Nombre d\'Enfants'}
-            }
-            
-            # Création d'un tableau récapitulatif moderne
-            demo_summary_data = []
-            
-            for var in available_demo_vars:
-                if df[var].dtype in ['object', 'category']:
-                    most_frequent = df[var].mode()[0]
-                    frequency = df[var].value_counts().iloc[0]
-                    percentage = (frequency / len(df)) * 100
-                    data_type = "Catégorielle"
-                    summary_stat = f"{most_frequent} ({percentage:.1f}%)"
-                else:
-                    mean_val = df[var].mean()
-                    std_val = df[var].std()
-                    data_type = "Numérique"
-                    summary_stat = f"{mean_val:.1f} ± {std_val:.1f}"
-                
-                demo_summary_data.append({
-                    'Variable': var_config.get(var, {}).get('title', var),
-                    'Type': data_type,
-                    'Valeurs Uniques': df[var].nunique(),
-                    'Valeurs Manquantes': df[var].isnull().sum(),
-                    'Statistique Principale': summary_stat
-                })
-            
-            demo_summary_df = pd.DataFrame(demo_summary_data)
-            
-            # Affichage du tableau avec style personnalisé
-            st.markdown('''
-            <div style="background: white; padding: 20px; border-radius: 12px; 
-                       box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 20px 0;">
-                <h4 style="color: #4caf50; margin: 0 0 15px 0;">
-                    📋 Résumé des Variables Démographiques
-                </h4>
-            </div>
-            ''', unsafe_allow_html=True)
-            
-            st.dataframe(
-                demo_summary_df, 
-                use_container_width=True,
-                height=300
-            )
-
-            st.markdown("### 👀 Aperçu des Données")
-            
-            st.markdown('''
-            <div style="background: white; padding: 20px; border-radius: 12px; 
-                       box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin: 20px 0;">
-                <h4 style="color: #ff5722; margin: 0 0 15px 0;">
-                    📋 Échantillon des données (10 premiers participants)
-                </h4>
-            </div>
-            ''', unsafe_allow_html=True)
-            
-            # Configuration de l'affichage du dataframe
-            st.dataframe(
-                df.head(10), 
-                use_container_width=True,
-                height=400
-            )
-            
-            # Informations sur la qualité des données
-            st.markdown("### 🔍 Qualité des Données")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                missing_total = df.isnull().sum().sum()
-                missing_pct = (missing_total / (len(df) * len(df.columns))) * 100
-                st.markdown('''
-                <div style="background: white; padding: 15px; border-radius: 10px; 
-                           text-align: center; border-left: 4px solid #ff5722;">
-                    <h3 style="color: #ff5722; margin: 0;">{:.1f}%</h3>
-                    <p style="color: #666; margin: 5px 0 0 0;">Données manquantes</p>
-                </div>
-                '''.format(missing_pct), unsafe_allow_html=True)
-            
-            with col2:
-                duplicates = df.duplicated().sum()
-                st.markdown('''
-                <div style="background: white; padding: 15px; border-radius: 10px; 
-                           text-align: center; border-left: 4px solid #ff9800;">
-                    <h3 style="color: #ff9800; margin: 0;">{}</h3>
-                    <p style="color: #666; margin: 5px 0 0 0;">Doublons</p>
-                </div>
-                '''.format(duplicates), unsafe_allow_html=True)
-            
-            with col3:
-                if 'subject_id' in df.columns:
-                    unique_subjects = df['subject_id'].nunique()
-                    st.markdown('''
-                    <div style="background: white; padding: 15px; border-radius: 10px; 
-                               text-align: center; border-left: 4px solid #4caf50;">
-                        <h3 style="color: #4caf50; margin: 0;">{:,}</h3>
-                        <p style="color: #666; margin: 5px 0 0 0;">Sujets uniques</p>
-                    </div>
-                    '''.format(unique_subjects), unsafe_allow_html=True)
-                    
-    
+        # Aperçu des données
+        st.subheader("👀 Aperçu des données")
+        st.dataframe(df.head(10), use_container_width=True)
 
     with tabs[1]:
         st.subheader("🔢 Analyse détaillée des variables ASRS")
@@ -2601,9 +2295,11 @@ def show_enhanced_ai_prediction():
 
         # Formulaire ASRS corrigé
         with st.form("asrs_complete_form", clear_on_submit=False):
-            # Partie A
+
+            # Partie A - Questions principales
             st.markdown("## 🎯 Partie A - Questions de dépistage principal")
-            
+            st.markdown("*Ces 6 questions sont les plus prédictives pour le dépistage du TDAH*")
+
             for i, question in enumerate(ASRS_QUESTIONS["Partie A - Questions de dépistage principal"], 1):
                 st.markdown(f"""
                 <div class="asrs-question-card">
@@ -2613,19 +2309,28 @@ def show_enhanced_ai_prediction():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-        
-                st.selectbox(
+
+                # Sélection avec selectbox (approche corrigée)
+                response = st.selectbox(
                     f"Votre réponse à la question {i}:",
                     options=list(ASRS_OPTIONS.keys()),
                     format_func=lambda x: ASRS_OPTIONS[x],
                     key=f"asrs_q{i}",
-                    index=0
+                    index=0,
+                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
                 )
+                st.session_state.asrs_responses[f'q{i}'] = response
+
+                # Affichage visuel de la réponse sélectionnée
+                if response > 0:
+                    st.success(f"✅ Sélectionné : {ASRS_OPTIONS[response]}")
+
                 st.markdown("---")
-        
-            # Partie B (identique)
+
+            # Partie B - Questions complémentaires
             st.markdown("## 📝 Partie B - Questions complémentaires")
-            
+            st.markdown("*Ces 12 questions fournissent des informations supplémentaires pour l'évaluation*")
+
             for i, question in enumerate(ASRS_QUESTIONS["Partie B - Questions complémentaires"], 7):
                 st.markdown(f"""
                 <div class="asrs-question-card">
@@ -2635,16 +2340,21 @@ def show_enhanced_ai_prediction():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-        
-                st.selectbox(
+
+                response = st.selectbox(
                     f"Votre réponse à la question {i}:",
                     options=list(ASRS_OPTIONS.keys()),
                     format_func=lambda x: ASRS_OPTIONS[x],
                     key=f"asrs_q{i}",
-                    index=0
+                    index=0,
+                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
                 )
-                st.markdown("---")
+                st.session_state.asrs_responses[f'q{i}'] = response
 
+                if response > 0:
+                    st.success(f"✅ Sélectionné : {ASRS_OPTIONS[response]}")
+
+                st.markdown("---")
 
             # Informations complémentaires
             st.markdown("## 👤 Informations complémentaires")
@@ -2667,18 +2377,17 @@ def show_enhanced_ai_prediction():
                 quality_of_life = st.slider("Qualité de vie (1-10)", 1, 10, 5, key="demo_qol")
                 stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3, key="demo_stress")
 
-           # Bouton de soumission
-            submitted = st.form_submit_button("🔬 Analyser avec l'IA", use_container_width=True, type="primary")
-        
+            # Bouton de soumission
+            submitted = st.form_submit_button(
+                "🔬 Analyser avec l'IA",
+                use_container_width=True,
+                type="primary"
+            )
+
             if submitted:
-                # CORRECTION : Récupération des valeurs APRÈS soumission
-                responses = {}
-                for i in range(1, 19):
-                    responses[f'q{i}'] = st.session_state.get(f"asrs_q{i}", 0)
-                
-                # Calculs des scores
-                part_a_score = sum([responses[f'q{i}'] for i in range(1, 7)])
-                part_b_score = sum([responses[f'q{i}'] for i in range(7, 19)])
+                # Calcul des scores ASRS
+                part_a_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in range(1, 7)])
+                part_b_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in range(7, 19)])
                 total_score = part_a_score + part_b_score
 
                 # Score d'inattention (questions 1-9 selon DSM-5)
@@ -2687,10 +2396,9 @@ def show_enhanced_ai_prediction():
                 # Score d'hyperactivité-impulsivité (questions 5, 6, 10-18)
                 hyperactivity_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in [5, 6] + list(range(10, 19))])
 
-                # Stockage final
-                st.session_state.asrs_responses = responses
+                # Stockage des résultats
                 st.session_state.asrs_results = {
-                    'responses': responses,
+                    'responses': st.session_state.asrs_responses.copy(),
                     'scores': {
                         'part_a': part_a_score,
                         'part_b': part_b_score,
@@ -3234,15 +2942,13 @@ def show_enhanced_ai_prediction():
         if 'asrs_responses' not in st.session_state:
             st.session_state.asrs_responses = {}
 
-        # SOLUTION CORRIGÉE - Version définitive
+        # Formulaire ASRS
         with st.form("asrs_complete_form", clear_on_submit=False):
-            
+
             # Partie A - Questions principales
             st.markdown("## 🎯 Partie A - Questions de dépistage principal")
-            
-            # Initialisation des réponses temporaires
-            temp_responses = {}
-            
+            st.markdown("*Ces 6 questions sont les plus prédictives pour le dépistage du TDAH*")
+
             for i, question in enumerate(ASRS_QUESTIONS["Partie A - Questions de dépistage principal"], 1):
                 st.markdown(f"""
                 <div class="asrs-question-card">
@@ -3252,22 +2958,46 @@ def show_enhanced_ai_prediction():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-        
-                # CORRECTION : Utilisation d'un selectbox simple avec key unique
+
+                # Options de réponse avec style personnalisé
+                col1, col2, col3, col4, col5 = st.columns(5)
+
+                with col1:
+                    if st.radio(f"q{i}", [0], format_func=lambda x: "Jamais", key=f"asrs_q{i}_0", label_visibility="collapsed"):
+                        st.session_state.asrs_responses[f'q{i}'] = 0
+
+                with col2:
+                    if st.radio(f"q{i}", [1], format_func=lambda x: "Rarement", key=f"asrs_q{i}_1", label_visibility="collapsed"):
+                        st.session_state.asrs_responses[f'q{i}'] = 1
+
+                with col3:
+                    if st.radio(f"q{i}", [2], format_func=lambda x: "Parfois", key=f"asrs_q{i}_2", label_visibility="collapsed"):
+                        st.session_state.asrs_responses[f'q{i}'] = 2
+
+                with col4:
+                    if st.radio(f"q{i}", [3], format_func=lambda x: "Souvent", key=f"asrs_q{i}_3", label_visibility="collapsed"):
+                        st.session_state.asrs_responses[f'q{i}'] = 3
+
+                with col5:
+                    if st.radio(f"q{i}", [4], format_func=lambda x: "Très souvent", key=f"asrs_q{i}_4", label_visibility="collapsed"):
+                        st.session_state.asrs_responses[f'q{i}'] = 4
+
+                # Sélection avec selectbox (plus pratique)
                 response = st.selectbox(
                     f"Votre réponse à la question {i}:",
                     options=list(ASRS_OPTIONS.keys()),
                     format_func=lambda x: ASRS_OPTIONS[x],
-                    key=f"asrs_part_a_q{i}",  # Clé unique pour chaque question
-                    index=0,
-                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
+                    key=f"asrs_q{i}",
+                    index=0
                 )
-                
+                st.session_state.asrs_responses[f'q{i}'] = response
+
                 st.markdown("---")
-        
-            # Partie B - Questions complémentaires  
+
+            # Partie B - Questions complémentaires
             st.markdown("## 📝 Partie B - Questions complémentaires")
-            
+            st.markdown("*Ces 12 questions fournissent des informations supplémentaires pour l'évaluation*")
+
             for i, question in enumerate(ASRS_QUESTIONS["Partie B - Questions complémentaires"], 7):
                 st.markdown(f"""
                 <div class="asrs-question-card">
@@ -3277,98 +3007,79 @@ def show_enhanced_ai_prediction():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-        
+
                 response = st.selectbox(
                     f"Votre réponse à la question {i}:",
                     options=list(ASRS_OPTIONS.keys()),
                     format_func=lambda x: ASRS_OPTIONS[x],
-                    key=f"asrs_part_b_q{i}",  # Clé unique pour la partie B
-                    index=0,
-                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
+                    key=f"asrs_q{i}",
+                    index=0
                 )
-                
+                st.session_state.asrs_responses[f'q{i}'] = response
+
                 st.markdown("---")
-        
-            # Informations démographiques avec clés uniques
+
+            # Informations complémentaires
             st.markdown("## 👤 Informations complémentaires")
-            
+
             col1, col2, col3 = st.columns(3)
-            
+
             with col1:
-                age = st.number_input("Âge", min_value=18, max_value=80, value=30, key="demo_age_unique")
+                age = st.number_input("Âge", min_value=18, max_value=80, value=30, key="demo_age")
                 education = st.selectbox("Niveau d'éducation",
                                        ["Bac", "Bac+2", "Bac+3", "Bac+5", "Doctorat"],
-                                       key="demo_education_unique")
-        
+                                       key="demo_education")
+
             with col2:
-                gender = st.selectbox("Genre", ["M", "F"], key="demo_gender_unique")
+                gender = st.selectbox("Genre", ["M", "F"], key="demo_gender")
                 job_status = st.selectbox("Statut professionnel",
                                         ["CDI", "CDD", "Freelance", "Étudiant", "Chômeur"],
-                                        key="demo_job_unique")
-        
+                                        key="demo_job")
+
             with col3:
-                quality_of_life = st.slider("Qualité de vie (1-10)", 1, 10, 5, key="demo_qol_unique")
-                stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3, key="demo_stress_unique")
-        
+                quality_of_life = st.slider("Qualité de vie (1-10)", 1, 10, 5, key="demo_qol")
+                stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3, key="demo_stress")
+
             # Bouton de soumission
             submitted = st.form_submit_button(
                 "🔬 Analyser avec l'IA",
                 use_container_width=True,
                 type="primary"
             )
-        
-            # CORRECTION MAJEURE : Traitement après soumission
+
             if submitted:
-                # Récupération sécurisée des valeurs après soumission
-                responses = {}
-                
-                # Partie A avec nouvelles clés
-                for i in range(1, 7):
-                    key_name = f"asrs_part_a_q{i}"
-                    responses[f'q{i}'] = st.session_state.get(key_name, 0)
-                
-                # Partie B avec nouvelles clés  
-                for i in range(7, 19):
-                    key_name = f"asrs_part_b_q{i}"
-                    responses[f'q{i}'] = st.session_state.get(key_name, 0)
-                
-                # Calculs des scores
-                part_a_score = sum([responses[f'q{i}'] for i in range(1, 7)])
-                part_b_score = sum([responses[f'q{i}'] for i in range(7, 19)])
+                # Calcul des scores ASRS
+                part_a_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in range(1, 7)])
+                part_b_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in range(7, 19)])
                 total_score = part_a_score + part_b_score
-        
+
                 # Score d'inattention (questions 1-9 selon DSM-5)
-                inattention_score = sum([responses.get(f'q{i}', 0) for i in [1, 2, 3, 4, 7, 8, 9]])
-        
+                inattention_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in [1, 2, 3, 4, 7, 8, 9]])
+
                 # Score d'hyperactivité-impulsivité (questions 5, 6, 10-18)
-                hyperactivity_score = sum([responses.get(f'q{i}', 0) for i in [5, 6] + list(range(10, 19))])
-        
-                # Stockage final avec protection d'erreur
-                try:
-                    st.session_state.asrs_responses = responses
-                    st.session_state.asrs_results = {
-                        'responses': responses,
-                        'scores': {
-                            'part_a': part_a_score,
-                            'part_b': part_b_score,
-                            'total': total_score,
-                            'inattention': inattention_score,
-                            'hyperactivity': hyperactivity_score
-                        },
-                        'demographics': {
-                            'age': st.session_state.get("demo_age_unique", 30),
-                            'gender': st.session_state.get("demo_gender_unique", "M"),
-                            'education': st.session_state.get("demo_education_unique", "Bac"),
-                            'job_status': st.session_state.get("demo_job_unique", "CDI"),
-                            'quality_of_life': st.session_state.get("demo_qol_unique", 5),
-                            'stress_level': st.session_state.get("demo_stress_unique", 3)
-                        }
+                hyperactivity_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in [5, 6] + list(range(10, 19))])
+
+                # Stockage des résultats
+                st.session_state.asrs_results = {
+                    'responses': st.session_state.asrs_responses.copy(),
+                    'scores': {
+                        'part_a': part_a_score,
+                        'part_b': part_b_score,
+                        'total': total_score,
+                        'inattention': inattention_score,
+                        'hyperactivity': hyperactivity_score
+                    },
+                    'demographics': {
+                        'age': age,
+                        'gender': gender,
+                        'education': education,
+                        'job_status': job_status,
+                        'quality_of_life': quality_of_life,
+                        'stress_level': stress_level
                     }
-                    
-                    st.success("✅ Test ASRS complété avec succès ! Consultez les onglets suivants pour l'analyse IA.")
-                    
-                except Exception as e:
-                    st.error(f"❌ Erreur lors du stockage des résultats : {str(e)}")
+                }
+
+                st.success("✅ Test ASRS complété ! Consultez les onglets suivants pour l'analyse IA.")
 
     with pred_tabs[1]:
         if 'asrs_results' in st.session_state:
@@ -4557,3 +4268,4 @@ def main():
 # Point d'entrée de l'application
 if __name__ == "__main__":
     main()
+
