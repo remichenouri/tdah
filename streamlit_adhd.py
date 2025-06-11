@@ -34,7 +34,6 @@ try:
     globals()['np'] = np
     globals()['pd'] = pd
     NUMPY_AVAILABLE = True
-    st.success("✅ NumPy et Pandas chargés avec succès")
 except ImportError as e:
     st.error(f"❌ Erreur critique : {e}")
     st.error("Veuillez installer numpy et pandas : pip install numpy pandas")
@@ -66,7 +65,6 @@ try:
     from scipy import stats
     from scipy.stats import mannwhitneyu, chi2_contingency, pearsonr, spearmanr
     SKLEARN_AVAILABLE = True
-    st.success("✅ Scikit-learn chargé avec succès")
 except ImportError as e:
     SKLEARN_AVAILABLE = False
     st.warning(f"⚠️ Scikit-learn non disponible : {e}")
@@ -562,9 +560,6 @@ def load_enhanced_dataset():
         # Chargement du dataset
         df = pd_local.read_csv(download_url)
 
-        # Vérification de l'intégrité des données
-        st.success(f"✅ Dataset chargé avec succès ! {len(df)} participants, {len(df.columns)} variables")
-
         return df
 
     except Exception as e:
@@ -629,8 +624,6 @@ def test_numpy_availability():
         test_array = test_np.array([1, 2, 3, 4, 5])
         test_std = test_np.std(test_array)
         test_df = test_pd.DataFrame({'test': [1, 2, 3]})
-
-        st.success(f"✅ Test numpy/pandas réussi - std test: {test_std:.2f}")
         return True
 
     except Exception as e:
