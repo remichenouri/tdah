@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Streamlit TDAH - Outil de Dépistage et d'Analyse (Version Corrigée)
-"""
 
 # 1. IMPORTS STREAMLIT EN PREMIER
 import streamlit as st
@@ -21,12 +18,7 @@ import hashlib
 import warnings
 from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
-
-
-# Configuration globale pour éviter les erreurs d'import
 import sys
-
-# Imports scientifiques CRITIQUES avec gestion globale
 try:
     import numpy as np
     import pandas as pd
@@ -34,7 +26,6 @@ try:
     globals()['np'] = np
     globals()['pd'] = pd
     NUMPY_AVAILABLE = True
-    st.success("✅ NumPy et Pandas chargés avec succès")
 except ImportError as e:
     st.error(f"❌ Erreur critique : {e}")
     st.error("Veuillez installer numpy et pandas : pip install numpy pandas")
@@ -66,7 +57,6 @@ try:
     from scipy import stats
     from scipy.stats import mannwhitneyu, chi2_contingency, pearsonr, spearmanr
     SKLEARN_AVAILABLE = True
-    st.success("✅ Scikit-learn chargé avec succès")
 except ImportError as e:
     SKLEARN_AVAILABLE = False
     st.warning(f"⚠️ Scikit-learn non disponible : {e}")
@@ -561,10 +551,6 @@ def load_enhanced_dataset():
 
         # Chargement du dataset
         df = pd_local.read_csv(download_url)
-
-        # Vérification de l'intégrité des données
-        st.success(f"✅ Dataset chargé avec succès ! {len(df)} participants, {len(df.columns)} variables")
-
         return df
 
     except Exception as e:
@@ -629,8 +615,6 @@ def test_numpy_availability():
         test_array = test_np.array([1, 2, 3, 4, 5])
         test_std = test_np.std(test_array)
         test_df = test_pd.DataFrame({'test': [1, 2, 3]})
-
-        st.success(f"✅ Test numpy/pandas réussi - std test: {test_std:.2f}")
         return True
 
     except Exception as e:
@@ -1582,8 +1566,6 @@ def load_ml_libraries():
         test_array = np.array([1, 2, 3])
         test_df = pd.DataFrame({'test': [1, 2, 3]})
 
-        st.success("✅ NumPy et Pandas chargés avec succès")
-
         # Imports ML avec protection
         try:
             from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -1613,8 +1595,6 @@ def load_ml_libraries():
                 'f1_score': f1_score,
                 'roc_auc_score': roc_auc_score
             })
-
-            st.success("✅ Scikit-learn chargé avec succès")
             return True
 
         except ImportError as e:
@@ -1636,8 +1616,6 @@ def prepare_ml_data_safe(df):
         # Import local sécurisé
         import numpy as np_safe
         import pandas as pd_safe
-
-        st.info("🔄 Préparation des données en cours...")
 
         # Vérification du dataset
         if df is None or len(df) == 0:
@@ -1671,8 +1649,6 @@ def prepare_ml_data_safe(df):
             st.error("❌ Aucune variable numérique trouvée")
             return None, None, None, None
 
-        st.success(f"✅ {len(numeric_features)} variables numériques sélectionnées")
-
         # Préparation des données
         X = df[numeric_features].copy()
         y = df['diagnosis'].copy()
@@ -1692,8 +1668,6 @@ def prepare_ml_data_safe(df):
                 random_state=42,
                 stratify=y if len(np_safe.unique(y)) > 1 else None
             )
-
-            st.success(f"✅ Division réussie : Train={X_train.shape[0]}, Test={X_test.shape[0]}")
 
             return X_train, X_test, y_train, y_test
 
@@ -1727,7 +1701,6 @@ def train_simple_models_safe(X_train, X_test, y_train, y_test):
         # Entraînement de chaque modèle
         for model_name, model_config in models_to_test.items():
             try:
-                st.info(f"🔄 Entraînement {model_name}...")
 
                 # Initialisation du modèle
                 model = model_config['class'](**model_config['params'])
@@ -1761,8 +1734,6 @@ def train_simple_models_safe(X_train, X_test, y_train, y_test):
                         'auc': auc
                     }
 
-                    st.success(f"✅ {model_name} : Accuracy={accuracy:.3f}")
-
                 except Exception as metric_error:
                     st.warning(f"⚠️ Erreur métriques {model_name}: {metric_error}")
                     continue
@@ -1777,8 +1748,6 @@ def train_simple_models_safe(X_train, X_test, y_train, y_test):
 
         # Sélection du meilleur modèle
         best_model_name = max(results.keys(), key=lambda x: results[x]['accuracy'])
-
-        st.success(f"🏆 Meilleur modèle : {best_model_name}")
 
         return {
             'models': results,
