@@ -2921,13 +2921,15 @@ def show_enhanced_ai_prediction():
         if 'asrs_responses' not in st.session_state:
             st.session_state.asrs_responses = {}
 
-        # Formulaire ASRS
+        # SOLUTION CORRIGÉE - Version définitive
         with st.form("asrs_complete_form", clear_on_submit=False):
-
+            
             # Partie A - Questions principales
             st.markdown("## 🎯 Partie A - Questions de dépistage principal")
-            st.markdown("*Ces 6 questions sont les plus prédictives pour le dépistage du TDAH*")
-
+            
+            # Initialisation des réponses temporaires
+            temp_responses = {}
+            
             for i, question in enumerate(ASRS_QUESTIONS["Partie A - Questions de dépistage principal"], 1):
                 st.markdown(f"""
                 <div class="asrs-question-card">
@@ -2937,46 +2939,22 @@ def show_enhanced_ai_prediction():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-
-                # Options de réponse avec style personnalisé
-                col1, col2, col3, col4, col5 = st.columns(5)
-
-                with col1:
-                    if st.radio(f"q{i}", [0], format_func=lambda x: "Jamais", key=f"asrs_q{i}_0", label_visibility="collapsed"):
-                        st.session_state.asrs_responses[f'q{i}'] = 0
-
-                with col2:
-                    if st.radio(f"q{i}", [1], format_func=lambda x: "Rarement", key=f"asrs_q{i}_1", label_visibility="collapsed"):
-                        st.session_state.asrs_responses[f'q{i}'] = 1
-
-                with col3:
-                    if st.radio(f"q{i}", [2], format_func=lambda x: "Parfois", key=f"asrs_q{i}_2", label_visibility="collapsed"):
-                        st.session_state.asrs_responses[f'q{i}'] = 2
-
-                with col4:
-                    if st.radio(f"q{i}", [3], format_func=lambda x: "Souvent", key=f"asrs_q{i}_3", label_visibility="collapsed"):
-                        st.session_state.asrs_responses[f'q{i}'] = 3
-
-                with col5:
-                    if st.radio(f"q{i}", [4], format_func=lambda x: "Très souvent", key=f"asrs_q{i}_4", label_visibility="collapsed"):
-                        st.session_state.asrs_responses[f'q{i}'] = 4
-
-                # Sélection avec selectbox (plus pratique)
+        
+                # CORRECTION : Utilisation d'un selectbox simple avec key unique
                 response = st.selectbox(
                     f"Votre réponse à la question {i}:",
                     options=list(ASRS_OPTIONS.keys()),
                     format_func=lambda x: ASRS_OPTIONS[x],
-                    key=f"asrs_q{i}",
-                    index=0
+                    key=f"asrs_part_a_q{i}",  # Clé unique pour chaque question
+                    index=0,
+                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
                 )
-                st.session_state.asrs_responses[f'q{i}'] = response
-
+                
                 st.markdown("---")
-
-            # Partie B - Questions complémentaires
+        
+            # Partie B - Questions complémentaires  
             st.markdown("## 📝 Partie B - Questions complémentaires")
-            st.markdown("*Ces 12 questions fournissent des informations supplémentaires pour l'évaluation*")
-
+            
             for i, question in enumerate(ASRS_QUESTIONS["Partie B - Questions complémentaires"], 7):
                 st.markdown(f"""
                 <div class="asrs-question-card">
@@ -2986,79 +2964,98 @@ def show_enhanced_ai_prediction():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-
+        
                 response = st.selectbox(
                     f"Votre réponse à la question {i}:",
                     options=list(ASRS_OPTIONS.keys()),
                     format_func=lambda x: ASRS_OPTIONS[x],
-                    key=f"asrs_q{i}",
-                    index=0
+                    key=f"asrs_part_b_q{i}",  # Clé unique pour la partie B
+                    index=0,
+                    help="Sélectionnez la fréquence qui correspond le mieux à votre situation"
                 )
-                st.session_state.asrs_responses[f'q{i}'] = response
-
+                
                 st.markdown("---")
-
-            # Informations complémentaires
+        
+            # Informations démographiques avec clés uniques
             st.markdown("## 👤 Informations complémentaires")
-
+            
             col1, col2, col3 = st.columns(3)
-
+            
             with col1:
-                age = st.number_input("Âge", min_value=18, max_value=80, value=30, key="demo_age")
+                age = st.number_input("Âge", min_value=18, max_value=80, value=30, key="demo_age_unique")
                 education = st.selectbox("Niveau d'éducation",
                                        ["Bac", "Bac+2", "Bac+3", "Bac+5", "Doctorat"],
-                                       key="demo_education")
-
+                                       key="demo_education_unique")
+        
             with col2:
-                gender = st.selectbox("Genre", ["M", "F"], key="demo_gender")
+                gender = st.selectbox("Genre", ["M", "F"], key="demo_gender_unique")
                 job_status = st.selectbox("Statut professionnel",
                                         ["CDI", "CDD", "Freelance", "Étudiant", "Chômeur"],
-                                        key="demo_job")
-
+                                        key="demo_job_unique")
+        
             with col3:
-                quality_of_life = st.slider("Qualité de vie (1-10)", 1, 10, 5, key="demo_qol")
-                stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3, key="demo_stress")
-
+                quality_of_life = st.slider("Qualité de vie (1-10)", 1, 10, 5, key="demo_qol_unique")
+                stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3, key="demo_stress_unique")
+        
             # Bouton de soumission
             submitted = st.form_submit_button(
                 "🔬 Analyser avec l'IA",
                 use_container_width=True,
                 type="primary"
             )
-
+        
+            # CORRECTION MAJEURE : Traitement après soumission
             if submitted:
-                # Calcul des scores ASRS
-                part_a_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in range(1, 7)])
-                part_b_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in range(7, 19)])
+                # Récupération sécurisée des valeurs après soumission
+                responses = {}
+                
+                # Partie A avec nouvelles clés
+                for i in range(1, 7):
+                    key_name = f"asrs_part_a_q{i}"
+                    responses[f'q{i}'] = st.session_state.get(key_name, 0)
+                
+                # Partie B avec nouvelles clés  
+                for i in range(7, 19):
+                    key_name = f"asrs_part_b_q{i}"
+                    responses[f'q{i}'] = st.session_state.get(key_name, 0)
+                
+                # Calculs des scores
+                part_a_score = sum([responses[f'q{i}'] for i in range(1, 7)])
+                part_b_score = sum([responses[f'q{i}'] for i in range(7, 19)])
                 total_score = part_a_score + part_b_score
-
+        
                 # Score d'inattention (questions 1-9 selon DSM-5)
-                inattention_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in [1, 2, 3, 4, 7, 8, 9]])
-
+                inattention_score = sum([responses.get(f'q{i}', 0) for i in [1, 2, 3, 4, 7, 8, 9]])
+        
                 # Score d'hyperactivité-impulsivité (questions 5, 6, 10-18)
-                hyperactivity_score = sum([st.session_state.asrs_responses.get(f'q{i}', 0) for i in [5, 6] + list(range(10, 19))])
-
-                # Stockage des résultats
-                st.session_state.asrs_results = {
-                    'responses': st.session_state.asrs_responses.copy(),
-                    'scores': {
-                        'part_a': part_a_score,
-                        'part_b': part_b_score,
-                        'total': total_score,
-                        'inattention': inattention_score,
-                        'hyperactivity': hyperactivity_score
-                    },
-                    'demographics': {
-                        'age': age,
-                        'gender': gender,
-                        'education': education,
-                        'job_status': job_status,
-                        'quality_of_life': quality_of_life,
-                        'stress_level': stress_level
+                hyperactivity_score = sum([responses.get(f'q{i}', 0) for i in [5, 6] + list(range(10, 19))])
+        
+                # Stockage final avec protection d'erreur
+                try:
+                    st.session_state.asrs_responses = responses
+                    st.session_state.asrs_results = {
+                        'responses': responses,
+                        'scores': {
+                            'part_a': part_a_score,
+                            'part_b': part_b_score,
+                            'total': total_score,
+                            'inattention': inattention_score,
+                            'hyperactivity': hyperactivity_score
+                        },
+                        'demographics': {
+                            'age': st.session_state.get("demo_age_unique", 30),
+                            'gender': st.session_state.get("demo_gender_unique", "M"),
+                            'education': st.session_state.get("demo_education_unique", "Bac"),
+                            'job_status': st.session_state.get("demo_job_unique", "CDI"),
+                            'quality_of_life': st.session_state.get("demo_qol_unique", 5),
+                            'stress_level': st.session_state.get("demo_stress_unique", 3)
+                        }
                     }
-                }
-
-                st.success("✅ Test ASRS complété ! Consultez les onglets suivants pour l'analyse IA.")
+                    
+                    st.success("✅ Test ASRS complété avec succès ! Consultez les onglets suivants pour l'analyse IA.")
+                    
+                except Exception as e:
+                    st.error(f"❌ Erreur lors du stockage des résultats : {str(e)}")
 
     with pred_tabs[1]:
         if 'asrs_results' in st.session_state:
