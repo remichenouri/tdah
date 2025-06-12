@@ -514,29 +514,30 @@ def safe_calculation(func, fallback_value=0, error_message="Erreur de calcul"):
         return fallback_value
 
 def initialize_session_state():
-    """Initialise l'état de session pour conserver les configurations entre les recharges"""
+    """Initialise TOUTES les variables de session nécessaires"""
     if 'initialized' not in st.session_state:
         st.session_state.initialized = True
-        default_tool = "🏠 Accueil"
-
-        try:
-            if "selection" in st.query_params:
-                selection = st.query_params["selection"]
-                selection_mapping = {
-                    "📝 Test ADHD-RS": "🤖 Prédiction par IA",
-                    "🤖 Prédiction par IA": "🤖 Prédiction par IA",
-                    "🔍 Exploration des Données": "🔍 Exploration des Données"
-                }
-                if selection in selection_mapping:
-                    st.session_state.tool_choice = selection_mapping[selection]
-                else:
-                    st.session_state.tool_choice = default_tool
-            else:
-                st.session_state.tool_choice = default_tool
-        except:
-            st.session_state.tool_choice = default_tool
-
-        st.session_state.data_exploration_expanded = True
+        
+        # Variables de navigation
+        st.session_state.tool_choice = "🏠 Accueil"
+        st.session_state.gdpr_compliant = False
+        
+        # Variables pour les visualisations
+        st.session_state.x_var = None
+        st.session_state.y_var = None
+        st.session_state.selected_color_var = None
+        
+        # Variables pour les données
+        st.session_state.data_loaded = False
+        st.session_state.current_dataset = None
+        
+        # Variables pour les tests ASRS
+        st.session_state.asrs_responses = {}
+        st.session_state.asrs_results = None
+        
+        # Variables ML
+        st.session_state.ml_data_prepared = None
+        st.session_state.ml_results = None
 
 def set_custom_theme():
     """Définit le thème personnalisé avec palette orange pour le TDAH"""
