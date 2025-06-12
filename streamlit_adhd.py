@@ -1885,25 +1885,23 @@ def show_enhanced_data_exploration():
 
     with tabs[4]:
         st.subheader("🎯 Visualisations interactives")
-        
-        # CORRECTION: Initialisation des variables avec valeurs par défaut
+    
+        # Utilisation de la fonction améliorée
         numeric_vars = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
         
         if not numeric_vars:
             st.warning("Aucune variable numérique disponible pour la visualisation")
             return
             
-        # Sélection sécurisée des variables
         x_var = st.selectbox(
             "Variable X :", 
             options=numeric_vars,
             key="viz_x_var"
         )
         
-        # Appel sécurisé de la fonction
-        if x_var:  # Vérification que x_var existe
-            smart_visualization(df, x_var)
-            
+        if x_var:
+            smart_visualization(df, x_var)  # Utilise maintenant les couleurs améliorées
+                
     with tabs[5]:
         st.subheader("📋 Dataset complet")
 
