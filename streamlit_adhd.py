@@ -1329,17 +1329,68 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
         st.error(f"Variable '{y_var}' non trouvée")
         return
 
-    chart_data = df[x_var].value_counts().reset_index()
-    chart_data.columns = ['categories', 'count']
+    color_palettes = {
+        'Contraste élevé': ['#000080', '#FF4500', '#32CD32', '#FF1493', '#00CED1'],
+        'Couleurs vives': ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF'],
+        'Palette accessible': ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'],
+        'Dégradé orange TDAH': ['#FF4500', '#FF6347', '#FF7F50', '#FFA500', '#FFB347'],
+        'Nuances de bleu': ['#000080', '#0066CC', '#3399FF', '#66B2FF', '#99CCFF']
+    }
     
-    # Graphique avec couleurs personnalisées
-    fig = px.bar(
-        chart_data, 
-        x='categories', 
-        y='count',
-        color='categories',
-        color_discrete_sequence=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
-    )
+    col1, col2 = st.columns([3, 1])
+    
+    with col2:
+        selected_palette = st.selectbox(
+            "Palette de couleurs :",
+            options=list(color_palettes.keys()),
+            key="color_palette_selector"
+        )
+        
+        brightness = st.slider(
+            "Intensité :",
+            min_value=0.7,
+            max_value=1.0,
+            value=0.9,
+            step=0.1,
+            key="color_brightness"
+        )
+    
+    with col1:
+        chart_data = df[x_var].value_counts().reset_index()
+        chart_data.columns = ['categories', 'count']
+        
+        selected_colors = color_palettes[selected_palette]
+        
+        fig = px.bar(
+            chart_data, 
+            x='categories', 
+            y='count',
+            color='categories',
+            color_discrete_sequence=selected_colors
+        )
+        
+        # Application de l'intensité
+        fig.update_traces(
+            marker=dict(
+                line=dict(color='white', width=3),
+                opacity=brightness
+            ),
+            textposition='outside',
+            textfont=dict(size=14, color='black', family='Arial Black')
+        )
+        
+        fig.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white',
+            font=dict(color='black', size=12, family='Arial'),
+            showlegend=False,
+            title=dict(
+                text=f'Distribution de {x_var}',
+                font=dict(size=16, color='black', family='Arial Black')
+            )
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
 
     # Détection des types de données
     x_is_num = pd.api.types.is_numeric_dtype(df[x_var])
