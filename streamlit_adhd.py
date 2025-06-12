@@ -1815,18 +1815,9 @@ def show_enhanced_data_exploration():
             key="viz_x_var"
         )
         
-        y_var = st.selectbox(
-            "Variable Y (optionnel) :", 
-            options=["Aucune"] + numeric_vars,
-            key="viz_y_var"
-        )
-        
-        # Conversion sécurisée
-        y_var = None if y_var == "Aucune" else y_var
-        
         # Appel sécurisé de la fonction
         if x_var:  # Vérification que x_var existe
-            smart_visualization(df, x_var, y_var)
+            smart_visualization(df, x_var)
             
     with tabs[5]:
         st.subheader("📋 Dataset complet")
