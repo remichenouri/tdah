@@ -1329,6 +1329,18 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
         st.error(f"Variable '{y_var}' non trouvée")
         return
 
+    chart_data = df[x_var].value_counts().reset_index()
+    chart_data.columns = ['categories', 'count']
+    
+    # Graphique avec couleurs personnalisées
+    fig = px.bar(
+        chart_data, 
+        x='categories', 
+        y='count',
+        color='categories',
+        color_discrete_sequence=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
+    )
+
     # Détection des types de données
     x_is_num = pd.api.types.is_numeric_dtype(df[x_var])
     y_is_num = y_var and pd.api.types.is_numeric_dtype(df[y_var])
