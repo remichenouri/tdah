@@ -1361,98 +1361,98 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
 
     def smart_visualization(df, x_var, y_var=None, color_var=None):
         # Vérification des variables d'entrée
-    if df is None or df.empty:
-        st.error("Dataset vide ou non disponible")
-        return
-        
-    if x_var not in df.columns:
-        st.error(f"Variable '{x_var}' non trouvée dans le dataset")
-        return
-    
-    # Interface de sélection des couleurs simplifiée
-    col1, col2 = st.columns([4, 1])
-    
-    with col2:
-        st.markdown("**🎨 Style du graphique**")
-        
-        color_scheme = st.selectbox(
-            "Schéma de couleurs :",
-            ["TDAH Optimisé", "Contraste Maximum", "Couleurs Vives", "Accessible"],
-            key=f"viz_color_scheme_{x_var}",  # Clé unique
-            index=0
-        )
-        
-        show_values = st.checkbox("Afficher les valeurs", value=True, key=f"show_values_{x_var}")
-        add_borders = st.checkbox("Bordures blanches", value=True, key=f"borders_{x_var}")
-    
-    with col1:
-        try:
-            # Définition des palettes avec gestion d'erreur
-            color_schemes = {
-                "TDAH Optimisé": ['#2E4057', '#048A81', '#7209B7', '#C73E1D', '#F79824'],
-                "Contraste Maximum": ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00'],
-                "Couleurs Vives": ['#FF4500', '#32CD32', '#FF1493', '#00CED1', '#FFD700'],
-                "Accessible": ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-            }
+        if df is None or df.empty:
+            st.error("Dataset vide ou non disponible")
+            return
             
-            selected_colors = color_schemes[color_scheme]
+        if x_var not in df.columns:
+            st.error(f"Variable '{x_var}' non trouvée dans le dataset")
+            return
+        
+        # Interface de sélection des couleurs simplifiée
+        col1, col2 = st.columns([4, 1])
+        
+        with col2:
+            st.markdown("**🎨 Style du graphique**")
             
-            # Préparation sécurisée des données
-            if pd.api.types.is_numeric_dtype(df[x_var]):
-                # Pour les variables numériques : histogramme
-                fig = px.histogram(
-                    df, 
-                    x=x_var,
-                    title=f'Distribution de {x_var}',
-                    color_discrete_sequence=selected_colors
-                )
-            else:
-                # Pour les variables catégorielles : graphique en barres
-                chart_data = df[x_var].value_counts().reset_index()
-                chart_data.columns = ['categories', 'count']
+            color_scheme = st.selectbox(
+                "Schéma de couleurs :",
+                ["TDAH Optimisé", "Contraste Maximum", "Couleurs Vives", "Accessible"],
+                key=f"viz_color_scheme_{x_var}",  # Clé unique
+                index=0
+            )
+            
+            show_values = st.checkbox("Afficher les valeurs", value=True, key=f"show_values_{x_var}")
+            add_borders = st.checkbox("Bordures blanches", value=True, key=f"borders_{x_var}")
+        
+        with col1:
+            try:
+                # Définition des palettes avec gestion d'erreur
+                color_schemes = {
+                    "TDAH Optimisé": ['#2E4057', '#048A81', '#7209B7', '#C73E1D', '#F79824'],
+                    "Contraste Maximum": ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00'],
+                    "Couleurs Vives": ['#FF4500', '#32CD32', '#FF1493', '#00CED1', '#FFD700'],
+                    "Accessible": ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+                }
                 
-                fig = px.bar(
-                    chart_data, 
-                    x='categories', 
-                    y='count',
-                    color='categories',
-                    color_discrete_sequence=selected_colors,
-                    title=f'Distribution de {x_var}'
-                )
-            
-            # Personnalisation du graphique
-            fig.update_traces(
-                marker=dict(
-                    line=dict(
-                        color='white' if add_borders else 'rgba(0,0,0,0)', 
-                        width=2 if add_borders else 0
+                selected_colors = color_schemes[color_scheme]
+                
+                # Préparation sécurisée des données
+                if pd.api.types.is_numeric_dtype(df[x_var]):
+                    # Pour les variables numériques : histogramme
+                    fig = px.histogram(
+                        df, 
+                        x=x_var,
+                        title=f'Distribution de {x_var}',
+                        color_discrete_sequence=selected_colors
+                    )
+                else:
+                    # Pour les variables catégorielles : graphique en barres
+                    chart_data = df[x_var].value_counts().reset_index()
+                    chart_data.columns = ['categories', 'count']
+                    
+                    fig = px.bar(
+                        chart_data, 
+                        x='categories', 
+                        y='count',
+                        color='categories',
+                        color_discrete_sequence=selected_colors,
+                        title=f'Distribution de {x_var}'
+                    )
+                
+                # Personnalisation du graphique
+                fig.update_traces(
+                    marker=dict(
+                        line=dict(
+                            color='white' if add_borders else 'rgba(0,0,0,0)', 
+                            width=2 if add_borders else 0
+                        ),
+                        opacity=0.9
                     ),
-                    opacity=0.9
-                ),
-                textposition='outside' if show_values else 'none',
-                textfont=dict(size=12, color='black', family='Arial')
-            )
-            
-            # Layout optimisé pour Streamlit
-            fig.update_layout(
-                plot_bgcolor='white',
-                paper_bgcolor='white',
-                font=dict(color='black', size=11, family='Arial'),
-                showlegend=False,
-                title=dict(
-                    font=dict(size=16, color='#2E4057', family='Arial Bold'),
-                    x=0.5
-                ),
-                margin=dict(l=50, r=50, t=60, b=50),  # Marges fixes
-                height=400  # Hauteur fixe
-            )
-            
-            # Affichage du graphique
-            st.plotly_chart(fig, use_container_width=True, key=f"chart_{x_var}")
-            
-        except Exception as e:
-            st.error(f"Erreur lors de la création du graphique : {str(e)}")
-            st.info("Vérifiez que la variable sélectionnée contient des données valides")
+                    textposition='outside' if show_values else 'none',
+                    textfont=dict(size=12, color='black', family='Arial')
+                )
+                
+                # Layout optimisé pour Streamlit
+                fig.update_layout(
+                    plot_bgcolor='white',
+                    paper_bgcolor='white',
+                    font=dict(color='black', size=11, family='Arial'),
+                    showlegend=False,
+                    title=dict(
+                        font=dict(size=16, color='#2E4057', family='Arial Bold'),
+                        x=0.5
+                    ),
+                    margin=dict(l=50, r=50, t=60, b=50),  # Marges fixes
+                    height=400  # Hauteur fixe
+                )
+                
+                # Affichage du graphique
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_{x_var}")
+                
+            except Exception as e:
+                st.error(f"Erreur lors de la création du graphique : {str(e)}")
+                st.info("Vérifiez que la variable sélectionnée contient des données valides")
     
     
         # Détection des types de données
@@ -1926,23 +1926,46 @@ def show_enhanced_data_exploration():
 
     with tabs[4]:
         st.subheader("🎯 Visualisations interactives")
-    
-        # Utilisation de la fonction améliorée
-        numeric_vars = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
         
-        if not numeric_vars:
-            st.warning("Aucune variable numérique disponible pour la visualisation")
+        # Vérification du dataset
+        if df is None or len(df) == 0:
+            st.error("Aucune donnée disponible pour la visualisation")
             return
-            
+        
+        # Sélection des variables numériques ET catégorielles
+        numeric_vars = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+        categorical_vars = df.select_dtypes(include=['object', 'category']).columns.tolist()
+        all_vars = numeric_vars + categorical_vars
+        
+        if not all_vars:
+            st.warning("Aucune variable disponible pour la visualisation")
+            return
+        
+        # Interface de sélection
+        st.markdown("### 📊 Sélection de variable")
+        
         x_var = st.selectbox(
-            "Variable X :", 
-            options=numeric_vars,
-            key="viz_x_var"
+            "Choisissez une variable à visualiser :", 
+            options=all_vars,
+            key="viz_x_var_unique"
         )
         
         if x_var:
-            smart_visualization(df, x_var)  # Utilise maintenant les couleurs améliorées
-                
+            # Affichage des informations sur la variable
+            var_type = "Numérique" if x_var in numeric_vars else "Catégorielle"
+            unique_values = df[x_var].nunique()
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Type de variable", var_type)
+            with col2:
+                st.metric("Valeurs uniques", unique_values)
+            with col3:
+                st.metric("Valeurs manquantes", df[x_var].isnull().sum())
+            
+            # Appel de la fonction corrigée
+            smart_visualization(df, x_var)
+
     with tabs[5]:
         st.subheader("📋 Dataset complet")
 
