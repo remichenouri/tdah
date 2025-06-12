@@ -47,12 +47,27 @@ def main():
 initialize_basic_session_state()
 
 # Gestion du consentement SANS appel à main_application()
+# Gestion du consentement sans blocage permanent
 if not st.session_state.get('gdpr_compliant', False):
-    # Formulaire de consentement
+    st.markdown("""
+    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;">
+            🔒 Consentement RGPD Requis
+        </h1>
+    </div>
+    """, unsafe_allow_html=True)
+    
     if st.button("✅ J'accepte le traitement de mes données", type="primary"):
         st.session_state.gdpr_compliant = True
-        st.rerun()
-    st.stop()
+        st.rerun()  # Utiliser st.rerun() au lieu de st.experimental_rerun()
+    
+    st.info("Le consentement est requis pour utiliser l'application de dépistage TDAH")
+    st.stop()  # Arrêt propre APRÈS affichage du formulaire
+
+else:
+    # L'application principale se lance SEULEMENT après consentement
+    main()
     
 import streamlit as st
 import uuid
