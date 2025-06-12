@@ -24,7 +24,6 @@ def initialize_basic_session_state():
 # Appel immédiat de l'initialisation
 initialize_basic_session_state()
 
-# Gestion du consentement SANS st.stop()
 if not st.session_state.get('gdpr_compliant', False):
     # Affichage du formulaire de consentement
     st.markdown("""
@@ -41,11 +40,12 @@ if not st.session_state.get('gdpr_compliant', False):
         st.rerun()
     
     st.info("Le consentement est requis pour utiliser l'application de dépistage TDAH")
-    # PAS de st.stop() ici - on laisse l'utilisateur voir le formulaire
+    st.stop()  # Arrêt propre sans appel à main_application()
 
 else:
     # L'application principale se lance SEULEMENT après consentement
-    main_application()
+    main()  # Appel direct à main() qui existe
+    
 import streamlit as st
 import uuid
 import hashlib
