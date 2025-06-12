@@ -1360,30 +1360,34 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
         return
 
     def smart_visualization(df, x_var, y_var=None, color_var=None):
-        """Visualisation automatique avec couleurs haute visibilité"""
+        # Vérification des variables d'entrée
+    if df is None or df.empty:
+        st.error("Dataset vide ou non disponible")
+        return
         
-        # Vérification des variables
-        if x_var not in df.columns:
-            st.error(f"Variable '{x_var}' non trouvée")
-            return
+    if x_var not in df.columns:
+        st.error(f"Variable '{x_var}' non trouvée dans le dataset")
+        return
     
-        # Interface de sélection des couleurs
-        col1, col2 = st.columns([4, 1])
+    # Interface de sélection des couleurs simplifiée
+    col1, col2 = st.columns([4, 1])
+    
+    with col2:
+        st.markdown("**🎨 Style du graphique**")
         
-        with col2:
-            st.markdown("**🎨 Style du graphique**")
-            
-            color_scheme = st.selectbox(
-                "Schéma de couleurs :",
-                ["TDAH Optimisé", "Contraste Maximum", "Couleurs Vives", "Accessible"],
-                key="viz_color_scheme"
-            )
-            
-            show_values = st.checkbox("Afficher les valeurs", value=True)
-            add_borders = st.checkbox("Bordures blanches", value=True)
+        color_scheme = st.selectbox(
+            "Schéma de couleurs :",
+            ["TDAH Optimisé", "Contraste Maximum", "Couleurs Vives", "Accessible"],
+            key=f"viz_color_scheme_{x_var}",  # Clé unique
+            index=0
+        )
         
-        with col1:
-            # Définition des palettes
+        show_values = st.checkbox("Afficher les valeurs", value=True, key=f"show_values_{x_var}")
+        add_borders = st.checkbox("Bordures blanches", value=True, key=f"borders_{x_var}")
+    
+    with col1:
+        try:
+            # Définition des palettes avec gestion d'erreur
             color_schemes = {
                 "TDAH Optimisé": ['#2E4057', '#048A81', '#7209B7', '#C73E1D', '#F79824'],
                 "Contraste Maximum": ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00'],
@@ -1393,55 +1397,62 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
             
             selected_colors = color_schemes[color_scheme]
             
-            # Préparation des données
-            chart_data = df[x_var].value_counts().reset_index()
-            chart_data.columns = ['categories', 'count']
+            # Préparation sécurisée des données
+            if pd.api.types.is_numeric_dtype(df[x_var]):
+                # Pour les variables numériques : histogramme
+                fig = px.histogram(
+                    df, 
+                    x=x_var,
+                    title=f'Distribution de {x_var}',
+                    color_discrete_sequence=selected_colors
+                )
+            else:
+                # Pour les variables catégorielles : graphique en barres
+                chart_data = df[x_var].value_counts().reset_index()
+                chart_data.columns = ['categories', 'count']
+                
+                fig = px.bar(
+                    chart_data, 
+                    x='categories', 
+                    y='count',
+                    color='categories',
+                    color_discrete_sequence=selected_colors,
+                    title=f'Distribution de {x_var}'
+                )
             
-            # Création du graphique
-            fig = px.bar(
-                chart_data, 
-                x='categories', 
-                y='count',
-                color='categories',
-                color_discrete_sequence=selected_colors,
-                title=f'Distribution de {x_var}'
-            )
-            
-            # Personnalisation avancée
+            # Personnalisation du graphique
             fig.update_traces(
                 marker=dict(
                     line=dict(
                         color='white' if add_borders else 'rgba(0,0,0,0)', 
-                        width=3 if add_borders else 0
+                        width=2 if add_borders else 0
                     ),
                     opacity=0.9
                 ),
                 textposition='outside' if show_values else 'none',
-                textfont=dict(size=14, color='black', family='Arial Black'),
-                text=chart_data['count'] if show_values else None
+                textfont=dict(size=12, color='black', family='Arial')
             )
             
-            # Layout optimisé
+            # Layout optimisé pour Streamlit
             fig.update_layout(
                 plot_bgcolor='white',
                 paper_bgcolor='white',
-                font=dict(color='black', size=12, family='Arial'),
+                font=dict(color='black', size=11, family='Arial'),
                 showlegend=False,
                 title=dict(
-                    font=dict(size=18, color='#2E4057', family='Arial Black'),
+                    font=dict(size=16, color='#2E4057', family='Arial Bold'),
                     x=0.5
                 ),
-                xaxis=dict(
-                    title=dict(text=x_var, font=dict(size=14, family='Arial Bold')),
-                    tickfont=dict(size=12, color='black')
-                ),
-                yaxis=dict(
-                    title=dict(text='Nombre', font=dict(size=14, family='Arial Bold')),
-                    tickfont=dict(size=12, color='black')
-                )
+                margin=dict(l=50, r=50, t=60, b=50),  # Marges fixes
+                height=400  # Hauteur fixe
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            # Affichage du graphique
+            st.plotly_chart(fig, use_container_width=True, key=f"chart_{x_var}")
+            
+        except Exception as e:
+            st.error(f"Erreur lors de la création du graphique : {str(e)}")
+            st.info("Vérifiez que la variable sélectionnée contient des données valides")
     
     
         # Détection des types de données
