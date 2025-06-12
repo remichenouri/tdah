@@ -1330,179 +1330,179 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
         return
 
     def smart_visualization(df, x_var, y_var=None, color_var=None):
-    """Visualisation automatique avec couleurs haute visibilité"""
+        """Visualisation automatique avec couleurs haute visibilité"""
+        
+        # Vérification des variables
+        if x_var not in df.columns:
+            st.error(f"Variable '{x_var}' non trouvée")
+            return
     
-    # Vérification des variables
-    if x_var not in df.columns:
-        st.error(f"Variable '{x_var}' non trouvée")
-        return
-
-    # Interface de sélection des couleurs
-    col1, col2 = st.columns([4, 1])
-    
-    with col2:
-        st.markdown("**🎨 Style du graphique**")
+        # Interface de sélection des couleurs
+        col1, col2 = st.columns([4, 1])
         
-        color_scheme = st.selectbox(
-            "Schéma de couleurs :",
-            ["TDAH Optimisé", "Contraste Maximum", "Couleurs Vives", "Accessible"],
-            key="viz_color_scheme"
-        )
-        
-        show_values = st.checkbox("Afficher les valeurs", value=True)
-        add_borders = st.checkbox("Bordures blanches", value=True)
-    
-    with col1:
-        # Définition des palettes
-        color_schemes = {
-            "TDAH Optimisé": ['#2E4057', '#048A81', '#7209B7', '#C73E1D', '#F79824'],
-            "Contraste Maximum": ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00'],
-            "Couleurs Vives": ['#FF4500', '#32CD32', '#FF1493', '#00CED1', '#FFD700'],
-            "Accessible": ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
-        }
-        
-        selected_colors = color_schemes[color_scheme]
-        
-        # Préparation des données
-        chart_data = df[x_var].value_counts().reset_index()
-        chart_data.columns = ['categories', 'count']
-        
-        # Création du graphique
-        fig = px.bar(
-            chart_data, 
-            x='categories', 
-            y='count',
-            color='categories',
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var}'
-        )
-        
-        # Personnalisation avancée
-        fig.update_traces(
-            marker=dict(
-                line=dict(
-                    color='white' if add_borders else 'rgba(0,0,0,0)', 
-                    width=3 if add_borders else 0
-                ),
-                opacity=0.9
-            ),
-            textposition='outside' if show_values else 'none',
-            textfont=dict(size=14, color='black', family='Arial Black'),
-            text=chart_data['count'] if show_values else None
-        )
-        
-        # Layout optimisé
-        fig.update_layout(
-            plot_bgcolor='white',
-            paper_bgcolor='white',
-            font=dict(color='black', size=12, family='Arial'),
-            showlegend=False,
-            title=dict(
-                font=dict(size=18, color='#2E4057', family='Arial Black'),
-                x=0.5
-            ),
-            xaxis=dict(
-                title=dict(text=x_var, font=dict(size=14, family='Arial Bold')),
-                tickfont=dict(size=12, color='black')
-            ),
-            yaxis=dict(
-                title=dict(text='Nombre', font=dict(size=14, family='Arial Bold')),
-                tickfont=dict(size=12, color='black')
+        with col2:
+            st.markdown("**🎨 Style du graphique**")
+            
+            color_scheme = st.selectbox(
+                "Schéma de couleurs :",
+                ["TDAH Optimisé", "Contraste Maximum", "Couleurs Vives", "Accessible"],
+                key="viz_color_scheme"
             )
-        )
+            
+            show_values = st.checkbox("Afficher les valeurs", value=True)
+            add_borders = st.checkbox("Bordures blanches", value=True)
         
-        st.plotly_chart(fig, use_container_width=True)
-
-
-    # Détection des types de données
-    x_is_num = pd.api.types.is_numeric_dtype(df[x_var])
-    y_is_num = y_var and pd.api.types.is_numeric_dtype(df[y_var])
-    color_is_cat = color_var and not pd.api.types.is_numeric_dtype(df[color_var])
-
-    # Sélection du type de graphique
-    if not y_var:
-        if x_is_num:
-            chart_type = "histogram"
-        else:
-            chart_type = "bar"
-    else:
-        if x_is_num and y_is_num:
-            chart_type = "scatter"
-        elif x_is_num and not y_is_num:
-            chart_type = "box"
-        elif not x_is_num and y_is_num:
-            chart_type = "violin"
-        else:
-            chart_type = "heatmap"
-
-    # Création du graphique
-    try:
-        if chart_type == "histogram":
-            fig = px.histogram(
-                df, x=x_var, color=color_var,
-                nbins=30, marginal="rug",
-                color_discrete_sequence=px.colors.sequential.Oranges
-            )
-
-        elif chart_type == "bar":
-            df_counts = df[x_var].value_counts().reset_index()
+        with col1:
+            # Définition des palettes
+            color_schemes = {
+                "TDAH Optimisé": ['#2E4057', '#048A81', '#7209B7', '#C73E1D', '#F79824'],
+                "Contraste Maximum": ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00'],
+                "Couleurs Vives": ['#FF4500', '#32CD32', '#FF1493', '#00CED1', '#FFD700'],
+                "Accessible": ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+            }
+            
+            selected_colors = color_schemes[color_scheme]
+            
+            # Préparation des données
+            chart_data = df[x_var].value_counts().reset_index()
+            chart_data.columns = ['categories', 'count']
+            
+            # Création du graphique
             fig = px.bar(
-                df_counts, x='index', y=x_var,
-                color='index' if color_var else None,
-                color_discrete_sequence=px.colors.sequential.Oranges
+                chart_data, 
+                x='categories', 
+                y='count',
+                color='categories',
+                color_discrete_sequence=selected_colors,
+                title=f'Distribution de {x_var}'
             )
-
-        elif chart_type == "scatter":
-            fig = px.scatter(
-                df, x=x_var, y=y_var, color=color_var,
-                trendline="lowess", opacity=0.7,
-                color_continuous_scale=px.colors.sequential.Oranges
+            
+            # Personnalisation avancée
+            fig.update_traces(
+                marker=dict(
+                    line=dict(
+                        color='white' if add_borders else 'rgba(0,0,0,0)', 
+                        width=3 if add_borders else 0
+                    ),
+                    opacity=0.9
+                ),
+                textposition='outside' if show_values else 'none',
+                textfont=dict(size=14, color='black', family='Arial Black'),
+                text=chart_data['count'] if show_values else None
             )
-
-        elif chart_type == "box":
-            fig = px.box(
-                df, x=x_var, y=y_var, color=color_var,
-                color_discrete_sequence=px.colors.sequential.Oranges
+            
+            # Layout optimisé
+            fig.update_layout(
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                font=dict(color='black', size=12, family='Arial'),
+                showlegend=False,
+                title=dict(
+                    font=dict(size=18, color='#2E4057', family='Arial Black'),
+                    x=0.5
+                ),
+                xaxis=dict(
+                    title=dict(text=x_var, font=dict(size=14, family='Arial Bold')),
+                    tickfont=dict(size=12, color='black')
+                ),
+                yaxis=dict(
+                    title=dict(text='Nombre', font=dict(size=14, family='Arial Bold')),
+                    tickfont=dict(size=12, color='black')
+                )
             )
-
-        elif chart_type == "violin":
-            fig = px.violin(
-                df, x=x_var, y=y_var, color=color_var,
-                box=True, points="all",
-                color_discrete_sequence=px.colors.sequential.Oranges
+            
+            st.plotly_chart(fig, use_container_width=True)
+    
+    
+        # Détection des types de données
+        x_is_num = pd.api.types.is_numeric_dtype(df[x_var])
+        y_is_num = y_var and pd.api.types.is_numeric_dtype(df[y_var])
+        color_is_cat = color_var and not pd.api.types.is_numeric_dtype(df[color_var])
+    
+        # Sélection du type de graphique
+        if not y_var:
+            if x_is_num:
+                chart_type = "histogram"
+            else:
+                chart_type = "bar"
+        else:
+            if x_is_num and y_is_num:
+                chart_type = "scatter"
+            elif x_is_num and not y_is_num:
+                chart_type = "box"
+            elif not x_is_num and y_is_num:
+                chart_type = "violin"
+            else:
+                chart_type = "heatmap"
+    
+        # Création du graphique
+        try:
+            if chart_type == "histogram":
+                fig = px.histogram(
+                    df, x=x_var, color=color_var,
+                    nbins=30, marginal="rug",
+                    color_discrete_sequence=px.colors.sequential.Oranges
+                )
+    
+            elif chart_type == "bar":
+                df_counts = df[x_var].value_counts().reset_index()
+                fig = px.bar(
+                    df_counts, x='index', y=x_var,
+                    color='index' if color_var else None,
+                    color_discrete_sequence=px.colors.sequential.Oranges
+                )
+    
+            elif chart_type == "scatter":
+                fig = px.scatter(
+                    df, x=x_var, y=y_var, color=color_var,
+                    trendline="lowess", opacity=0.7,
+                    color_continuous_scale=px.colors.sequential.Oranges
+                )
+    
+            elif chart_type == "box":
+                fig = px.box(
+                    df, x=x_var, y=y_var, color=color_var,
+                    color_discrete_sequence=px.colors.sequential.Oranges
+                )
+    
+            elif chart_type == "violin":
+                fig = px.violin(
+                    df, x=x_var, y=y_var, color=color_var,
+                    box=True, points="all",
+                    color_discrete_sequence=px.colors.sequential.Oranges
+                )
+    
+            elif chart_type == "heatmap":
+                crosstab = pd.crosstab(df[x_var], df[y_var])
+                fig = px.imshow(
+                    crosstab,
+                    color_continuous_scale=px.colors.sequential.Oranges,
+                    labels=dict(x=x_var, y=y_var, color="Count")
+                )
+    
+            # Paramètres communs
+            fig.update_layout(
+                template="plotly_white",
+                hovermode="x unified",
+                height=500,
+                margin=dict(l=20, r=20, t=40, b=20),
+                font=dict(family="Arial", size=12)
             )
-
-        elif chart_type == "heatmap":
-            crosstab = pd.crosstab(df[x_var], df[y_var])
-            fig = px.imshow(
-                crosstab,
-                color_continuous_scale=px.colors.sequential.Oranges,
-                labels=dict(x=x_var, y=y_var, color="Count")
-            )
-
-        # Paramètres communs
-        fig.update_layout(
-            template="plotly_white",
-            hovermode="x unified",
-            height=500,
-            margin=dict(l=20, r=20, t=40, b=20),
-            font=dict(family="Arial", size=12)
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Statistiques contextuelles
-        with st.expander("📊 Statistiques associées"):
-            if chart_type in ["scatter", "heatmap"] and x_is_num and y_is_num:
-                corr = df[[x_var, y_var]].corr().iloc[0,1]
-                st.write(f"Corrélation de Pearson : {corr:.3f}")
-
-            elif chart_type in ["histogram", "box", "violin"] and x_is_num:
-                stats = df[x_var].describe()
-                st.write(stats)
-
-    except Exception as e:
-        st.error(f"Erreur de visualisation : {str(e)}")
+    
+            st.plotly_chart(fig, use_container_width=True)
+    
+            # Statistiques contextuelles
+            with st.expander("📊 Statistiques associées"):
+                if chart_type in ["scatter", "heatmap"] and x_is_num and y_is_num:
+                    corr = df[[x_var, y_var]].corr().iloc[0,1]
+                    st.write(f"Corrélation de Pearson : {corr:.3f}")
+    
+                elif chart_type in ["histogram", "box", "violin"] and x_is_num:
+                    stats = df[x_var].describe()
+                    st.write(stats)
+    
+        except Exception as e:
+            st.error(f"Erreur de visualisation : {str(e)}")
 
 def show_enhanced_data_exploration():
     """Exploration enrichie des données TDAH avec analyses statistiques avancées"""
