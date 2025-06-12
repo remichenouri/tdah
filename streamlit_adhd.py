@@ -3,7 +3,7 @@
 # 1. IMPORTS STREAMLIT EN PREMIER
 import streamlit as st
 
-# 2. CONFIGURATION DE LA PAGE IMMÉDIATEMENT APRÈS
+# Configuration de la page IMMÉDIATEMENT
 st.set_page_config(
     page_title="Dépistage TDAH",
     page_icon="🧠",
@@ -11,6 +11,41 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialisation des variables de session AVANT la vérification RGPD
+def initialize_basic_session_state():
+    """Initialise les variables de session de base"""
+    if 'initialized' not in st.session_state:
+        st.session_state.initialized = True
+        st.session_state.tool_choice = "🏠 Accueil"
+        st.session_state.gdpr_compliant = False
+        st.session_state.x_var = None
+        st.session_state.y_var = None
+
+# Appel immédiat de l'initialisation
+initialize_basic_session_state()
+
+# Gestion du consentement SANS st.stop()
+if not st.session_state.get('gdpr_compliant', False):
+    # Affichage du formulaire de consentement
+    st.markdown("""
+    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;">
+            🔒 Consentement RGPD Requis
+        </h1>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("✅ J'accepte le traitement de mes données", type="primary"):
+        st.session_state.gdpr_compliant = True
+        st.rerun()
+    
+    st.info("Le consentement est requis pour utiliser l'application de dépistage TDAH")
+    # PAS de st.stop() ici - on laisse l'utilisateur voir le formulaire
+
+else:
+    # L'application principale se lance SEULEMENT après consentement
+    main_application()
 import streamlit as st
 import uuid
 import hashlib
@@ -66,11 +101,6 @@ class GDPRConsentManager:
         else:
             st.warning("⚠️ Le consentement est requis pour utiliser l'outil de dépistage")
             return False
-
-if 'gdpr_compliant' not in st.session_state or not st.session_state.gdpr_compliant:
-    st.session_state.tool_choice = "🔒 RGPD & Droits"
-    GDPRConsentManager.show_consent_form()
-    st.stop()
 
 if 'x_var' not in st.session_state:
     st.session_state.x_var = None
