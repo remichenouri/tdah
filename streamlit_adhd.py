@@ -72,6 +72,21 @@ if 'gdpr_compliant' not in st.session_state or not st.session_state.gdpr_complia
     GDPRConsentManager.show_consent_form()
     st.stop()
 
+if 'x_var' not in st.session_state:
+    st.session_state.x_var = None
+
+if 'y_var' not in st.session_state:
+    st.session_state.y_var = None
+
+# Utilisation dans la fonction
+def smart_visualization_safe(df):
+    x_var = st.session_state.get('x_var', None)
+    y_var = st.session_state.get('y_var', None)
+    
+    if x_var is None:
+        st.warning("Veuillez sélectionner une variable X")
+        return
+
 # 3. IMPORTS DES AUTRES BIBLIOTHÈQUES APRÈS
 import os
 import pickle
