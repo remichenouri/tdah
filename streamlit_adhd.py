@@ -1800,25 +1800,34 @@ def show_enhanced_data_exploration():
 
     with tabs[4]:
         st.subheader("🎯 Visualisations interactives")
-
-        # Analyse par sous-groupes
-        st.markdown("### 🔍 Analyse par sous-groupes")
-
-        categorical_vars = df.select_dtypes(include=['object']).columns.tolist()
-        if categorical_vars:
-            grouping_var = st.selectbox("Grouper par :", categorical_vars)
-
-            if grouping_var and x_var:
-                fig_group = px.box(
-                    df,
-                    x=grouping_var,
-                    y=x_var,
-                    color='diagnosis' if 'diagnosis' in df.columns else None,
-                    title=f'Distribution de {x_var} par {grouping_var}',
-                    color_discrete_map={0: '#ff9800', 1: '#ff5722'} if 'diagnosis' in df.columns else None
-                )
-                st.plotly_chart(fig_group, use_container_width=True)
-
+        
+        # CORRECTION: Initialisation des variables avec valeurs par défaut
+        numeric_vars = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+        
+        if not numeric_vars:
+            st.warning("Aucune variable numérique disponible pour la visualisation")
+            return
+            
+        # Sélection sécurisée des variables
+        x_var = st.selectbox(
+            "Variable X :", 
+            options=numeric_vars,
+            key="viz_x_var"
+        )
+        
+        y_var = st.selectbox(
+            "Variable Y (optionnel) :", 
+            options=["Aucune"] + numeric_vars,
+            key="viz_y_var"
+        )
+        
+        # Conversion sécurisée
+        y_var = None if y_var == "Aucune" else y_var
+        
+        # Appel sécurisé de la fonction
+        if x_var:  # Vérification que x_var existe
+            smart_visualization(df, x_var, y_var)
+            
     with tabs[5]:
         st.subheader("📋 Dataset complet")
 
