@@ -4,6 +4,7 @@
 import streamlit as st
 
 # Configuration de la page IMMÉDIATEMENT
+# Configuration de la page IMMÉDIATEMENT
 st.set_page_config(
     page_title="Dépistage TDAH",
     page_icon="🧠",
@@ -21,30 +22,37 @@ def initialize_basic_session_state():
         st.session_state.x_var = None
         st.session_state.y_var = None
 
+# Définir TOUTES les fonctions d'abord
+def main():
+    """Fonction principale de l'application après consentement"""
+    try:
+        # Configuration du thème
+        set_custom_theme()
+        
+        # Menu de navigation
+        with st.sidebar:
+            tool_choice = show_navigation_menu()
+        
+        # Navigation vers les pages
+        if tool_choice == "🏠 Accueil":
+            show_home_page()
+        elif tool_choice == "🔍 Exploration":
+            show_enhanced_data_exploration()
+        # ... autres pages
+        
+    except Exception as e:
+        st.error(f"Erreur dans l'application : {str(e)}")
+
 # Appel immédiat de l'initialisation
 initialize_basic_session_state()
 
+# Gestion du consentement SANS appel à main_application()
 if not st.session_state.get('gdpr_compliant', False):
-    # Affichage du formulaire de consentement
-    st.markdown("""
-    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
-                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
-        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;">
-            🔒 Consentement RGPD Requis
-        </h1>
-    </div>
-    """, unsafe_allow_html=True)
-    
+    # Formulaire de consentement
     if st.button("✅ J'accepte le traitement de mes données", type="primary"):
         st.session_state.gdpr_compliant = True
         st.rerun()
-    
-    st.info("Le consentement est requis pour utiliser l'application de dépistage TDAH")
-    st.stop()  # Arrêt propre sans appel à main_application()
-
-else:
-    # L'application principale se lance SEULEMENT après consentement
-    main()  # Appel direct à main() qui existe
+    st.stop()
     
 import streamlit as st
 import uuid
