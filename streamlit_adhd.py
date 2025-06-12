@@ -855,7 +855,7 @@ def load_enhanced_dataset():
     """Charge le dataset TDAH avec gestion d'erreurs améliorée"""
     try:
         # URL de votre dataset
-        url = 'VOTRE_URL_DATASET'
+        url = 'https://drive.google.com/file/d/1ZX5C_5gDoAvjfWlREm8OPYT_C7vI3SIU/view?usp=drive_link'
         
         # Tentative avec différents paramètres
         try:
