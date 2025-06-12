@@ -852,12 +852,30 @@ def calculate_std_safe(values):
 
 @st.cache_data(ttl=86400)
 def load_enhanced_dataset():
-    """Charge le dataset TDAH réel concaténé"""
+    """Charge le dataset TDAH avec gestion d'erreurs améliorée"""
     try:
-        # Remplacez par l'URL de votre nouveau dataset
-        url = 'https://drive.google.com/file/d/1ZX5C_5gDoAvjfWlREm8OPYT_C7vI3SIU/view?usp=drive_link'
-        df = pd.read_csv(url)
+        # URL de votre dataset
+        url = 'VOTRE_URL_DATASET'
+        
+        # Tentative avec différents paramètres
+        try:
+            # Première tentative : délimiteur automatique
+            df = pd.read_csv(url, sep=None, engine='python', encoding='utf-8')
+        except:
+            try:
+                # Deuxième tentative : virgule comme délimiteur
+                df = pd.read_csv(url, sep=',', engine='python', encoding='utf-8')
+            except:
+                try:
+                    # Troisième tentative : point-virgule
+                    df = pd.read_csv(url, sep=';', engine='python', encoding='utf-8')
+                except:
+                    # Dernière tentative : ignorer les lignes problématiques
+                    df = pd.read_csv(url, sep=',', engine='python', 
+                                   encoding='utf-8', on_bad_lines='skip')
+        
         return df
+        
     except Exception as e:
         st.error(f"Erreur lors du chargement du dataset : {str(e)}")
         return create_fallback_dataset()
