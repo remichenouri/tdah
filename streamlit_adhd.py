@@ -1329,68 +1329,90 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
         st.error(f"Variable '{y_var}' non trouvée")
         return
 
-    color_palettes = {
-        'Contraste élevé': ['#000080', '#FF4500', '#32CD32', '#FF1493', '#00CED1'],
-        'Couleurs vives': ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF'],
-        'Palette accessible': ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd'],
-        'Dégradé orange TDAH': ['#FF4500', '#FF6347', '#FF7F50', '#FFA500', '#FFB347'],
-        'Nuances de bleu': ['#000080', '#0066CC', '#3399FF', '#66B2FF', '#99CCFF']
-    }
+    def smart_visualization(df, x_var, y_var=None, color_var=None):
+    """Visualisation automatique avec couleurs haute visibilité"""
     
-    col1, col2 = st.columns([3, 1])
+    # Vérification des variables
+    if x_var not in df.columns:
+        st.error(f"Variable '{x_var}' non trouvée")
+        return
+
+    # Interface de sélection des couleurs
+    col1, col2 = st.columns([4, 1])
     
     with col2:
-        selected_palette = st.selectbox(
-            "Palette de couleurs :",
-            options=list(color_palettes.keys()),
-            key="color_palette_selector"
+        st.markdown("**🎨 Style du graphique**")
+        
+        color_scheme = st.selectbox(
+            "Schéma de couleurs :",
+            ["TDAH Optimisé", "Contraste Maximum", "Couleurs Vives", "Accessible"],
+            key="viz_color_scheme"
         )
         
-        brightness = st.slider(
-            "Intensité :",
-            min_value=0.7,
-            max_value=1.0,
-            value=0.9,
-            step=0.1,
-            key="color_brightness"
-        )
+        show_values = st.checkbox("Afficher les valeurs", value=True)
+        add_borders = st.checkbox("Bordures blanches", value=True)
     
     with col1:
+        # Définition des palettes
+        color_schemes = {
+            "TDAH Optimisé": ['#2E4057', '#048A81', '#7209B7', '#C73E1D', '#F79824'],
+            "Contraste Maximum": ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00'],
+            "Couleurs Vives": ['#FF4500', '#32CD32', '#FF1493', '#00CED1', '#FFD700'],
+            "Accessible": ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        }
+        
+        selected_colors = color_schemes[color_scheme]
+        
+        # Préparation des données
         chart_data = df[x_var].value_counts().reset_index()
         chart_data.columns = ['categories', 'count']
         
-        selected_colors = color_palettes[selected_palette]
-        
+        # Création du graphique
         fig = px.bar(
             chart_data, 
             x='categories', 
             y='count',
             color='categories',
-            color_discrete_sequence=selected_colors
+            color_discrete_sequence=selected_colors,
+            title=f'Distribution de {x_var}'
         )
         
-        # Application de l'intensité
+        # Personnalisation avancée
         fig.update_traces(
             marker=dict(
-                line=dict(color='white', width=3),
-                opacity=brightness
+                line=dict(
+                    color='white' if add_borders else 'rgba(0,0,0,0)', 
+                    width=3 if add_borders else 0
+                ),
+                opacity=0.9
             ),
-            textposition='outside',
-            textfont=dict(size=14, color='black', family='Arial Black')
+            textposition='outside' if show_values else 'none',
+            textfont=dict(size=14, color='black', family='Arial Black'),
+            text=chart_data['count'] if show_values else None
         )
         
+        # Layout optimisé
         fig.update_layout(
             plot_bgcolor='white',
             paper_bgcolor='white',
             font=dict(color='black', size=12, family='Arial'),
             showlegend=False,
             title=dict(
-                text=f'Distribution de {x_var}',
-                font=dict(size=16, color='black', family='Arial Black')
+                font=dict(size=18, color='#2E4057', family='Arial Black'),
+                x=0.5
+            ),
+            xaxis=dict(
+                title=dict(text=x_var, font=dict(size=14, family='Arial Bold')),
+                tickfont=dict(size=12, color='black')
+            ),
+            yaxis=dict(
+                title=dict(text='Nombre', font=dict(size=14, family='Arial Bold')),
+                tickfont=dict(size=12, color='black')
             )
         )
         
         st.plotly_chart(fig, use_container_width=True)
+
 
     # Détection des types de données
     x_is_num = pd.api.types.is_numeric_dtype(df[x_var])
