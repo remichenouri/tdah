@@ -71,7 +71,7 @@ if 'gdpr_compliant' not in st.session_state or not st.session_state.gdpr_complia
     st.session_state.tool_choice = "🔒 RGPD & Droits"
     GDPRConsentManager.show_consent_form()
     st.stop()
-    
+
 # 3. IMPORTS DES AUTRES BIBLIOTHÈQUES APRÈS
 import os
 import pickle
@@ -195,7 +195,7 @@ def show_rgpd_panel():
     # Onglets conformité
     tabs = st.tabs([
         "🔐 Consentement",
-        "🛡️ Transparence IA", 
+        "🛡️ Transparence IA",
         "⚖️ Droit à l'Effacement",
         "📊 Portabilité",
         "🔍 Audit Trail"
@@ -203,7 +203,7 @@ def show_rgpd_panel():
     with tabs[0]:
         st.subheader("🔐 Consentement")
         GDPRConsentManager.show_consent_form()
-                    
+
         with tabs[1]:
             st.subheader("🛡️ Transparence IA")
             st.markdown("""
@@ -221,7 +221,7 @@ def show_rgpd_panel():
                 </p>
             </div>
             """, unsafe_allow_html=True)
-        
+
             st.markdown("""
             <div style="background-color: #fff3e0; padding: 18px; border-radius: 10px; margin-bottom: 16px;">
                 <h4 style="color: #ef6c00; margin-top: 0;">📝 Facteurs pris en compte par l’IA</h4>
@@ -235,7 +235,7 @@ def show_rgpd_panel():
                 </ul>
             </div>
             """, unsafe_allow_html=True)
-        
+
             col1, col2 = st.columns(2)
             with col1:
                 st.markdown("""
@@ -261,12 +261,12 @@ def show_rgpd_panel():
                     </ul>
                 </div>
                 """, unsafe_allow_html=True)
-        
+
             st.info("Pour toute question sur l'IA ou vos droits numériques, contactez le DPO")
 
         with tabs[2]:
             st.subheader("⚖️ Exercice du Droit à l'Effacement")
-            
+
             st.markdown("""
             <div style="background-color: #ffebee; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #f44336;">
                 <h3 style="color: #c62828;">🗑️ Suppression de vos Données</h3>
@@ -276,43 +276,43 @@ def show_rgpd_panel():
                 </p>
             </div>
             """, unsafe_allow_html=True)
-        
+
             with st.form("data_deletion_form"):
                 st.warning("⚠️ La suppression effacera définitivement :")
                 st.write("• Vos réponses au test ASRS")
-                st.write("• Vos données démographiques")  
+                st.write("• Vos données démographiques")
                 st.write("• Vos résultats d'analyse IA")
                 st.write("• Votre historique de consentements")
-                
+
                 deletion_reason = st.selectbox(
                     "Motif de suppression (optionnel)",
-                    ["Non spécifié", "Retrait du consentement", "Données incorrectes", 
+                    ["Non spécifié", "Retrait du consentement", "Données incorrectes",
                      "Finalité atteinte", "Opposition au traitement"]
                 )
-                
+
                 confirm_deletion = st.checkbox(
                     "Je confirme vouloir supprimer définitivement mes données"
                 )
-                
+
                 submitted = st.form_submit_button("🗑️ Supprimer mes données", type="secondary")
-                
+
                 if submitted and confirm_deletion:
                     # Suppression des données de session
                     keys_to_delete = ['asrs_responses', 'asrs_results', 'rgpd_consent', 'user_data']
                     for key in keys_to_delete:
                         if key in st.session_state:
                             del st.session_state[key]
-                    
+
                     st.success("✅ Vos données ont été supprimées avec succès")
                     st.balloons()
                 elif submitted:
                     st.error("❌ Veuillez confirmer la suppression")
         with tabs[3]:
             st.subheader("📊 Portabilité de vos Données")
-            
+
             if 'asrs_results' in st.session_state and 'rgpd_consent' in st.session_state:
                 st.info("Téléchargez vos données dans un format lisible par machine")
-                
+
                 # Préparation des données pour export
                 export_data = {
                     'données_personnelles': {
@@ -325,10 +325,10 @@ def show_rgpd_panel():
                     'consentements': st.session_state.rgpd_consent,
                     'export_timestamp': datetime.now().isoformat()
                 }
-                
+
                 # Boutons de téléchargement
                 col1, col2 = st.columns(2)
-                
+
                 with col1:
                     json_data = json.dumps(export_data, indent=2, ensure_ascii=False)
                     st.download_button(
@@ -337,11 +337,11 @@ def show_rgpd_panel():
                         f"mes_donnees_tdah_{datetime.now().strftime('%Y%m%d')}.json",
                         "application/json"
                     )
-                    
+
                 with col2:
                     csv_data = pd.DataFrame([export_data['données_personnelles']]).to_csv(index=False)
                     st.download_button(
-                        "📥 Télécharger en CSV", 
+                        "📥 Télécharger en CSV",
                         csv_data,
                         f"mes_donnees_tdah_{datetime.now().strftime('%Y%m%d')}.csv",
                         "text/csv"
@@ -350,11 +350,11 @@ def show_rgpd_panel():
                 st.warning("Aucune donnée disponible pour l'export")
         with tabs[4]:
             st.subheader("🔍 Journal d'Audit")
-            
+
             # Création d'un log d'audit
             if 'audit_log' not in st.session_state:
                 st.session_state.audit_log = []
-            
+
             # Fonction de logging
             def log_action(action, details=""):
                 timestamp = datetime.now().isoformat()
@@ -364,20 +364,20 @@ def show_rgpd_panel():
                     'details': details,
                     'user_hash': hashlib.sha256(st.session_state.get('user_ip', '').encode()).hexdigest()[:8]
                 })
-            
+
             # Affichage du journal
             if st.session_state.audit_log:
                 st.markdown("### 📋 Historique de vos actions")
-                
+
                 audit_df = pd.DataFrame(st.session_state.audit_log)
                 audit_df['timestamp'] = pd.to_datetime(audit_df['timestamp']).dt.strftime('%d/%m/%Y %H:%M')
-                
+
                 st.dataframe(
-                    audit_df[['timestamp', 'action', 'details']], 
+                    audit_df[['timestamp', 'action', 'details']],
                     use_container_width=True,
                     hide_index=True
                 )
-                
+
                 # Export de l'audit
                 audit_csv = audit_df.to_csv(index=False)
                 st.download_button(
@@ -388,7 +388,7 @@ def show_rgpd_panel():
                 )
             else:
                 st.info("Aucune action enregistrée pour cette session")
-        
+
 
 def check_rgpd_consent():
     """Vérifie si le consentement RGPD est donné"""
@@ -398,7 +398,7 @@ def check_rgpd_consent():
             st.session_state.tool_choice = "🔒 Panneau RGPD & Conformité IA"
             st.experimental_rerun()
         return False
-        
+
     consent = st.session_state.rgpd_consent
     return consent.get('data_processing', False) and consent.get('ai_analysis', False)
 
@@ -708,7 +708,7 @@ def set_custom_theme():
             border-left: 4px solid #ff5722;
             box-shadow: 0 3px 10px rgba(255,87,34,0.1);
         }
-        
+
         .info-card-modern {
             background: white;
             border-radius: 15px;
@@ -852,33 +852,72 @@ def calculate_std_safe(values):
 
 @st.cache_data(ttl=86400)
 def load_enhanced_dataset():
-    """Charge le dataset TDAH avec gestion d'erreurs améliorée"""
+    """Charge le dataset TDAH enrichi depuis Google Drive avec gestion d'erreur"""
     try:
-        # URL de votre dataset
-        url = 'https://drive.google.com/file/d/1ZX5C_5gDoAvjfWlREm8OPYT_C7vI3SIU/view?usp=drive_link'
-        
-        # Tentative avec différents paramètres
-        try:
-            # Première tentative : délimiteur automatique
-            df = pd.read_csv(url, sep=None, engine='python', encoding='utf-8')
-        except:
-            try:
-                # Deuxième tentative : virgule comme délimiteur
-                df = pd.read_csv(url, sep=',', engine='python', encoding='utf-8')
-            except:
-                try:
-                    # Troisième tentative : point-virgule
-                    df = pd.read_csv(url, sep=';', engine='python', encoding='utf-8')
-                except:
-                    # Dernière tentative : ignorer les lignes problématiques
-                    df = pd.read_csv(url, sep=',', engine='python', 
-                                   encoding='utf-8', on_bad_lines='skip')
-        
+        # Import local de pandas pour éviter les erreurs de portée
+        import pandas as pd_local
+        import numpy as np_local
+
+        # URL du dataset Google Drive
+        url = 'https://drive.google.com/file/d/15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR/view?usp=drive_link'
+        file_id = url.split('/d/')[1].split('/')[0]
+        download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+
+        # Chargement du dataset
+        df = pd_local.read_csv(download_url)
         return df
-        
+
     except Exception as e:
-        st.error(f"Erreur lors du chargement du dataset : {str(e)}")
+        st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
+        st.info("Utilisation de données simulées à la place")
         return create_fallback_dataset()
+
+def create_fallback_dataset():
+    """Crée un dataset de fallback avec imports locaux sécurisés"""
+    try:
+        import numpy as np_fallback
+        import pandas as pd_fallback
+
+        np_fallback.random.seed(42)
+        n_samples = 1500
+
+        # Structure basée sur le vrai dataset
+        data = {
+            'subject_id': [f'FALLBACK_{str(i).zfill(5)}' for i in range(1, n_samples + 1)],
+            'age': np_fallback.random.randint(18, 65, n_samples),
+            'gender': np_fallback.random.choice(['M', 'F'], n_samples),
+            'diagnosis': np_fallback.random.binomial(1, 0.3, n_samples),
+            'site': np_fallback.random.choice(['Site_Paris', 'Site_Lyon', 'Site_Marseille'], n_samples),
+        }
+
+        # Questions ASRS
+        for i in range(1, 19):
+            data[f'asrs_q{i}'] = np_fallback.random.randint(0, 5, n_samples)
+
+        # Scores calculés
+        data['asrs_inattention'] = np_fallback.random.randint(0, 36, n_samples)
+        data['asrs_hyperactivity'] = np_fallback.random.randint(0, 36, n_samples)
+        data['asrs_total'] = data['asrs_inattention'] + data['asrs_hyperactivity']
+        data['asrs_part_a'] = np_fallback.random.randint(0, 24, n_samples)
+        data['asrs_part_b'] = np_fallback.random.randint(0, 48, n_samples)
+
+        # Variables supplémentaires
+        data.update({
+            'education': np_fallback.random.choice(['Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'], n_samples),
+            'job_status': np_fallback.random.choice(['CDI', 'CDD', 'Freelance', 'Étudiant', 'Chômeur'], n_samples),
+            'marital_status': np_fallback.random.choice(['Célibataire', 'En couple', 'Marié(e)', 'Divorcé(e)'], n_samples),
+            'quality_of_life': np_fallback.random.uniform(1, 10, n_samples),
+            'stress_level': np_fallback.random.uniform(1, 5, n_samples),
+            'sleep_problems': np_fallback.random.uniform(1, 5, n_samples),
+        })
+
+        return pd_fallback.DataFrame(data)
+
+    except Exception as e:
+        st.error(f"Erreur critique dans la création du dataset de fallback : {e}")
+        # Retourner un DataFrame vide plutôt que de planter
+        return pd.DataFrame()
+
 
 def test_numpy_availability():
     """Test de disponibilité de numpy et pandas"""
@@ -1452,10 +1491,10 @@ def show_enhanced_data_exploration():
             </p>
         </div>
         """, unsafe_allow_html=True)
-        
+
         # --- Deux colonnes principales ---
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.markdown("""
             <div class="info-card-modern">
@@ -1475,7 +1514,7 @@ def show_enhanced_data_exploration():
                 </ul>
             </div>
             """, unsafe_allow_html=True)
-        
+
         with col2:
             st.markdown("""
             <div class="info-card-modern">
@@ -1493,7 +1532,7 @@ def show_enhanced_data_exploration():
                 </ul>
             </div>
             """, unsafe_allow_html=True)
-        
+
         # --- Aperçu des données ---
         st.markdown("""
         <div style="margin-top: 35px;">
@@ -2269,10 +2308,10 @@ def show_enhanced_ml_analysis():
                         </span>
                     </div>
                     """, unsafe_allow_html=True)
-                    
+
                     # --- Deux colonnes pour variables et stats ---
                     col1, col2 = st.columns(2)
-                    
+
                     with col1:
                         st.markdown("""
                         <div class="info-card-modern">
@@ -2292,7 +2331,7 @@ def show_enhanced_ml_analysis():
                             </ul>
                         </div>
                         """, unsafe_allow_html=True)
-                    
+
                     with col2:
                         st.markdown("""
                         <div class="info-card-modern">
@@ -2532,12 +2571,12 @@ def show_enhanced_ai_prediction():
             box-shadow: 0 4px 12px rgba(255,87,34,0.1);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        
+
         .question-container:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(255,87,34,0.15);
         }
-        
+
         .question-number {
             background: linear-gradient(135deg, #ff5722, #ff9800);
             color: white;
@@ -2551,7 +2590,7 @@ def show_enhanced_ai_prediction():
             font-size: 1.1rem;
             margin-bottom: 15px;
         }
-        
+
         .question-text {
             color: #d84315;
             font-size: 1.1rem;
@@ -2559,27 +2598,27 @@ def show_enhanced_ai_prediction():
             margin-bottom: 20px;
             font-weight: 500;
         }
-        
+
         .response-options {
             display: flex;
             justify-content: space-between;
             gap: 10px;
             flex-wrap: wrap;
         }
-        
+
         .response-option {
             flex: 1;
             min-width: 120px;
             text-align: center;
         }
-        
+
         /* Style pour les radio buttons */
         .stRadio > div {
             flex-direction: row !important;
             justify-content: space-between !important;
             gap: 15px !important;
         }
-        
+
         .stRadio label {
             background: white;
             border: 2px solid #ffcc02;
@@ -2592,13 +2631,13 @@ def show_enhanced_ai_prediction():
             text-align: center;
             min-width: 100px;
         }
-        
+
         .stRadio label:hover {
             background: #fff3e0;
             border-color: #ff9800;
             transform: translateY(-1px);
         }
-        
+
         .stRadio input[type="radio"]:checked + div {
             background: linear-gradient(135deg, #ff5722, #ff9800) !important;
             color: white !important;
@@ -2606,7 +2645,7 @@ def show_enhanced_ai_prediction():
         }
         </style>
         """, unsafe_allow_html=True)
-        
+
         st.markdown("""
         <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                     padding: 30px 20px; border-radius: 15px; margin-bottom: 30px; text-align: center;">
@@ -2618,7 +2657,7 @@ def show_enhanced_ai_prediction():
             </p>
         </div>
         """, unsafe_allow_html=True)
-        
+
         # Instructions
         st.markdown("""
         <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 25px; border-left: 4px solid #ff9800;">
@@ -2645,7 +2684,7 @@ def show_enhanced_ai_prediction():
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
+
         # Questions ASRS transformées en affirmations
         asrs_statements = [
             "Je remarque souvent de petits bruits que les autres ne remarquent pas.",
@@ -2669,17 +2708,17 @@ def show_enhanced_ai_prediction():
             "J'ai des difficultés à attendre mon tour dans des situations où chacun doit attendre son tour.",
             "J'interromps les autres quand ils sont occupés."
         ]
-        
+
         # Options de réponse
         response_options = ["Jamais", "Rarement", "Parfois", "Souvent", "Très souvent"]
-        
+
         # Initialisation des réponses
         if 'asrs_responses_aq10' not in st.session_state:
             st.session_state.asrs_responses_aq10 = {}
-        
+
         # Formulaire principal
         with st.form("asrs_aq10_format", clear_on_submit=False):
-            
+
             # Partie A - Questions principales (1-6)
             st.markdown("""
             <div style="background: linear-gradient(135deg, #ff5722, #ff9800); padding: 20px; border-radius: 12px; margin: 25px 0;">
@@ -2691,7 +2730,7 @@ def show_enhanced_ai_prediction():
                 </p>
             </div>
             """, unsafe_allow_html=True)
-            
+
             for i in range(6):
                 st.markdown(f"""
                 <div class="question-container">
@@ -2699,16 +2738,16 @@ def show_enhanced_ai_prediction():
                     <div class="question-text">{asrs_statements[i+2]}</div>  <!-- Commence à l'index 2 pour éviter les questions autism -->
                 </div>
                 """, unsafe_allow_html=True)
-                
-                # APRÈS (uniquement fenêtre déroulante)
-                response = st.selectbox(
-                    f"Votre réponse à la question {i+1} :",
-                    ["Jamais", "Rarement", "Parfois", "Souvent", "Très souvent"],
-                    key=f"asrs_part_a_q{i+1}"
-                )
 
+                response = st.radio(
+                    f"Question {i+1}",
+                    response_options,
+                    key=f"asrs_part_a_q{i+1}",
+                    horizontal=True,
+                    label_visibility="collapsed"
+                )
                 st.session_state.asrs_responses_aq10[f'part_a_q{i+1}'] = response
-            
+
             # Partie B - Questions complémentaires (7-18)
             st.markdown("""
             <div style="background: linear-gradient(135deg, #ff9800, #ffcc02); padding: 20px; border-radius: 12px; margin: 25px 0;">
@@ -2720,18 +2759,18 @@ def show_enhanced_ai_prediction():
                 </p>
             </div>
             """, unsafe_allow_html=True)
-            
+
             for i in range(12):
                 question_num = i + 7
                 statement_index = i + 8  # Ajustement pour les bonnes questions
-                
+
                 st.markdown(f"""
                 <div class="question-container">
                     <div class="question-number">{question_num}</div>
                     <div class="question-text">{asrs_statements[statement_index]}</div>
                 </div>
                 """, unsafe_allow_html=True)
-                
+
                 response = st.radio(
                     f"Question {question_num}",
                     response_options,
@@ -2740,7 +2779,7 @@ def show_enhanced_ai_prediction():
                     label_visibility="collapsed"
                 )
                 st.session_state.asrs_responses_aq10[f'part_b_q{question_num}'] = response
-            
+
             # Informations démographiques
             st.markdown("""
             <div style="background: linear-gradient(135deg, #ffcc02, #fff3e0); padding: 20px; border-radius: 12px; margin: 25px 0;">
@@ -2749,30 +2788,30 @@ def show_enhanced_ai_prediction():
                 </h2>
             </div>
             """, unsafe_allow_html=True)
-            
+
             col1, col2, col3 = st.columns(3)
-            
+
             with col1:
                 age = st.number_input("Âge", min_value=18, max_value=80, value=30)
                 gender = st.selectbox("Genre", ["Masculin", "Féminin", "Autre"])
-            
+
             with col2:
-                education = st.selectbox("Niveau d'éducation", 
+                education = st.selectbox("Niveau d'éducation",
                                        ["Bac", "Bac+2", "Bac+3", "Bac+5", "Doctorat"])
                 job_status = st.selectbox("Statut professionnel",
                                         ["CDI", "CDD", "Freelance", "Étudiant", "Chômeur"])
-            
+
             with col3:
                 quality_of_life = st.slider("Qualité de vie (1-10)", 1, 10, 5)
                 stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3)
-            
+
             # Bouton de soumission
             submitted = st.form_submit_button(
                 "🔬 Analyser les résultats",
                 use_container_width=True,
                 type="primary"
             )
-            
+
 
             if submitted:
                 # Calcul des scores ASRS
@@ -4661,4 +4700,5 @@ def main():
 # Point d'entrée de l'application
 if __name__ == "__main__":
     main()
+
 
