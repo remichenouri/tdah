@@ -215,55 +215,7 @@ def clean_data_robust(df):
     return df_clean
 
 def prepare_tdah_data_safe(df):
-    """Préparation sécurisée des données TDAH"""
-    import numpy as np
-    import pandas as pd
-    from sklearn.model_selection import train_test_split
-    
-    if df is None or df.empty:
-        return None, None, None, None
-    
-    # Nettoyage complet
-    df_clean = clean_data_robust(df)
-    
-    # Vérifier que 'diagnosis' existe
-    if 'diagnosis' not in df_clean.columns:
-        return None, None, None, None
-    
-    # S'assurer que diagnosis ne contient pas de NaN
-    if df_clean['diagnosis'].isnull().any():
-        mode_diagnosis = df_clean['diagnosis'].mode()
-        if len(mode_diagnosis) > 0:
-            df_clean.loc[:, 'diagnosis'] = df_clean['diagnosis'].fillna(mode_diagnosis[0])
-        else:
-            np.random.seed(42)
-            df_clean.loc[:, 'diagnosis'] = np.random.binomial(1, 0.3, len(df_clean))
-    
-    # Exclure les colonnes techniques
-    exclude_columns = ['diagnosis', 'subject_id', 'source_file', 'generation_date', 'version']
-    feature_columns = [col for col in df_clean.columns if col not in exclude_columns]
-    
-    # Sélectionner uniquement les colonnes numériques
-    numeric_features = [col for col in feature_columns 
-                       if pd.api.types.is_numeric_dtype(df_clean[col])]
-    
-    if len(numeric_features) == 0:
-        return None, None, None, None
-    
-    X = df_clean[numeric_features].copy()
-    y = df_clean['diagnosis'].copy()
-    
-    # Validation finale
-    assert not X.isnull().any().any(), "X contient encore des NaN"
-    assert not y.isnull().any(), "y contient encore des NaN"
-    
-    try:
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
-        )
-        return X_train, X_test, y_train, y_test
-    except Exception:
-        return None, None, None, None
+        return prepare_tdah_data_safe(df)
 
 
 def show_rgpd_panel():
