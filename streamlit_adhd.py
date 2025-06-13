@@ -859,7 +859,7 @@ def load_enhanced_dataset():
         import numpy as np_local
 
         # URL du dataset Google Drive
-        url = 'https://drive.google.com/file/d/1ZX5C_5gDoAvjfWlREm8OPYT_C7vI3SIU/view?usp=drive_link'
+        url = 'https://drive.google.com/file/d/15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR/view?usp=drive_link'
         file_id = url.split('/d/')[1].split('/')[0]
         download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
 
