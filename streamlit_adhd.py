@@ -446,30 +446,29 @@ def safe_calculation(func, fallback_value=0, error_message="Erreur de calcul"):
         return fallback_value
 
 def initialize_session_state():
-    """Initialise TOUTES les variables de session nécessaires"""
+    """Initialise l'état de session pour conserver les configurations entre les recharges"""
     if 'initialized' not in st.session_state:
         st.session_state.initialized = True
-        
-        # Variables de navigation
-        st.session_state.tool_choice = "🏠 Accueil"
-        st.session_state.gdpr_compliant = False
-        
-        # Variables pour les visualisations
-        st.session_state.x_var = None
-        st.session_state.y_var = None
-        st.session_state.selected_color_var = None
-        
-        # Variables pour les données
-        st.session_state.data_loaded = False
-        st.session_state.current_dataset = None
-        
-        # Variables pour les tests ASRS
-        st.session_state.asrs_responses = {}
-        st.session_state.asrs_results = None
-        
-        # Variables ML
-        st.session_state.ml_data_prepared = None
-        st.session_state.ml_results = None
+        default_tool = "🏠 Accueil"
+
+        try:
+            if "selection" in st.query_params:
+                selection = st.query_params["selection"]
+                selection_mapping = {
+                    "📝 Test ADHD-RS": "🤖 Prédiction par IA",
+                    "🤖 Prédiction par IA": "🤖 Prédiction par IA",
+                    "🔍 Exploration des Données": "🔍 Exploration des Données"
+                }
+                if selection in selection_mapping:
+                    st.session_state.tool_choice = selection_mapping[selection]
+                else:
+                    st.session_state.tool_choice = default_tool
+            else:
+                st.session_state.tool_choice = default_tool
+        except:
+            st.session_state.tool_choice = default_tool
+
+        st.session_state.data_exploration_expanded = True
 
 def set_custom_theme():
     """Définit le thème personnalisé avec palette orange pour le TDAH"""
@@ -1305,324 +1304,105 @@ if 'css_loaded' not in st.session_state:
     """, unsafe_allow_html=True)
 
 def smart_visualization(df, x_var, y_var=None, color_var=None):
-    """Visualisation automatique adaptée aux types de données - VERSION CORRIGÉE"""
-    
-    # Vérification des variables d'entrée
-    if df is None or df.empty:
-        st.error("Dataset vide ou non disponible")
-        return
-        
+    """Visualisation automatique adaptée aux types de données"""
+    # Vérification des variables
     if x_var not in df.columns:
-        st.error(f"Variable '{x_var}' non trouvée dans le dataset")
+        st.error(f"Variable '{x_var}' non trouvée")
         return
-    
+
     if y_var and y_var not in df.columns:
-        st.error(f"Variable '{y_var}' non trouvée dans le dataset")
+        st.error(f"Variable '{y_var}' non trouvée")
         return
-    
-    # Interface utilisateur pour la personnalisation
-    col1, col2 = st.columns([3, 1])
-    
-    with col2:
-        st.markdown("**🎨 Personnalisation**")
-        
-        # Sélection du schéma de couleurs
-        color_scheme = st.selectbox(
-            "Schéma de couleurs :",
-            ["TDAH Optimisé", "Contraste Maximum", "Couleurs Vives", "Accessible"],
-            key=f"viz_color_scheme_{x_var}_{y_var or 'none'}",
-            index=0
-        )
-        
-        # Options d'affichage
-        show_values = st.checkbox(
-            "Afficher les valeurs", 
-            value=True, 
-            key=f"show_values_{x_var}_{y_var or 'none'}"
-        )
-        
-        add_borders = st.checkbox(
-            "Bordures blanches", 
-            value=True, 
-            key=f"borders_{x_var}_{y_var or 'none'}"
-        )
-        
-        # Sélection du type de graphique (optionnel)
-        force_chart_type = st.selectbox(
-            "Forcer le type :",
-            ["Auto", "Histogramme", "Barres", "Nuage de points", "Boîte à moustaches"],
-            key=f"chart_type_{x_var}_{y_var or 'none'}"
-        )
-    
-    with col1:
-        try:
-            # Définition des palettes de couleurs optimisées
-            color_schemes = {
-                "TDAH Optimisé": ['#2E4057', '#048A81', '#7209B7', '#C73E1D', '#F79824', '#6A994E', '#BC6C25', '#560BAD'],
-                "Contraste Maximum": ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#800000'],
-                "Couleurs Vives": ['#FF4500', '#32CD32', '#FF1493', '#00CED1', '#FFD700', '#9932CC', '#FF6347', '#20B2AA'],
-                "Accessible": ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f']
-            }
-            
-            selected_colors = color_schemes[color_scheme]
-            
-            # Détection automatique des types de données
-            x_is_numeric = pd.api.types.is_numeric_dtype(df[x_var])
-            y_is_numeric = y_var and pd.api.types.is_numeric_dtype(df[y_var])
-            color_is_categorical = color_var and not pd.api.types.is_numeric_dtype(df[color_var])
-            
-            # Détermination du type de graphique
-            chart_type = determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type)
-            
-            # Création du graphique selon le type déterminé
-            fig = create_chart_by_type(
-                df, x_var, y_var, color_var, chart_type, 
-                selected_colors, x_is_numeric, y_is_numeric
-            )
-            
-            # Personnalisation commune du graphique
-            customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_type)
-            
-            # Affichage du graphique
-            st.plotly_chart(fig, use_container_width=True, key=f"chart_{x_var}_{y_var or 'none'}")
-            
-            # Statistiques contextuelles
-            display_contextual_stats(df, x_var, y_var, chart_type, x_is_numeric, y_is_numeric)
-            
-        except Exception as e:
-            st.error(f"Erreur lors de la création du graphique : {str(e)}")
-            st.info("Vérifiez que les variables sélectionnées contiennent des données valides")
-            st.code(f"Détails de l'erreur : {type(e).__name__}")
 
-def determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type):
-    """Détermine le type de graphique approprié"""
-    if force_chart_type != "Auto":
-        type_mapping = {
-            "Histogramme": "histogram",
-            "Barres": "bar",
-            "Nuage de points": "scatter",
-            "Boîte à moustaches": "box"
-        }
-        return type_mapping.get(force_chart_type, "histogram")
-    
-    # Logique automatique
+    # Détection des types de données
+    x_is_num = pd.api.types.is_numeric_dtype(df[x_var])
+    y_is_num = y_var and pd.api.types.is_numeric_dtype(df[y_var])
+    color_is_cat = color_var and not pd.api.types.is_numeric_dtype(df[color_var])
+
+    # Sélection du type de graphique
     if not y_var:
-        return "histogram" if x_is_numeric else "bar"
+        if x_is_num:
+            chart_type = "histogram"
+        else:
+            chart_type = "bar"
     else:
-        if x_is_numeric and y_is_numeric:
-            return "scatter"
-        elif x_is_numeric and not y_is_numeric:
-            return "box"
-        elif not x_is_numeric and y_is_numeric:
-            return "violin"
+        if x_is_num and y_is_num:
+            chart_type = "scatter"
+        elif x_is_num and not y_is_num:
+            chart_type = "box"
+        elif not x_is_num and y_is_num:
+            chart_type = "violin"
         else:
-            return "heatmap"
+            chart_type = "heatmap"
 
-def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_colors, x_is_numeric, y_is_numeric):
-    """Crée le graphique selon le type spécifié"""
-    
-    if chart_type == "histogram":
-        fig = px.histogram(
-            df, 
-            x=x_var, 
-            color=color_var,
-            nbins=min(30, df[x_var].nunique()) if x_is_numeric else None,
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var}'
-        )
-    
-    elif chart_type == "bar":
-        if x_is_numeric:
-            # Pour les variables numériques, créer des bins
-            df_temp = df.copy()
-            df_temp[f'{x_var}_bins'] = pd.cut(df_temp[x_var], bins=10)
-            chart_data = df_temp[f'{x_var}_bins'].value_counts().reset_index()
-            chart_data.columns = ['categories', 'count']
-        else:
-            # Pour les variables catégorielles
-            chart_data = df[x_var].value_counts().reset_index()
-            chart_data.columns = ['categories', 'count']
-        
-        fig = px.bar(
-            chart_data, 
-            x='categories', 
-            y='count',
-            color='categories',
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var}'
-        )
-    
-    elif chart_type == "scatter":
-        fig = px.scatter(
-            df, 
-            x=x_var, 
-            y=y_var, 
-            color=color_var,
-            trendline="lowess" if len(df) > 10 else None,
-            opacity=0.7,
-            color_discrete_sequence=selected_colors,
-            title=f'Relation entre {x_var} et {y_var}'
-        )
-    
-    elif chart_type == "box":
-        fig = px.box(
-            df, 
-            x=y_var, 
-            y=x_var, 
-            color=color_var,
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var} par {y_var}'
-        )
-    
-    elif chart_type == "violin":
-        fig = px.violin(
-            df, 
-            x=y_var, 
-            y=x_var, 
-            color=color_var,
-            box=True,
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var} par {y_var}'
-        )
-    
-    elif chart_type == "heatmap":
-        try:
+    # Création du graphique
+    try:
+        if chart_type == "histogram":
+            fig = px.histogram(
+                df, x=x_var, color=color_var,
+                nbins=30, marginal="rug",
+                color_discrete_sequence=px.colors.sequential.Oranges
+            )
+
+        elif chart_type == "bar":
+            df_counts = df[x_var].value_counts().reset_index()
+            fig = px.bar(
+                df_counts, x='index', y=x_var,
+                color='index' if color_var else None,
+                color_discrete_sequence=px.colors.sequential.Oranges
+            )
+
+        elif chart_type == "scatter":
+            fig = px.scatter(
+                df, x=x_var, y=y_var, color=color_var,
+                trendline="lowess", opacity=0.7,
+                color_continuous_scale=px.colors.sequential.Oranges
+            )
+
+        elif chart_type == "box":
+            fig = px.box(
+                df, x=x_var, y=y_var, color=color_var,
+                color_discrete_sequence=px.colors.sequential.Oranges
+            )
+
+        elif chart_type == "violin":
+            fig = px.violin(
+                df, x=x_var, y=y_var, color=color_var,
+                box=True, points="all",
+                color_discrete_sequence=px.colors.sequential.Oranges
+            )
+
+        elif chart_type == "heatmap":
             crosstab = pd.crosstab(df[x_var], df[y_var])
             fig = px.imshow(
                 crosstab,
-                color_continuous_scale='Oranges',
-                labels=dict(x=y_var, y=x_var, color="Fréquence"),
-                title=f'Heatmap : {x_var} vs {y_var}'
+                color_continuous_scale=px.colors.sequential.Oranges,
+                labels=dict(x=x_var, y=y_var, color="Count")
             )
-        except Exception:
-            # Fallback vers un graphique en barres
-            chart_data = df.groupby([x_var, y_var]).size().reset_index(name='count')
-            fig = px.bar(
-                chart_data, 
-                x=x_var, 
-                y='count', 
-                color=y_var,
-                color_discrete_sequence=selected_colors,
-                title=f'Relation entre {x_var} et {y_var}'
-            )
-    
-    else:
-        # Graphique par défaut
-        fig = px.histogram(
-            df, 
-            x=x_var,
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var}'
-        )
-    
-    return fig
 
-def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_type):
-    """Personnalise la mise en page du graphique"""
-    
-    # Personnalisation des traces
-    fig.update_traces(
-        marker=dict(
-            line=dict(
-                color='white' if add_borders else 'rgba(0,0,0,0)', 
-                width=2 if add_borders else 0
-            ),
-            opacity=0.85
-        ),
-        textposition='outside' if show_values and chart_type in ['bar', 'histogram'] else 'none',
-        textfont=dict(size=11, color='black', family='Arial')
-    )
-    
-    # Layout général
-    fig.update_layout(
-        template="plotly_white",
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font=dict(color='black', size=11, family='Arial'),
-        showlegend=True if y_var or chart_type in ['scatter', 'box', 'violin'] else False,
-        title=dict(
-            font=dict(size=16, color='#2E4057', family='Arial Bold'),
-            x=0.5,
-            pad=dict(t=20)
-        ),
-        margin=dict(l=50, r=50, t=70, b=50),
-        height=450,
-        hovermode="closest" if chart_type == "scatter" else "x unified"
-    )
-    
-    # Personnalisation des axes
-    fig.update_xaxis(
-        title=dict(
-            text=x_var,
-            font=dict(size=13, family='Arial Bold', color='#2E4057')
-        ),
-        tickfont=dict(size=11, color='black'),
-        gridcolor='lightgray',
-        gridwidth=0.5
-    )
-    
-    if y_var:
-        fig.update_yaxis(
-            title=dict(
-                text=y_var,
-                font=dict(size=13, family='Arial Bold', color='#2E4057')
-            ),
-            tickfont=dict(size=11, color='black'),
-            gridcolor='lightgray',
-            gridwidth=0.5
+        # Paramètres communs
+        fig.update_layout(
+            template="plotly_white",
+            hovermode="x unified",
+            height=500,
+            margin=dict(l=20, r=20, t=40, b=20),
+            font=dict(family="Arial", size=12)
         )
 
-def display_contextual_stats(df, x_var, y_var, chart_type, x_is_numeric, y_is_numeric):
-    """Affiche les statistiques contextuelles selon le type de graphique"""
-    
-    with st.expander("📊 Statistiques et informations"):
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown(f"**Variable X : {x_var}**")
-            if x_is_numeric:
-                stats_x = df[x_var].describe()
-                st.write(f"Moyenne : {stats_x['mean']:.2f}")
-                st.write(f"Médiane : {stats_x['50%']:.2f}")
-                st.write(f"Écart-type : {stats_x['std']:.2f}")
-            else:
-                st.write(f"Valeurs uniques : {df[x_var].nunique()}")
-                st.write(f"Valeur la plus fréquente : {df[x_var].mode().iloc[0] if not df[x_var].mode().empty else 'N/A'}")
-            
-            st.write(f"Valeurs manquantes : {df[x_var].isnull().sum()}")
-        
-        if y_var:
-            with col2:
-                st.markdown(f"**Variable Y : {y_var}**")
-                if y_is_numeric:
-                    stats_y = df[y_var].describe()
-                    st.write(f"Moyenne : {stats_y['mean']:.2f}")
-                    st.write(f"Médiane : {stats_y['50%']:.2f}")
-                    st.write(f"Écart-type : {stats_y['std']:.2f}")
-                else:
-                    st.write(f"Valeurs uniques : {df[y_var].nunique()}")
-                    st.write(f"Valeur la plus fréquente : {df[y_var].mode().iloc[0] if not df[y_var].mode().empty else 'N/A'}")
-                
-                st.write(f"Valeurs manquantes : {df[y_var].isnull().sum()}")
-                
-                # Corrélation pour variables numériques
-                if x_is_numeric and y_is_numeric:
-                    try:
-                        correlation = df[[x_var, y_var]].corr().iloc[0, 1]
-                        st.markdown(f"**Corrélation de Pearson : {correlation:.3f}**")
-                        
-                        # Interprétation de la corrélation
-                        if abs(correlation) > 0.7:
-                            interpretation = "forte"
-                        elif abs(correlation) > 0.3:
-                            interpretation = "modérée"
-                        else:
-                            interpretation = "faible"
-                        
-                        direction = "positive" if correlation > 0 else "négative"
-                        st.write(f"Corrélation {interpretation} {direction}")
-                    except Exception:
-                        st.write("Corrélation non calculable")
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Statistiques contextuelles
+        with st.expander("📊 Statistiques associées"):
+            if chart_type in ["scatter", "heatmap"] and x_is_num and y_is_num:
+                corr = df[[x_var, y_var]].corr().iloc[0,1]
+                st.write(f"Corrélation de Pearson : {corr:.3f}")
+
+            elif chart_type in ["histogram", "box", "violin"] and x_is_num:
+                stats = df[x_var].describe()
+                st.write(stats)
+
+    except Exception as e:
+        st.error(f"Erreur de visualisation : {str(e)}")
 
 def show_enhanced_data_exploration():
     """Exploration enrichie des données TDAH avec analyses statistiques avancées"""
@@ -2003,67 +1783,26 @@ def show_enhanced_data_exploration():
                     )
                     st.plotly_chart(fig_pca, use_container_width=True)
 
-        with tabs[4]:  # Onglet Visualisations interactives
-            st.subheader("🎯 Visualisations interactives")
-            
-            # Vérification du dataset
-            if df is None or len(df) == 0:
-                st.error("Aucune donnée disponible pour la visualisation")
-                st.stop()
-            
-            # Sélection des variables disponibles
-            numeric_vars = df.select_dtypes(include=['int64', 'float64', 'int32', 'float32']).columns.tolist()
-            categorical_vars = df.select_dtypes(include=['object', 'category', 'bool']).columns.tolist()
-            all_vars = numeric_vars + categorical_vars
-            
-            if not all_vars:
-                st.warning("Aucune variable disponible pour la visualisation")
-                st.stop()
-            
-            # Interface de sélection des variables
-            st.markdown("### 📊 Sélection des variables")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                x_var = st.selectbox(
-                    "Variable X (obligatoire) :", 
-                    options=all_vars,
-                    key="viz_x_var_main"
+    with tabs[4]:
+        st.subheader("🎯 Visualisations interactives")
+
+        # Analyse par sous-groupes
+        st.markdown("### 🔍 Analyse par sous-groupes")
+
+        categorical_vars = df.select_dtypes(include=['object']).columns.tolist()
+        if categorical_vars:
+            grouping_var = st.selectbox("Grouper par :", categorical_vars)
+
+            if grouping_var and x_var:
+                fig_group = px.box(
+                    df,
+                    x=grouping_var,
+                    y=x_var,
+                    color='diagnosis' if 'diagnosis' in df.columns else None,
+                    title=f'Distribution de {x_var} par {grouping_var}',
+                    color_discrete_map={0: '#ff9800', 1: '#ff5722'} if 'diagnosis' in df.columns else None
                 )
-            
-            with col2:
-                y_var = st.selectbox(
-                    "Variable Y (optionnel) :", 
-                    options=["Aucune"] + all_vars,
-                    key="viz_y_var_main"
-                )
-                y_var = None if y_var == "Aucune" else y_var
-            
-            with col3:
-                color_var = st.selectbox(
-                    "Variable couleur (optionnel) :", 
-                    options=["Aucune"] + categorical_vars,
-                    key="viz_color_var_main"
-                )
-                color_var = None if color_var == "Aucune" else color_var
-            
-            # Affichage des informations sur les variables sélectionnées
-            if x_var:
-                var_type_x = "Numérique" if x_var in numeric_vars else "Catégorielle"
-                unique_values_x = df[x_var].nunique()
-                missing_values_x = df[x_var].isnull().sum()
-                
-                info_cols = st.columns(3)
-                with info_cols[0]:
-                    st.metric("Type de variable X", var_type_x)
-                with info_cols[1]:
-                    st.metric("Valeurs uniques", unique_values_x)
-                with info_cols[2]:
-                    st.metric("Valeurs manquantes", missing_values_x)
-                
-                # Appel de la fonction de visualisation corrigée
-                smart_visualization(df, x_var, y_var, color_var)
+                st.plotly_chart(fig_group, use_container_width=True)
 
     with tabs[5]:
         st.subheader("📋 Dataset complet")
@@ -4920,9 +4659,6 @@ def show_about():
 
 def main():
     """Fonction principale de l'application"""
-    if not st.session_state.get('gdpr_compliant', False):
-        # Affichage du formulaire GDPR
-        show_gdpr_consent_form()
     try:
         # Configuration initiale
         initialize_session_state()
@@ -4964,5 +4700,6 @@ def main():
 # Point d'entrée de l'application
 if __name__ == "__main__":
     main()
+
 
 
