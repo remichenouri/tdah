@@ -2317,69 +2317,24 @@ if 'ml_libs_loaded' not in st.session_state:
 def prepare_ml_data_safe(df):
     """Préparation des données ML avec validation complète des NaN"""
     try:
-        # Vérifications préliminaires
-        if df is None or len(df) == 0:
-            st.error("❌ Dataset vide ou non disponible")
-            return None, None, None, None
-
-        if 'diagnosis' not in df.columns:
-            st.error("❌ Colonne 'diagnosis' manquante")
-            return None, None, None, None
-
         # VALIDATION CRITIQUE : Vérification NaN dans la variable cible
         if df['diagnosis'].isnull().any():
             st.error("❌ ERREUR CRITIQUE : La variable 'diagnosis' contient des NaN")
-            st.error("Le dataset doit être nettoyé avant l'entraînement ML")
             return None, None, None, None
 
-        # Préparation des features (exclusion des colonnes non-ML)
-        exclude_columns = ['diagnosis', 'subject_id', 'source_file', 'generation_date', 'version', 'streamlit_ready']
-        feature_columns = [col for col in df.columns if col not in exclude_columns]
-        
-        # Sélection des variables numériques uniquement
-        numeric_features = []
-        for col in feature_columns:
-            if pd.api.types.is_numeric_dtype(df[col]):
-                numeric_features.append(col)
-
-        if len(numeric_features) == 0:
-            st.error("❌ Aucune variable numérique trouvée pour l'entraînement")
-            return None, None, None, None
-
-        # Préparation des données finales
+        # Préparation sécurisée des données
         X = df[numeric_features].copy()
         y = df['diagnosis'].copy()
 
         # VALIDATION FINALE : Aucun NaN ne doit subsister
         if X.isnull().any().any():
-            st.warning("⚠️ NaN détectés dans X, nettoyage automatique")
-            X = X.fillna(X.median())  # Remplacement par médiane
-            X = X.fillna(0)  # Fallback si médiane impossible
+            X = X.fillna(X.median()).fillna(0)
 
-        if y.isnull().any():
-            st.error("❌ NaN encore présents dans y après nettoyage")
-            return None, None, None, None
-
-        # Division train/test avec stratification sécurisée
-        unique_labels = y.nunique()
-        if unique_labels < 2:
-            st.error("❌ Pas assez de classes uniques pour la stratification")
-            return None, None, None, None
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y,
-            test_size=0.2,
-            random_state=42,
-            stratify=y  # Stratification maintenant sûre
-        )
-
-        st.success(f"✅ Données ML préparées : {len(X_train)} train, {len(X_test)} test")
         return X_train, X_test, y_train, y_test
 
     except Exception as e:
         st.error(f"❌ Erreur dans prepare_ml_data_safe : {str(e)}")
         return None, None, None, None
-
 
 def train_simple_models_safe(X_train, X_test, y_train, y_test):
     """Entraînement de modèles ML avec validation des NaN"""
