@@ -2326,6 +2326,8 @@ def prepare_ml_data_safe(df):
 def train_simple_models_safe(X_train, X_test, y_train, y_test):
     """Entraînement de modèles ML avec validation des NaN"""
     try:
+        validate_ml_data(X_train, y_train)
+        validate_ml_data(X_test, y_test)
         import numpy as np_train
         
         # VALIDATION PRÉALABLE DES NaN
