@@ -3,8 +3,7 @@
 # 1. IMPORTS STREAMLIT EN PREMIER
 import streamlit as st
 
-# Configuration de la page IMMÉDIATEMENT
-# Configuration de la page IMMÉDIATEMENT
+# 2. CONFIGURATION DE LA PAGE IMMÉDIATEMENT APRÈS
 st.set_page_config(
     page_title="Dépistage TDAH",
     page_icon="🧠",
@@ -12,63 +11,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialisation des variables de session AVANT la vérification RGPD
-def initialize_basic_session_state():
-    """Initialise les variables de session de base"""
-    if 'initialized' not in st.session_state:
-        st.session_state.initialized = True
-        st.session_state.tool_choice = "🏠 Accueil"
-        st.session_state.gdpr_compliant = False
-        st.session_state.x_var = None
-        st.session_state.y_var = None
-
-# Définir TOUTES les fonctions d'abord
-def main():
-    """Fonction principale de l'application après consentement"""
-    try:
-        # Configuration du thème
-        set_custom_theme()
-        
-        # Menu de navigation
-        with st.sidebar:
-            tool_choice = show_navigation_menu()
-        
-        # Navigation vers les pages
-        if tool_choice == "🏠 Accueil":
-            show_home_page()
-        elif tool_choice == "🔍 Exploration":
-            show_enhanced_data_exploration()
-        # ... autres pages
-        
-    except Exception as e:
-        st.error(f"Erreur dans l'application : {str(e)}")
-
-# Appel immédiat de l'initialisation
-initialize_basic_session_state()
-
-# Gestion du consentement SANS appel à main_application()
-# Gestion du consentement sans blocage permanent
-if not st.session_state.get('gdpr_compliant', False):
-    st.markdown("""
-    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
-                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
-        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;">
-            🔒 Consentement RGPD Requis
-        </h1>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if st.button("✅ J'accepte le traitement de mes données", type="primary"):
-        st.session_state.gdpr_compliant = True
-        st.rerun()  # Utiliser st.rerun() au lieu de st.experimental_rerun()
-    
-    st.info("Le consentement est requis pour utiliser l'application de dépistage TDAH")
-    st.stop()  # Arrêt propre APRÈS affichage du formulaire
-
-else:
-    # L'application principale se lance SEULEMENT après consentement
-    main()
-    
 import streamlit as st
 import uuid
 import hashlib
@@ -125,20 +67,10 @@ class GDPRConsentManager:
             st.warning("⚠️ Le consentement est requis pour utiliser l'outil de dépistage")
             return False
 
-if 'x_var' not in st.session_state:
-    st.session_state.x_var = None
-
-if 'y_var' not in st.session_state:
-    st.session_state.y_var = None
-
-# Utilisation dans la fonction
-def smart_visualization_safe(df):
-    x_var = st.session_state.get('x_var', None)
-    y_var = st.session_state.get('y_var', None)
-    
-    if x_var is None:
-        st.warning("Veuillez sélectionner une variable X")
-        return
+if 'gdpr_compliant' not in st.session_state or not st.session_state.gdpr_compliant:
+    st.session_state.tool_choice = "🔒 RGPD & Droits"
+    GDPRConsentManager.show_consent_form()
+    st.stop()
 
 # 3. IMPORTS DES AUTRES BIBLIOTHÈQUES APRÈS
 import os
