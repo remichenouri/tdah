@@ -2523,51 +2523,36 @@ def show_enhanced_ml_analysis():
     # Thème visuel TDAH (orange)
     st.markdown("""
     <style>
-        .preprocessing-header {
-            background: linear-gradient(90deg, #FF5722, #FF9800);
-            padding: 30px 20px;
-            border-radius: 15px;
-            margin-bottom: 25px;
-            text-align: center;
-        }
-        .info-card-modern {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin: 15px 0;
-            box-shadow: 0 4px 15px rgba(255,87,34,0.08);
-            border-left: 4px solid #FF5722;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .info-card-modern:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(255,87,34,0.15);
-        }
-        .metric-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        }
-        .metric-card {
-            background: #FFF3E0;
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            border: 1px solid #FFCCBC;
-        }
-        .stApp { background-color: #FFF8F5 !important; }
-        .stButton > button {
-            background: linear-gradient(135deg, #FF5722, #FF9800) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 8px !important;
-            transition: all 0.3s ease !important;
-        }
-        .stButton > button:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 4px 12px rgba(255,87,34,0.3) !important;
-        }
+    /* Fond général de l'application */
+    .stApp { background-color: #FFF8F5 !important; }
+
+    /* Boutons personnalisés avec couleurs orange TDAH */
+    .stButton > button {
+        background: linear-gradient(135deg, #FF5722, #FF9800) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        transition: all 0.3s ease !important;
+    }
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255,87,34,0.3);
+    }
+
+    /* Style des cartes d'information modernes */
+    .info-card-modern {
+        background: #FFFFFF;
+        border-radius: 15px;
+        padding: 25px;
+        margin: 15px 0;
+        box-shadow: 0 4px 15px rgba(255,87,34,0.08);
+        border-left: 4px solid #FF5722;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .info-card-modern:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(255,87,34,0.15);
+    }
     </style>
     """, unsafe_allow_html=True)
 
