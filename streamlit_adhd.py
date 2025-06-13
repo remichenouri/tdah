@@ -1394,20 +1394,20 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
             st.code(f"Détails de l'erreur : {type(e).__name__}")
             
     def determine_chart_type_auto(x_is_numeric, y_is_numeric, y_var):
-    """Détermine automatiquement le type de graphique approprié"""
-    
-    # Logique automatique uniquement
-    if not y_var:
-        return "histogram" if x_is_numeric else "bar"
-    else:
-        if x_is_numeric and y_is_numeric:
-            return "scatter"
-        elif x_is_numeric and not y_is_numeric:
-            return "box"
-        elif not x_is_numeric and y_is_numeric:
-            return "violin"
+        """Détermine automatiquement le type de graphique approprié"""
+        
+        # Logique automatique uniquement
+        if not y_var:
+            return "histogram" if x_is_numeric else "bar"
         else:
-            return "heatmap"
+            if x_is_numeric and y_is_numeric:
+                return "scatter"
+            elif x_is_numeric and not y_is_numeric:
+                return "box"
+            elif not x_is_numeric and y_is_numeric:
+                return "violin"
+            else:
+                return "heatmap"
 
 def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_colors, x_is_numeric, y_is_numeric):
     """Crée le graphique selon le type spécifié"""
