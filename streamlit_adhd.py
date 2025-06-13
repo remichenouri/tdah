@@ -1996,7 +1996,22 @@ def show_enhanced_data_exploration():
 
         with tabs[4]:  # Onglet Visualisations interactives
             st.subheader("🎯 Visualisations interactives")
-        
+            
+            # Vérification du dataset
+            if df is None or len(df) == 0:
+                st.error("Aucune donnée disponible pour la visualisation")
+                return
+            
+            # Sélection des variables disponibles
+            numeric_vars = df.select_dtypes(include=['int64', 'float64', 'int32', 'float32']).columns.tolist()
+            categorical_vars = df.select_dtypes(include=['object', 'category', 'bool']).columns.tolist()
+            all_vars = numeric_vars + categorical_vars
+            
+            if not all_vars:
+                st.warning("Aucune variable disponible pour la visualisation")
+                return
+            
+            # Interface de sélection des variables COMPLÈTE
             col1, col2, col3 = st.columns(3)
             
             with col1:
@@ -2005,6 +2020,22 @@ def show_enhanced_data_exploration():
                     options=all_vars,
                     key="viz_x_var_main"
                 )
+            
+            with col2:
+                y_var = st.selectbox(
+                    "Variable Y (optionnel) :", 
+                    options=["Aucune"] + all_vars,
+                    key="viz_y_var_main"
+                )
+                y_var = None if y_var == "Aucune" else y_var
+            
+            with col3:
+                color_var = st.selectbox(
+                    "Variable couleur (optionnel) :", 
+                    options=["Aucune"] + categorical_vars,
+                    key="viz_color_var_main"
+                )
+                color_var = None if color_var == "Aucune" else color_var
             
             # Affichage des informations sur les variables sélectionnées
             if x_var:
@@ -2020,7 +2051,7 @@ def show_enhanced_data_exploration():
                 with info_cols[2]:
                     st.metric("Valeurs manquantes", missing_values_x)
                 
-                # Appel de la fonction de visualisation corrigée
+                # Appel de la fonction de visualisation corrigée avec TOUTES les variables définies
                 smart_visualization(df, x_var, y_var, color_var)
 
 
