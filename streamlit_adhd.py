@@ -1500,13 +1500,29 @@ def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_ty
         )
         
 def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=None):
-    """Visualisation automatique avec gestion d'erreur renforcée"""
+    """Visualisation automatique avec exclusion complète des variables techniques"""
     
     # Variables à exclure systématiquement des graphiques
     excluded_vars = ['source_file', 'generation_date', 'version', 'streamlit_ready', 'subject_id']
     
-    # Filtrer le DataFrame pour la visualisation
+    # Filtrer le DataFrame pour la visualisation AVANT toute opération
     df_viz = df.loc[:, ~df.columns.isin(excluded_vars)]
+    
+    # Vérification que les variables sélectionnées ne sont pas dans la liste d'exclusion
+    if x_var in excluded_vars:
+        st.error(f"❌ Variable '{x_var}' est exclue des visualisations")
+        st.info("💡 Cette variable technique ne peut pas être utilisée pour les graphiques")
+        return
+    
+    if y_var and y_var in excluded_vars:
+        st.error(f"❌ Variable '{y_var}' est exclue des visualisations")
+        st.info("💡 Cette variable technique ne peut pas être utilisée pour les graphiques")
+        return
+        
+    if color_var and color_var in excluded_vars:
+        st.error(f"❌ Variable '{color_var}' est exclue des visualisations")
+        st.info("💡 Cette variable technique ne peut pas être utilisée pour les graphiques")
+        return
     
     # Validations préalables sur le DataFrame filtré
     if df_viz is None or df_viz.empty:
@@ -1515,8 +1531,14 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
     if x_var not in df_viz.columns:
         st.error(f"Variable '{x_var}' non trouvée dans le dataset filtré")
         return
+    if y_var and y_var not in df_viz.columns:
+        st.error(f"Variable '{y_var}' non trouvée dans le dataset filtré")
+        return
+    if color_var and color_var not in df_viz.columns:
+        st.error(f"Variable '{color_var}' non trouvée dans le dataset filtré")
+        return
 
-    # Détection automatique des types de données
+    # Détection automatique des types de données sur le DataFrame filtré
     x_is_numeric = pd.api.types.is_numeric_dtype(df_viz[x_var])
     y_is_numeric = y_var and pd.api.types.is_numeric_dtype(df_viz[y_var])
     
@@ -1578,7 +1600,7 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
             # Affichage du graphique
             st.plotly_chart(fig, use_container_width=True, key=f"chart_{x_var}_{y_var or 'none'}")
             
-            # Statistiques contextuelles
+            # Statistiques contextuelles sur le DataFrame filtré
             display_contextual_stats(df_viz, x_var, y_var, chart_type, x_is_numeric, y_is_numeric)
             
         except Exception as e:
@@ -1587,6 +1609,7 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
             st.write("• Vérifiez que les variables sélectionnées contiennent des données valides")
             st.write("• Assurez-vous que le dataset n'est pas vide")
             st.write("• Essayez avec d'autres variables")
+
 
 def display_contextual_stats(df, x_var, y_var, chart_type, x_is_numeric, y_is_numeric):
     """Affiche les statistiques contextuelles selon le type de graphique"""
@@ -2022,31 +2045,33 @@ def show_enhanced_data_exploration():
 
         with tabs[4]:  # Onglet Visualisations interactives
             st.subheader("🎯 Visualisations interactives")
-            
+
             # Vérification du dataset
             if df is None or len(df) == 0:
                 st.error("Aucune donnée disponible pour la visualisation")
                 return
             
-            # Sélection des variables disponibles
-            numeric_vars = df.select_dtypes(include=['int64', 'float64', 'int32', 'float32']).columns.tolist()
-            categorical_vars = df.select_dtypes(include=['object', 'category', 'bool']).columns.tolist()
-            all_vars = numeric_vars + categorical_vars
+            # Variables à exclure de l'interface utilisateur
+            excluded_from_ui = ['source_file', 'generation_date', 'version', 'streamlit_ready', 'subject_id']
             
-            if not all_vars:
-                st.warning("Aucune variable disponible pour la visualisation")
+            # Sélection des variables disponibles APRÈS exclusion
+            available_columns = [col for col in df.columns if col not in excluded_from_ui]
+            numeric_vars = [col for col in df.select_dtypes(include=['int64', 'float64', 'int32', 'float32']).columns 
+                            if col not in excluded_from_ui]
+            categorical_vars = [col for col in df.select_dtypes(include=['object', 'category', 'bool']).columns 
+                                if col not in excluded_from_ui]
+            
+            if not available_columns:
+                st.warning("Aucune variable disponible pour la visualisation après exclusion")
                 return
             
-            # Interface de sélection UNIQUEMENT pour la variable X
+            # Interface de sélection avec variables filtrées
             x_var = st.selectbox(
                 "Variable X (obligatoire) :", 
-                options=all_vars,
-                key="viz_x_var_main"
+                options=available_columns,
+                key="viz_x_var_main",
+                help="Variables techniques exclues automatiquement"
             )
-            
-            # SUPPRESSION : Variables Y et couleur ne sont plus proposées
-            y_var = None  # Toujours None
-            color_var = None  # Toujours None
             
             # Affichage des informations sur la variable sélectionnée
             if x_var:
@@ -2062,8 +2087,8 @@ def show_enhanced_data_exploration():
                 with info_cols[2]:
                     st.metric("Valeurs manquantes", missing_values_x)
                 
-                # Appel de la fonction de visualisation avec Y et couleur à None
-                smart_visualization(df, x_var, y_var, color_var)
+                # Appel de la fonction de visualisation
+                smart_visualization(df, x_var, None, None)
 
 
     with tabs[5]:
