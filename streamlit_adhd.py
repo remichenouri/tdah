@@ -69,7 +69,7 @@ class GDPRConsentManager:
 
 if 'gdpr_compliant' not in st.session_state or not st.session_state.gdpr_compliant:
     st.session_state.tool_choice = "🔒 RGPD & Droits"
-    GDPRConsentManager.show_consent_form()
+    show_rgpd_panel
     st.stop()
 
 # 3. IMPORTS DES AUTRES BIBLIOTHÈQUES APRÈS
