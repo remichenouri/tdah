@@ -2471,7 +2471,6 @@ def show_enhanced_ml_analysis():
         "🔬 Préparation données",
         "🤖 Entraînement modèles",
         "📊 Évaluation performance",
-        "🎯 Prédictions",
         "📈 Métriques avancées",
         "💡 Recommandations"
     ])
@@ -2662,45 +2661,6 @@ def show_enhanced_ml_analysis():
             st.warning("Veuillez d'abord entraîner les modèles dans l'onglet précédent.")
 
     with ml_tabs[3]:
-        st.subheader("🎯 Interface de Prédiction")
-
-        st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <h4 style="color: #ef6c00;">🔮 Prédiction TDAH</h4>
-            <p style="color: #f57c00;">
-                Utilisez le modèle entraîné pour prédire la probabilité de TDAH
-                sur de nouvelles données ou le test ASRS complété.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if hasattr(st.session_state, 'asrs_results'):
-            st.markdown("### 📝 Prédiction basée sur votre test ASRS")
-
-            results = st.session_state.asrs_results
-
-            # Simulation de prédiction basée sur les scores ASRS
-            total_score = results['scores']['total']
-            part_a_score = results['scores']['part_a']
-
-            # Calcul probabilité (simulation réaliste)
-            probability = min(0.95, (part_a_score / 24) * 0.6 + (total_score / 72) * 0.4)
-
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                st.metric("Probabilité TDAH", f"{probability:.1%}")
-            with col2:
-                confidence = "Élevée" if probability > 0.7 or probability < 0.3 else "Modérée"
-                st.metric("Confiance", confidence)
-            with col3:
-                risk_level = "Élevé" if probability > 0.6 else "Modéré" if probability > 0.4 else "Faible"
-                st.metric("Niveau de risque", risk_level)
-
-        else:
-            st.info("Complétez d'abord le test ASRS dans l'onglet 'Prédiction par IA' pour voir une prédiction personnalisée.")
-
-    with ml_tabs[4]:
         st.subheader("📈 Métriques Avancées")
 
         if hasattr(st.session_state, 'ml_results'):
@@ -2733,7 +2693,7 @@ def show_enhanced_ml_analysis():
         else:
             st.warning("Entraînez d'abord les modèles pour voir les métriques détaillées.")
 
-    with ml_tabs[5]:
+    with ml_tabs[4]:
         st.subheader("💡 Recommandations et Conclusions")
 
         st.markdown("""
