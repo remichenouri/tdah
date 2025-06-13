@@ -1996,8 +1996,7 @@ def show_enhanced_data_exploration():
 
         with tabs[4]:  # Onglet Visualisations interactives
             st.subheader("🎯 Visualisations interactives")
-            
-            # Interface de sélection des variables (inchangée)
+        
             col1, col2, col3 = st.columns(3)
             
             with col1:
@@ -2007,54 +2006,22 @@ def show_enhanced_data_exploration():
                     key="viz_x_var_main"
                 )
             
-            with col2:
-                y_var = st.selectbox(
-                    "Variable Y (optionnel) :", 
-                    options=["Aucune"] + all_vars,
-                    key="viz_y_var_main"
-                )
-                y_var = None if y_var == "Aucune" else y_var
-            
-            with col3:
-                color_var = st.selectbox(
-                    "Variable couleur (optionnel) :", 
-                    options=["Aucune"] + categorical_vars,
-                    key="viz_color_var_main"
-                )
-                color_var = None if color_var == "Aucune" else color_var
-            
-            # Appel de la fonction simplifiée
+            # Affichage des informations sur les variables sélectionnées
             if x_var:
+                var_type_x = "Numérique" if x_var in numeric_vars else "Catégorielle"
+                unique_values_x = df[x_var].nunique()
+                missing_values_x = df[x_var].isnull().sum()
+                
+                info_cols = st.columns(3)
+                with info_cols[0]:
+                    st.metric("Type de variable X", var_type_x)
+                with info_cols[1]:
+                    st.metric("Valeurs uniques", unique_values_x)
+                with info_cols[2]:
+                    st.metric("Valeurs manquantes", missing_values_x)
+                
+                # Appel de la fonction de visualisation corrigée
                 smart_visualization(df, x_var, y_var, color_var)
-        
-        # Interface de sélection des variables
-        st.markdown("### 📊 Sélection des variables")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            x_var = st.selectbox(
-                "Variable X (obligatoire) :", 
-                options=all_vars,
-                key="viz_x_var_main"
-            )
-        
-        # Affichage des informations sur les variables sélectionnées
-        if x_var:
-            var_type_x = "Numérique" if x_var in numeric_vars else "Catégorielle"
-            unique_values_x = df[x_var].nunique()
-            missing_values_x = df[x_var].isnull().sum()
-            
-            info_cols = st.columns(3)
-            with info_cols[0]:
-                st.metric("Type de variable X", var_type_x)
-            with info_cols[1]:
-                st.metric("Valeurs uniques", unique_values_x)
-            with info_cols[2]:
-                st.metric("Valeurs manquantes", missing_values_x)
-            
-            # Appel de la fonction de visualisation corrigée
-            smart_visualization(df, x_var, y_var, color_var)
 
 
     with tabs[5]:
