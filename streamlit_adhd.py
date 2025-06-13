@@ -190,6 +190,25 @@ def initialize_variables():
     if 'df' not in st.session_state:
         st.session_state.df = None
 
+# Remplacement du code d'import problématique
+def safe_import_ml_libraries():
+    """Import sécurisé des bibliothèques ML"""
+    try:
+        import numpy as np
+        import pandas as pd
+        from sklearn.model_selection import train_test_split
+        from sklearn.ensemble import RandomForestClassifier
+        
+        # Stockage dans session_state pour accès global
+        st.session_state.np = np
+        st.session_state.pd = pd
+        st.session_state.train_test_split = train_test_split
+        st.session_state.RandomForestClassifier = RandomForestClassifier
+        
+        return True
+    except ImportError as e:
+        st.error(f"Erreur d'import : {e}")
+        return False
 
 def clean_data_robust(df):
     """Nettoyage robuste des données pour éliminer NaN et valeurs infinies"""
