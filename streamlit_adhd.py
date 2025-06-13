@@ -1373,7 +1373,7 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
             color_is_categorical = color_var and not pd.api.types.is_numeric_dtype(df[color_var])
             
             # Détermination du type de graphique
-            chart_type = determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type)
+            chart_type = determine_chart_type(x_is_numeric, y_is_numeric, y_var)
             
             # Création du graphique selon le type déterminé
             fig = create_chart_by_type(
