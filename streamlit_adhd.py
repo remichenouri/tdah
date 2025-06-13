@@ -2667,6 +2667,27 @@ def show_enhanced_ml_analysis():
         st.set_option('deprecation.showPyplotGlobalUse', False)
     except Exception:
         pass
+        
+    """Version corrigée de l'analyse ML"""
+    # Initialisation des variables
+    initialize_variables()
+    
+    # Import sécurisé
+    if not safe_import_ml_libraries():
+        st.error("Impossible de charger les bibliothèques ML")
+        return
+    
+    # Vérification des données
+    if all(var is None for var in [st.session_state.X_train, st.session_state.X_test, 
+                                   st.session_state.y_train, st.session_state.y_test]):
+        X_train, X_test, y_train, y_test = load_and_prepare_tdah_data()
+        if X_train is None:
+            return
+    else:
+        X_train = st.session_state.X_train
+        X_test = st.session_state.X_test
+        y_train = st.session_state.y_train
+        y_test = st.session_state.y_test
 
     # Thème visuel TDAH (orange)
     st.markdown("""
