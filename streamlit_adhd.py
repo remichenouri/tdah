@@ -5685,11 +5685,16 @@ def show_about():
     """)
 
 def main():
-    """Fonction principale de l'application"""
+    """Fonction principale corrigée"""
     try:
         # Configuration initiale
         initialize_session_state()
+        initialize_variables()
         set_custom_theme()
+        
+        # Import des bibliothèques
+        if not safe_import_ml_libraries():
+            st.warning("⚠️ Certaines fonctionnalités ML ne seront pas disponibles")
 
         # Menu de navigation dans la sidebar
         with st.sidebar:
