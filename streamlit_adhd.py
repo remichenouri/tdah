@@ -2690,36 +2690,36 @@ def show_enhanced_ml_analysis():
             return {'status': 'error', 'message': str(e)}
 
     def safe_diagnosis_mapping(df):
-    """Mapping sécurisé de la colonne diagnosis"""
-    if 'diagnosis' not in df.columns:
-        st.error("❌ Colonne 'diagnosis' manquante")
-        return None, None
-    
-    # Vérifier les valeurs uniques dans la colonne
-    unique_values = df['diagnosis'].unique()
-    st.info(f"Valeurs uniques trouvées dans 'diagnosis': {unique_values}")
-    
-    # Mapping flexible qui gère différents formats
-    diagnosis_mapping = {
-        'TDAH': 1, 'tdah': 1, 'ADHD': 1, 'adhd': 1,
-        'Normal': 0, 'normal': 0, 'Control': 0, 'control': 0,
-        1: 1, 0: 0,  # Si déjà en format numérique
-        '1': 1, '0': 0  # Si en format string numérique
-    }
-    
-    # Application du mapping avec gestion des valeurs manquantes
-    y = df['diagnosis'].map(diagnosis_mapping)
-    
-    # Gérer les valeurs non mappées (NaN)
-    if y.isnull().any():
-        unmapped_values = df.loc[y.isnull(), 'diagnosis'].unique()
-        st.warning(f"⚠️ Valeurs non mappées trouvées: {unmapped_values}")
+        """Mapping sécurisé de la colonne diagnosis"""
+        if 'diagnosis' not in df.columns:
+            st.error("❌ Colonne 'diagnosis' manquante")
+            return None, None
         
-        # Supprimer les lignes avec valeurs non mappées
-        valid_indices = ~y.isnull()
-        return y[valid_indices], valid_indices
-    
-    return y, df.index
+        # Vérifier les valeurs uniques dans la colonne
+        unique_values = df['diagnosis'].unique()
+        st.info(f"Valeurs uniques trouvées dans 'diagnosis': {unique_values}")
+        
+        # Mapping flexible qui gère différents formats
+        diagnosis_mapping = {
+            'TDAH': 1, 'tdah': 1, 'ADHD': 1, 'adhd': 1,
+            'Normal': 0, 'normal': 0, 'Control': 0, 'control': 0,
+            1: 1, 0: 0,  # Si déjà en format numérique
+            '1': 1, '0': 0  # Si en format string numérique
+        }
+        
+        # Application du mapping avec gestion des valeurs manquantes
+        y = df['diagnosis'].map(diagnosis_mapping)
+        
+        # Gérer les valeurs non mappées (NaN)
+        if y.isnull().any():
+            unmapped_values = df.loc[y.isnull(), 'diagnosis'].unique()
+            st.warning(f"⚠️ Valeurs non mappées trouvées: {unmapped_values}")
+            
+            # Supprimer les lignes avec valeurs non mappées
+            valid_indices = ~y.isnull()
+            return y[valid_indices], valid_indices
+        
+        return y, df.index
 
     @st.cache_data(ttl=3600)
     def get_top5_tdah_algorithms():
