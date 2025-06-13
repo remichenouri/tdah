@@ -1395,10 +1395,13 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
             st.info("Vérifiez que les variables sélectionnées contiennent des données valides")
             st.code(f"Détails de l'erreur : {type(e).__name__}")
             
-    def determine_chart_type_auto(x_is_numeric, y_is_numeric, y_var):
+    def determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type=None):
         """Détermine automatiquement le type de graphique approprié"""
         
-        # Logique automatique uniquement
+        if force_chart_type:
+            return force_chart_type
+        
+        # Logique automatique
         if not y_var:
             return "histogram" if x_is_numeric else "bar"
         else:
