@@ -4920,6 +4920,12 @@ def show_about():
 
 def main():
     """Fonction principale de l'application"""
+    if not st.session_state.get('gdpr_compliant', False):
+        # Affichage du formulaire GDPR
+        show_gdpr_consent_form()
+    else:
+        # Application principale
+        show_application()
     try:
         # Configuration initiale
         initialize_session_state()
