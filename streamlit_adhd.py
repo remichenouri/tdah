@@ -1303,7 +1303,176 @@ if 'css_loaded' not in st.session_state:
     </div>
     """, unsafe_allow_html=True)
 
-def smart_visualization(df, x_var, y_var=None, color_var=None):
+def determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type=None):
+    """Détermine automatiquement le type de graphique approprié"""
+    
+    if force_chart_type:
+        return force_chart_type
+    
+    # Logique automatique
+    if not y_var:
+        return "histogram" if x_is_numeric else "bar"
+    else:
+        if x_is_numeric and y_is_numeric:
+            return "scatter"
+        elif x_is_numeric and not y_is_numeric:
+            return "box"
+        elif not x_is_numeric and y_is_numeric:
+            return "violin"
+        else:
+            return "heatmap"
+
+def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_colors, x_is_numeric, y_is_numeric):
+    """Crée le graphique selon le type spécifié"""
+    
+    if chart_type == "histogram":
+        fig = px.histogram(
+            df, 
+            x=x_var, 
+            color=color_var,
+            nbins=min(30, df[x_var].nunique()) if x_is_numeric else None,
+            color_discrete_sequence=selected_colors,
+            title=f'Distribution de {x_var}'
+        )
+    
+    elif chart_type == "bar":
+        if x_is_numeric:
+            df_temp = df.copy()
+            df_temp[f'{x_var}_bins'] = pd.cut(df_temp[x_var], bins=10)
+            chart_data = df_temp[f'{x_var}_bins'].value_counts().reset_index()
+            chart_data.columns = ['categories', 'count']
+        else:
+            chart_data = df[x_var].value_counts().reset_index()
+            chart_data.columns = ['categories', 'count']
+        
+        fig = px.bar(
+            chart_data, 
+            x='categories', 
+            y='count',
+            color='categories',
+            color_discrete_sequence=selected_colors,
+            title=f'Distribution de {x_var}'
+        )
+        elif chart_type == "scatter":
+        fig = px.scatter(
+            df, 
+            x=x_var, 
+            y=y_var, 
+            color=color_var,
+            trendline="lowess" if len(df) > 10 else None,
+            opacity=0.7,
+            color_discrete_sequence=selected_colors,
+            title=f'Relation entre {x_var} et {y_var}'
+        )
+    
+        elif chart_type == "box":
+            fig = px.box(
+                df, 
+                x=y_var, 
+                y=x_var, 
+                color=color_var,
+                color_discrete_sequence=selected_colors,
+                title=f'Distribution de {x_var} par {y_var}'
+            )
+        
+        elif chart_type == "violin":
+            fig = px.violin(
+                df, 
+                x=y_var, 
+                y=x_var, 
+                color=color_var,
+                box=True,
+                color_discrete_sequence=selected_colors,
+                title=f'Distribution de {x_var} par {y_var}'
+            )
+        
+        elif chart_type == "heatmap":
+            try:
+                crosstab = pd.crosstab(df[x_var], df[y_var])
+                fig = px.imshow(
+                    crosstab,
+                    color_continuous_scale='Oranges',
+                    labels=dict(x=y_var, y=x_var, color="Fréquence"),
+                    title=f'Heatmap : {x_var} vs {y_var}'
+                )
+            except Exception:
+                # Fallback vers un graphique en barres
+                chart_data = df.groupby([x_var, y_var]).size().reset_index(name='count')
+                fig = px.bar(
+                    chart_data, 
+                    x=x_var, 
+                    y='count', 
+                    color=y_var,
+                    color_discrete_sequence=selected_colors,
+                    title=f'Relation entre {x_var} et {y_var}'
+                )
+        
+        else:
+            # Graphique par défaut
+            fig = px.histogram(
+                df, 
+                x=x_var,
+                color_discrete_sequence=selected_colors,
+                title=f'Distribution de {x_var}'
+            )
+        
+        return fig
+
+def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_type):
+    """Personnalise la mise en page du graphique"""
+    
+    # Personnalisation des traces
+    fig.update_traces(
+        marker=dict(
+            line=dict(
+                color='white' if add_borders else 'rgba(0,0,0,0)', 
+                width=2 if add_borders else 0
+            ),
+            opacity=0.85
+        ),
+        textposition='outside' if show_values and chart_type in ['bar', 'histogram'] else 'none',
+        textfont=dict(size=11, color='black', family='Arial')
+    )
+    
+    # Layout général
+    fig.update_layout(
+        template="plotly_white",
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(color='black', size=11, family='Arial'),
+        showlegend=True if y_var or chart_type in ['scatter', 'box', 'violin'] else False,
+        title=dict(
+            font=dict(size=16, color='#2E4057', family='Arial Bold'),
+            x=0.5,
+            pad=dict(t=20)
+        ),
+        margin=dict(l=50, r=50, t=70, b=50),
+        height=450,
+        hovermode="closest" if chart_type == "scatter" else "x unified"
+    )
+
+    fig.update_xaxes(
+        title=dict(
+            text=x_var,
+            font=dict(size=13, family='Arial Bold', color='#2E4057')
+        ),
+        tickfont=dict(size=11, color='black'),
+        gridcolor='lightgray',
+        gridwidth=0.5
+    )
+    
+    if y_var:
+        fig.update_yaxes(
+            title=dict(
+                text=y_var,
+                font=dict(size=13, family='Arial Bold', color='#2E4057')
+            ),
+            tickfont=dict(size=11, color='black'),
+            gridcolor='lightgray',
+            gridwidth=0.5
+        )
+        
+def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=None):
     """Visualisation automatique adaptée aux types de données - VERSION CORRIGÉE"""
     
     if df is None or df.empty:
@@ -1313,19 +1482,12 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
         st.error(f"Variable '{x_var}' non trouvée dans le dataset")
         return
     
-    # Si y est None, faire un histogramme ou un bar selon le type
-    if y_var is None:
-        # Si la variable est numérique, faire un histogramme
-        if pd.api.types.is_numeric_dtype(df[x_var]):
-            fig = px.histogram(df, x=x_var, title=f'Distribution de {x_var}')
-        else:
-            # Si catégorielle, bar chart
-            chart_data = df[x_var].value_counts().reset_index()
-            chart_data.columns = ['categories', 'count']
-            fig = px.bar(chart_data, x='categories', y='count', title=f'Distribution de {x_var}')
-    else:
-        # Si y est défini, faire autre chose (non nécessaire ici)
-        pass
+    # Détection automatique des types de données
+    x_is_numeric = pd.api.types.is_numeric_dtype(df[x_var])
+    y_is_numeric = y_var and pd.api.types.is_numeric_dtype(df[y_var])
+    
+    # MAINTENANT la fonction determine_chart_type est accessible
+    chart_type = determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type)
     
     # Interface utilisateur pour la personnalisation
     col1, col2 = st.columns([3, 1])
@@ -1394,177 +1556,6 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
             st.error(f"Erreur lors de la création du graphique : {str(e)}")
             st.info("Vérifiez que les variables sélectionnées contiennent des données valides")
             st.code(f"Détails de l'erreur : {type(e).__name__}")
-            
-    def determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type=None):
-        """Détermine automatiquement le type de graphique approprié"""
-        
-        if force_chart_type:
-            return force_chart_type
-        
-        # Logique automatique
-        if not y_var:
-            return "histogram" if x_is_numeric else "bar"
-        else:
-            if x_is_numeric and y_is_numeric:
-                return "scatter"
-            elif x_is_numeric and not y_is_numeric:
-                return "box"
-            elif not x_is_numeric and y_is_numeric:
-                return "violin"
-            else:
-                return "heatmap"
-
-def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_colors, x_is_numeric, y_is_numeric):
-    """Crée le graphique selon le type spécifié"""
-    
-    if chart_type == "histogram":
-        fig = px.histogram(
-            df, 
-            x=x_var, 
-            color=color_var,
-            nbins=min(30, df[x_var].nunique()) if x_is_numeric else None,
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var}'
-        )
-    
-    elif chart_type == "bar":
-        if x_is_numeric:
-            # Pour les variables numériques, créer des bins
-            df_temp = df.copy()
-            df_temp[f'{x_var}_bins'] = pd.cut(df_temp[x_var], bins=10)
-            chart_data = df_temp[f'{x_var}_bins'].value_counts().reset_index()
-            chart_data.columns = ['categories', 'count']
-        else:
-            # Pour les variables catégorielles
-            chart_data = df[x_var].value_counts().reset_index()
-            chart_data.columns = ['categories', 'count']
-        
-        fig = px.bar(
-            chart_data, 
-            x='categories', 
-            y='count',
-            color='categories',
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var}'
-        )
-    
-    elif chart_type == "scatter":
-        fig = px.scatter(
-            df, 
-            x=x_var, 
-            y=y_var, 
-            color=color_var,
-            trendline="lowess" if len(df) > 10 else None,
-            opacity=0.7,
-            color_discrete_sequence=selected_colors,
-            title=f'Relation entre {x_var} et {y_var}'
-        )
-    
-    elif chart_type == "box":
-        fig = px.box(
-            df, 
-            x=y_var, 
-            y=x_var, 
-            color=color_var,
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var} par {y_var}'
-        )
-    
-    elif chart_type == "violin":
-        fig = px.violin(
-            df, 
-            x=y_var, 
-            y=x_var, 
-            color=color_var,
-            box=True,
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var} par {y_var}'
-        )
-    
-    elif chart_type == "heatmap":
-        try:
-            crosstab = pd.crosstab(df[x_var], df[y_var])
-            fig = px.imshow(
-                crosstab,
-                color_continuous_scale='Oranges',
-                labels=dict(x=y_var, y=x_var, color="Fréquence"),
-                title=f'Heatmap : {x_var} vs {y_var}'
-            )
-        except Exception:
-            # Fallback vers un graphique en barres
-            chart_data = df.groupby([x_var, y_var]).size().reset_index(name='count')
-            fig = px.bar(
-                chart_data, 
-                x=x_var, 
-                y='count', 
-                color=y_var,
-                color_discrete_sequence=selected_colors,
-                title=f'Relation entre {x_var} et {y_var}'
-            )
-    
-    else:
-        # Graphique par défaut
-        fig = px.histogram(
-            df, 
-            x=x_var,
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var}'
-        )
-    
-    return fig
-
-def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_type):
-    """Personnalise la mise en page du graphique"""
-    
-    # Personnalisation des traces
-    fig.update_traces(
-        marker=dict(
-            line=dict(
-                color='white' if add_borders else 'rgba(0,0,0,0)', 
-                width=2 if add_borders else 0
-            ),
-            opacity=0.85
-        ),
-        textposition='outside' if show_values and chart_type in ['bar', 'histogram'] else 'none',
-        textfont=dict(size=11, color='black', family='Arial')
-    )
-    
-    # Layout général
-    fig.update_layout(
-        template="plotly_white",
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        font=dict(color='black', size=11, family='Arial'),
-        showlegend=True if y_var or chart_type in ['scatter', 'box', 'violin'] else False,
-        title=dict(
-            font=dict(size=16, color='#2E4057', family='Arial Bold'),
-            x=0.5,
-            pad=dict(t=20)
-        ),
-        margin=dict(l=50, r=50, t=70, b=50),
-        height=450,
-        hovermode="closest" if chart_type == "scatter" else "x unified"
-    )
-
-    fig.update_xaxes(
-        title=dict(
-            text=x_var,
-            font=dict(size=13, family='Arial Bold', color='#2E4057')
-        ),
-        tickfont=dict(size=11, color='black'),
-        gridcolor='lightgray',
-        gridwidth=0.5
-    )
-    
-    if y_var:
-        fig.update_yaxes(
-            title=dict(
-                text=y_var,
-                font=dict(size=13, family='Arial Bold', color='#2E4057')
-            ),
-            tickfont=dict(size=11, color='black'),
-            gridcolor='lightgray',
-            gridwidth=0.5
         )
 
 def display_contextual_stats(df, x_var, y_var, chart_type, x_is_numeric, y_is_numeric):
