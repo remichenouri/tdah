@@ -2701,27 +2701,87 @@ def show_enhanced_ml_analysis():
             'AUC-ROC': [0.987, 0.978, 0.982, 0.975, 0.968],
             'Temps (s)': [0.17, 0.24, 0.38, 0.52, 0.023]
         })
-
-    try:
-        with st.spinner("🔄 Chargement des données TDAH..."):
-            df = load_enhanced_dataset()
-        if 'diagnosis' not in df.columns:
-            st.error("❌ Colonne 'diagnosis' manquante dans le dataset TDAH")
-            return
-        feature_columns = [col for col in df.columns if
-                          col.startswith('asrs_') or
-                          col in ['age', 'gender', 'education', 'quality_of_life', 'stress_level']]
-        X = df[feature_columns].copy()
-        y = df['diagnosis'].map({'TDAH': 1, 'Normal': 0})
-        if X.empty or y.empty:
-            st.error("❌ Données insuffisantes pour l'analyse TDAH")
-            return
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.3, random_state=42, stratify=y
-        )
-    except Exception as e:
-        st.error(f"❌ Erreur de chargement TDAH : {str(e)}")
-        return
+    
+    def load_and_prepare_tdah_data():
+        """Version corrigée du chargement et préparation des données"""
+        try:
+            with st.spinner("🔄 Chargement des données TDAH..."):
+                df = load_enhanced_dataset()
+                
+            if df is None or df.empty:
+                st.error("❌ Dataset vide ou non disponible")
+                return None, None, None, None
+                
+            # Vérification et nettoyage de la colonne diagnosis
+            if 'diagnosis' not in df.columns:
+                st.error("❌ Colonne 'diagnosis' manquante dans le dataset TDAH")
+                return None, None, None, None
+                
+            # Mapping sécurisé de la diagnosis
+            y_mapped, valid_indices = safe_diagnosis_mapping(df)
+            if y_mapped is None:
+                return None, None, None, None
+                
+            # Filtrer le dataframe avec les indices valides
+            df_clean = df.loc[valid_indices].copy()
+            y = y_mapped
+            
+            # Sélection des features avec vérification d'existence
+            potential_features = ['age', 'gender', 'education', 'quality_of_life', 'stress_level']
+            feature_columns = [col for col in df_clean.columns if col.startswith('asrs_')]
+            
+            # Ajouter les features démographiques qui existent
+            for feature in potential_features:
+                if feature in df_clean.columns:
+                    feature_columns.append(feature)
+                    
+            if not feature_columns:
+                st.error("❌ Aucune feature valide trouvée pour l'analyse")
+                return None, None, None, None
+                
+            st.info(f"✅ Features sélectionnées: {len(feature_columns)} colonnes")
+            
+            X = df_clean[feature_columns].copy()
+            
+            # Vérification finale des données
+            if X.empty or len(y) == 0:
+                st.error("❌ Données insuffisantes pour l'analyse TDAH")
+                return None, None, None, None
+                
+            if len(X) != len(y):
+                st.error(f"❌ Incompatibilité des dimensions: X={len(X)}, y={len(y)}")
+                return None, None, None, None
+                
+            # Nettoyage des valeurs manquantes dans X
+            if X.isnull().any().any():
+                st.warning("⚠️ Valeurs manquantes détectées dans X, nettoyage en cours...")
+                X = X.fillna(X.median().fillna(0))
+                
+            # Division train/test avec gestion d'erreur
+            try:
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=0.3, random_state=42, stratify=y
+                )
+                
+                st.success(f"✅ Données préparées: Train={len(X_train)}, Test={len(X_test)}")
+                return X_train, X_test, y_train, y_test
+                
+            except ValueError as e:
+                st.error(f"❌ Erreur lors de la division train/test: {str(e)}")
+                # Tentative sans stratification si problème de classes
+                try:
+                    X_train, X_test, y_train, y_test = train_test_split(
+                        X, y, test_size=0.3, random_state=42
+                    )
+                    st.warning("⚠️ Division effectuée sans stratification")
+                    return X_train, X_test, y_train, y_test
+                except Exception as e2:
+                    st.error(f"❌ Échec complet de la division: {str(e2)}")
+                    return None, None, None, None
+                    
+        except Exception as e:
+            st.error(f"❌ Erreur de chargement TDAH : {str(e)}")
+            return None, None, None, None
 
     numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
     categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
