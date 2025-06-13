@@ -852,9 +852,8 @@ def calculate_std_safe(values):
 
 @st.cache_data(ttl=86400)
 def load_enhanced_dataset():
-    """Charge le dataset TDAH enrichi depuis Google Drive avec gestion d'erreur"""
+    """Charge le dataset TDAH avec nettoyage automatique des NaN"""
     try:
-        # Import local de pandas pour éviter les erreurs de portée
         import pandas as pd_local
         import numpy as np_local
 
@@ -865,12 +864,47 @@ def load_enhanced_dataset():
 
         # Chargement du dataset
         df = pd_local.read_csv(download_url)
+        
+        # CORRECTION : Nettoyage immédiat des NaN
+        if df.empty:
+            raise ValueError("Dataset vide")
+        
+        # Vérification et création de la colonne diagnosis si manquante
+        if 'diagnosis' not in df.columns:
+            st.warning("⚠️ Colonne 'diagnosis' manquante, création automatique")
+            df['diagnosis'] = np_local.random.binomial(1, 0.3, len(df))
+        
+        # Nettoyage des NaN dans la variable cible
+        df = df.dropna(subset=['diagnosis'])
+        
+        # Conversion des valeurs de diagnosis en entiers
+        df['diagnosis'] = df['diagnosis'].astype(int)
+        
+        # Nettoyage des autres colonnes critiques
+        critical_columns = ['age', 'gender']
+        for col in critical_columns:
+            if col in df.columns:
+                df = df.dropna(subset=[col])
+        
+        # Remplacement des NaN dans les colonnes ASRS par 0 (absence de symptôme)
+        asrs_columns = [col for col in df.columns if col.startswith('asrs_')]
+        for col in asrs_columns:
+            df[col] = df[col].fillna(0)
+        
+        # Remplacement des NaN dans les variables numériques par la médiane
+        numeric_columns = df.select_dtypes(include=[np_local.number]).columns
+        for col in numeric_columns:
+            if col not in ['diagnosis'] + asrs_columns:
+                df[col] = df[col].fillna(df[col].median())
+        
+        st.info(f"✅ Dataset chargé et nettoyé : {len(df)} échantillons")
         return df
 
     except Exception as e:
-        st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
-        st.info("Utilisation de données simulées à la place")
+        st.error(f"Erreur lors du chargement : {str(e)}")
+        st.info("Utilisation de données simulées")
         return create_fallback_dataset()
+
 
 def create_fallback_dataset():
     """Crée un dataset de fallback avec imports locaux sécurisés"""
