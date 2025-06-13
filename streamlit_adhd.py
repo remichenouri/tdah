@@ -188,7 +188,7 @@ def clean_data_robust(df):
     df_clean = df.copy()
     
     # 1. Remplacer les valeurs infinies par NaN
-    df_clean = df_clean.replace([np.inf, -np.inf], np.nan)
+    df_clean = df.dropna()
     
     # 2. Identifier les colonnes par type
     numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
