@@ -1549,8 +1549,8 @@ def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_ty
         hovermode="closest" if chart_type == "scatter" else "x unified"
     )
     
-    # Personnalisation des axes
-    fig.update_xaxis(
+    # ✅ CORRECTION : Utiliser update_xaxes au lieu de update_xaxis
+    fig.update_xaxes(
         title=dict(
             text=x_var,
             font=dict(size=13, family='Arial Bold', color='#2E4057')
@@ -1561,7 +1561,7 @@ def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_ty
     )
     
     if y_var:
-        fig.update_yaxis(
+        fig.update_yaxes(
             title=dict(
                 text=y_var,
                 font=dict(size=13, family='Arial Bold', color='#2E4057')
