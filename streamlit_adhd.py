@@ -1353,7 +1353,7 @@ def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_color
             color_discrete_sequence=selected_colors,
             title=f'Distribution de {x_var}'
         )
-        elif chart_type == "scatter":
+    elif chart_type == "scatter":
         fig = px.scatter(
             df, 
             x=x_var, 
@@ -1365,8 +1365,8 @@ def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_color
             title=f'Relation entre {x_var} et {y_var}'
         )
     
-        elif chart_type == "box":
-            fig = px.box(
+    elif chart_type == "box":
+        fig = px.box(
                 df, 
                 x=y_var, 
                 y=x_var, 
@@ -1375,8 +1375,8 @@ def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_color
                 title=f'Distribution de {x_var} par {y_var}'
             )
         
-        elif chart_type == "violin":
-            fig = px.violin(
+    elif chart_type == "violin":
+        fig = px.violin(
                 df, 
                 x=y_var, 
                 y=x_var, 
@@ -1386,19 +1386,19 @@ def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_color
                 title=f'Distribution de {x_var} par {y_var}'
             )
         
-        elif chart_type == "heatmap":
-            try:
-                crosstab = pd.crosstab(df[x_var], df[y_var])
-                fig = px.imshow(
+    elif chart_type == "heatmap":
+        try:
+            crosstab = pd.crosstab(df[x_var], df[y_var])
+            fig = px.imshow(
                     crosstab,
                     color_continuous_scale='Oranges',
                     labels=dict(x=y_var, y=x_var, color="Fréquence"),
                     title=f'Heatmap : {x_var} vs {y_var}'
                 )
-            except Exception:
-                # Fallback vers un graphique en barres
-                chart_data = df.groupby([x_var, y_var]).size().reset_index(name='count')
-                fig = px.bar(
+        except Exception:
+            # Fallback vers un graphique en barres
+            chart_data = df.groupby([x_var, y_var]).size().reset_index(name='count')
+            fig = px.bar(
                     chart_data, 
                     x=x_var, 
                     y='count', 
