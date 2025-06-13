@@ -1517,8 +1517,8 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
         return
 
     # Détection automatique des types de données
-    x_is_numeric = pd.api.types.is_numeric_dtype(df[x_var])
-    y_is_numeric = y_var and pd.api.types.is_numeric_dtype(df[y_var])
+    x_is_numeric = pd.api.types.is_numeric_dtype(df_viz[x_var])
+    y_is_numeric = y_var and pd.api.types.is_numeric_dtype(df_viz[y_var])
     
     # Détermination du type de graphique
     chart_type = determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type)
@@ -1562,7 +1562,7 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
             
             # Création du graphique avec validation
             fig = create_chart_by_type(
-                df, x_var, y_var, color_var, chart_type, 
+                df_viz, x_var, y_var, color_var, chart_type, 
                 selected_colors, x_is_numeric, y_is_numeric
             )
             
@@ -1579,7 +1579,7 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
             st.plotly_chart(fig, use_container_width=True, key=f"chart_{x_var}_{y_var or 'none'}")
             
             # Statistiques contextuelles
-            display_contextual_stats(df, x_var, y_var, chart_type, x_is_numeric, y_is_numeric)
+            display_contextual_stats(df_viz, x_var, y_var, chart_type, x_is_numeric, y_is_numeric)
             
         except Exception as e:
             st.error(f"❌ Erreur lors de la création du graphique : {str(e)}")
