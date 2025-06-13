@@ -852,10 +852,10 @@ def calculate_std_safe(values):
 
 @st.cache_data(ttl=86400)
 def load_enhanced_dataset():
-    """Charge le dataset TDAH avec nettoyage automatique des NaN"""
+    """Charge le dataset TDAH avec nettoyage automatique et robuste des NaN"""
     try:
-        import pandas as pd_local
-        import numpy as np_local
+        import pandas as pd
+        import numpy as np
 
         # URL du dataset Google Drive
         url = 'https://drive.google.com/file/d/15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR/view?usp=drive_link'
@@ -863,47 +863,58 @@ def load_enhanced_dataset():
         download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
 
         # Chargement du dataset
-        df = pd_local.read_csv(download_url)
+        df = pd.read_csv(download_url)
         
-        # CORRECTION : Nettoyage immédiat des NaN
         if df.empty:
             raise ValueError("Dataset vide")
         
-        # Vérification et création de la colonne diagnosis si manquante
+        # ÉTAPE 1 : Nettoyage de la variable cible 'diagnosis'
         if 'diagnosis' not in df.columns:
             st.warning("⚠️ Colonne 'diagnosis' manquante, création automatique")
-            df['diagnosis'] = np_local.random.binomial(1, 0.3, len(df))
+            df['diagnosis'] = np.random.binomial(1, 0.3, len(df))
         
-        # Nettoyage des NaN dans la variable cible
+        # ÉTAPE 2 : Suppression IMMÉDIATE des lignes avec NaN dans 'diagnosis'
+        initial_count = len(df)
         df = df.dropna(subset=['diagnosis'])
+        dropped_count = initial_count - len(df)
         
-        # Conversion des valeurs de diagnosis en entiers
+        if len(df) == 0:
+            raise ValueError("Aucune donnée valide après suppression des NaN dans 'diagnosis'")
+        
+        # ÉTAPE 3 : Conversion forcée de 'diagnosis' en entiers
+        df['diagnosis'] = pd.to_numeric(df['diagnosis'], errors='coerce')
+        df = df.dropna(subset=['diagnosis'])  # Re-suppression après conversion
         df['diagnosis'] = df['diagnosis'].astype(int)
         
-        # Nettoyage des autres colonnes critiques
+        # ÉTAPE 4 : Nettoyage des autres colonnes critiques
         critical_columns = ['age', 'gender']
         for col in critical_columns:
             if col in df.columns:
                 df = df.dropna(subset=[col])
         
-        # Remplacement des NaN dans les colonnes ASRS par 0 (absence de symptôme)
+        # ÉTAPE 5 : Traitement des colonnes ASRS (remplacement par 0)
         asrs_columns = [col for col in df.columns if col.startswith('asrs_')]
         for col in asrs_columns:
             df[col] = df[col].fillna(0)
         
-        # Remplacement des NaN dans les variables numériques par la médiane
-        numeric_columns = df.select_dtypes(include=[np_local.number]).columns
+        # ÉTAPE 6 : Traitement des variables numériques (remplacement par médiane)
+        numeric_columns = df.select_dtypes(include=[np.number]).columns
         for col in numeric_columns:
             if col not in ['diagnosis'] + asrs_columns:
                 df[col] = df[col].fillna(df[col].median())
         
-        st.info(f"✅ Dataset chargé et nettoyé : {len(df)} échantillons")
+        # ÉTAPE 7 : Vérification finale - AUCUN NaN ne doit rester
+        if df.isnull().any().any():
+            st.warning("⚠️ NaN détectés après nettoyage, suppression des lignes restantes")
+            df = df.dropna()
+        
+        st.success(f"✅ Dataset nettoyé : {len(df)} échantillons (supprimé {dropped_count} lignes avec NaN)")
         return df
 
     except Exception as e:
         st.error(f"Erreur lors du chargement : {str(e)}")
         st.info("Utilisation de données simulées")
-        return create_fallback_dataset()
+        return create_fallback_dataset_clean()
 
 
 def create_fallback_dataset():
