@@ -2013,18 +2013,18 @@ def show_enhanced_data_exploration():
                 st.warning("Aucune variable disponible pour la visualisation")
                 return
             
-            # Sélection de la variable x uniquement
+            # Interface de sélection UNIQUEMENT pour la variable X
             x_var = st.selectbox(
                 "Variable X (obligatoire) :", 
                 options=all_vars,
-                key="viz_x_var_only"
+                key="viz_x_var_main"
             )
             
-            # Pas de y ni de couleur
-            y_var = None
-            color_var = None
+            # SUPPRESSION : Variables Y et couleur ne sont plus proposées
+            y_var = None  # Toujours None
+            color_var = None  # Toujours None
             
-            # Affichage des infos
+            # Affichage des informations sur la variable sélectionnée
             if x_var:
                 var_type_x = "Numérique" if x_var in numeric_vars else "Catégorielle"
                 unique_values_x = df[x_var].nunique()
@@ -2038,8 +2038,8 @@ def show_enhanced_data_exploration():
                 with info_cols[2]:
                     st.metric("Valeurs manquantes", missing_values_x)
                 
-                # Appel de la visualisation sans y
-                smart_visualization(df, x_var)
+                # Appel de la fonction de visualisation avec Y et couleur à None
+                smart_visualization(df, x_var, y_var, color_var)
 
 
     with tabs[5]:
