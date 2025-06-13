@@ -176,6 +176,21 @@ ASRS_OPTIONS = {
     4: "Très souvent"
 }
 
+# Au début de votre fonction main()
+def initialize_variables():
+    """Initialise toutes les variables nécessaires"""
+    if 'X_train' not in st.session_state:
+        st.session_state.X_train = None
+    if 'X_test' not in st.session_state:
+        st.session_state.X_test = None
+    if 'y_train' not in st.session_state:
+        st.session_state.y_train = None
+    if 'y_test' not in st.session_state:
+        st.session_state.y_test = None
+    if 'df' not in st.session_state:
+        st.session_state.df = None
+
+
 def clean_data_robust(df):
     """Nettoyage robuste des données pour éliminer NaN et valeurs infinies"""
     import numpy as np
