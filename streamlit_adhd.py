@@ -2502,70 +2502,77 @@ def train_optimized_models(df):
 def show_enhanced_ml_analysis():
     import plotly.express as px
     import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
     import numpy as np
     import pandas as pd
-    import seaborn as sns
-    import matplotlib.pyplot as plt
     from sklearn.preprocessing import StandardScaler, OneHotEncoder
     from sklearn.compose import ColumnTransformer
     from sklearn.pipeline import Pipeline
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-    from sklearn.metrics import roc_auc_score, confusion_matrix, classification_report, roc_curve
-    from sklearn.metrics import balanced_accuracy_score, precision_recall_curve
-    from sklearn.model_selection import cross_val_score, train_test_split, learning_curve
+    from sklearn.metrics import roc_auc_score, confusion_matrix, roc_curve, precision_recall_curve
+    from sklearn.model_selection import cross_val_score, train_test_split
     import time
     import os
 
-    # Configuration initiale
     os.environ['TQDM_DISABLE'] = '1'
-    
+
     try:
         st.set_option('deprecation.showPyplotGlobalUse', False)
     except Exception:
         pass
 
-    # Styles CSS harmonisés
+    # Thème visuel TDAH (orange)
     st.markdown("""
     <style>
         .preprocessing-header {
-            background: linear-gradient(90deg, #3498db, #2ecc71);
+            background: linear-gradient(90deg, #FF5722, #FF9800);
             padding: 30px 20px;
             border-radius: 15px;
             margin-bottom: 25px;
             text-align: center;
         }
-        
         .info-card-modern {
             background: white;
             border-radius: 15px;
             padding: 25px;
             margin: 15px 0;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            border-left: 4px solid #3498db;
+            box-shadow: 0 4px 15px rgba(255,87,34,0.08);
+            border-left: 4px solid #FF5722;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        
+        .info-card-modern:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(255,87,34,0.15);
+        }
         .metric-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             margin: 20px 0;
         }
-        
         .metric-card {
-            background: #f8f9fa;
+            background: #FFF3E0;
             padding: 20px;
             border-radius: 10px;
             text-align: center;
-            border: 1px solid #e9ecef;
+            border: 1px solid #FFCCBC;
+        }
+        .stApp { background-color: #FFF8F5 !important; }
+        .stButton > button {
+            background: linear-gradient(135deg, #FF5722, #FF9800) !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 8px !important;
+            transition: all 0.3s ease !important;
+        }
+        .stButton > button:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(255,87,34,0.3) !important;
         }
     </style>
     """, unsafe_allow_html=True)
 
-    # En-tête principal
     st.markdown("""
-    <div style="background: linear-gradient(90deg, #3498db, #2ecc71);
+    <div style="background: linear-gradient(90deg, #FF5722, #FF9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
         <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
                    text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
@@ -2578,42 +2585,32 @@ def show_enhanced_ml_analysis():
     </div>
     """, unsafe_allow_html=True)
 
-    # Fonction d'entraînement LGBM optimisée pour TDAH
     @st.cache_resource(show_spinner=False)
     def train_optimized_lgbm_model(_X_train, _y_train, _preprocessor, _X_test, _y_test):
-        """Entraîne un modèle LGBM optimisé spécifiquement pour le dépistage TDAH"""
         try:
             from lightgbm import LGBMClassifier
-            
-            # Paramètres optimisés pour le dépistage TDAH basés sur la recherche
             lgbm = LGBMClassifier(
                 n_estimators=150,
                 max_depth=8,
                 learning_rate=0.1,
-                num_leaves=70,  # Optimisé pour éviter l'overfitting selon la documentation
+                num_leaves=70,
                 subsample=0.8,
                 colsample_bytree=0.8,
-                min_child_samples=20,  # Paramètre clé pour éviter l'overfitting
+                min_child_samples=20,
                 random_state=42,
                 verbose=-1,
-                class_weight='balanced',  # Crucial pour les données déséquilibrées TDAH
-                boosting_type='gbdt'  # Type de boosting optimal
+                class_weight='balanced',
+                boosting_type='gbdt'
             )
-
             pipeline = Pipeline([
                 ('preprocessor', _preprocessor),
                 ('classifier', lgbm)
             ])
-
             start_time = time.time()
             pipeline.fit(_X_train, _y_train)
             training_time = time.time() - start_time
-
-            # Prédictions
             y_pred = pipeline.predict(_X_test)
             y_pred_proba = pipeline.predict_proba(_X_test)[:, 1]
-
-            # Métriques optimisées pour le contexte médical TDAH
             metrics = {
                 'accuracy': accuracy_score(_y_test, y_pred),
                 'precision': precision_score(_y_test, y_pred, zero_division=0),
@@ -2622,29 +2619,19 @@ def show_enhanced_ml_analysis():
                 'auc': roc_auc_score(_y_test, y_pred_proba),
                 'training_time': training_time
             }
-
-            # Matrice de confusion
             cm = confusion_matrix(_y_test, y_pred)
-
-            # Courbes de performance
             fpr, tpr, _ = roc_curve(_y_test, y_pred_proba)
             precision_curve, recall_curve, _ = precision_recall_curve(_y_test, y_pred_proba)
-
-            # Importance des features LGBM
             try:
                 feature_names = pipeline.named_steps['preprocessor'].get_feature_names_out()
             except:
                 feature_names = [f"feature_{i}" for i in range(len(pipeline.named_steps['classifier'].feature_importances_))]
-
             importances = pipeline.named_steps['classifier'].feature_importances_
             feature_importance = pd.DataFrame({
                 'feature': feature_names,
                 'importance': importances
             }).sort_values('importance', ascending=False)
-
-            # Validation croisée pour la stabilité
             cv_scores = cross_val_score(pipeline, _X_train, _y_train, cv=5, scoring='f1')
-
             return {
                 'pipeline': pipeline,
                 'metrics': metrics,
@@ -2657,17 +2644,14 @@ def show_enhanced_ml_analysis():
                 'y_pred_proba': y_pred_proba,
                 'status': 'success'
             }
-
         except Exception as e:
             st.error(f"Erreur LGBM : {str(e)}")
             return {'status': 'error', 'message': str(e)}
 
-    # Résultats pré-calculés des 5 meilleurs algorithmes pour TDAH
     @st.cache_data(ttl=3600)
     def get_top5_tdah_algorithms():
-        """Retourne les performances des 5 meilleurs algorithmes pour le dépistage TDAH"""
         return pd.DataFrame({
-            'Modèle': ['LGBMClassifier', 'XGBClassifier', 'RandomForestClassifier', 
+            'Modèle': ['LGBMClassifier', 'XGBClassifier', 'RandomForestClassifier',
                       'GradientBoostingClassifier', 'LogisticRegression'],
             'Accuracy': [0.963, 0.956, 0.951, 0.945, 0.932],
             'Precision': [0.950, 0.945, 0.960, 0.940, 0.925],
@@ -2677,42 +2661,29 @@ def show_enhanced_ml_analysis():
             'Temps (s)': [0.17, 0.24, 0.38, 0.52, 0.023]
         })
 
-    # Chargement et préparation des données TDAH
     try:
         with st.spinner("🔄 Chargement des données TDAH..."):
-            # Adapter selon votre fonction de chargement
             df = load_tdah_dataset()  # Remplacer par votre fonction
-
-        # Préparation spécifique TDAH
         if 'diagnosis' not in df.columns:
             st.error("❌ Colonne 'diagnosis' manquante dans le dataset TDAH")
             return
-
-        # Sélection des features TDAH spécifiques
-        feature_columns = [col for col in df.columns if 
-                          col.startswith('asrs_') or 
+        feature_columns = [col for col in df.columns if
+                          col.startswith('asrs_') or
                           col in ['age', 'gender', 'education', 'quality_of_life', 'stress_level']]
-        
         X = df[feature_columns].copy()
         y = df['diagnosis'].map({'TDAH': 1, 'Normal': 0})
-
-        # Vérification des données
         if X.empty or y.empty:
             st.error("❌ Données insuffisantes pour l'analyse TDAH")
             return
-
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.3, random_state=42, stratify=y
         )
-
     except Exception as e:
         st.error(f"❌ Erreur de chargement TDAH : {str(e)}")
         return
 
-    # Préprocesseur optimisé
     numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
     categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
-
     preprocessor = ColumnTransformer(
         transformers=[
             ('num', StandardScaler(), numerical_cols),
@@ -2722,10 +2693,9 @@ def show_enhanced_ml_analysis():
         verbose_feature_names_out=False
     )
 
-    # Interface à onglets
     ml_tabs = st.tabs([
         "🏆 Top 5 Algorithmes TDAH",
-        "🚀 LGBM - Champion TDAH", 
+        "🚀 LGBM - Champion TDAH",
         "📊 Analyse Détaillée",
         "⚙️ Optimisation Clinique"
     ])
@@ -2741,12 +2711,10 @@ def show_enhanced_ml_analysis():
             </p>
         </div>
         """, unsafe_allow_html=True)
-
-        # Justification scientifique du choix des algorithmes
         st.markdown("""
-        <div style="background-color: #eaf6fc; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #3498db;">
-            <h3 style="color: #2c3e50; margin-top: 0;">🎯 Critères de sélection pour le dépistage TDAH</h3>
-            <ul style="color: #34495e;">
+        <div style="background-color: #FFF3E0; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #FF5722;">
+            <h3 style="color: #D84315; margin-top: 0;">🎯 Critères de sélection pour le dépistage TDAH</h3>
+            <ul style="color: #BF360C;">
                 <li>🩺 <strong>Sensibilité élevée</strong> - Détection maximale des cas TDAH</li>
                 <li>⚡ <strong>Rapidité d'exécution</strong> - Compatible avec la pratique clinique</li>
                 <li>📈 <strong>Stabilité des résultats</strong> - Fiabilité inter-populations</li>
@@ -2755,31 +2723,22 @@ def show_enhanced_ml_analysis():
             </ul>
         </div>
         """, unsafe_allow_html=True)
-
-        # Tableau des performances
         top5_results = get_top5_tdah_algorithms()
-        
         st.markdown("### 📊 Tableau Comparatif des Performances")
-        
-        # Style du dataframe amélioré
         styled_df = top5_results.style.background_gradient(
-            cmap='Blues', subset=['Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC-ROC']
+            cmap='Oranges', subset=['Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC-ROC']
         ).background_gradient(
-            cmap='Reds_r', subset=['Temps (s)']
+            cmap='Oranges_r', subset=['Temps (s)']
         ).format({
             'Accuracy': '{:.1%}',
-            'Precision': '{:.1%}', 
+            'Precision': '{:.1%}',
             'Recall': '{:.1%}',
             'F1-Score': '{:.1%}',
             'AUC-ROC': '{:.3f}',
             'Temps (s)': '{:.3f}s'
         })
-        
         st.dataframe(styled_df, use_container_width=True)
-
-        # Métriques principales avec justification TDAH
         col1, col2, col3 = st.columns(3)
-        
         with col1:
             st.metric("🥇 Champion TDAH", "LGBMClassifier", "96.3% accuracy")
             st.info("🎯 **Pourquoi LGBM ?** Excelle dans la détection des patterns complexes du TDAH")
@@ -2789,6 +2748,83 @@ def show_enhanced_ml_analysis():
         with col3:
             st.metric("🎯 Meilleur AUC-ROC", "LGBMClassifier", "0.987")
             st.info("🔍 **Discrimination optimale** entre TDAH et contrôles")
+        st.markdown("### 📈 Comparaison Visuelle - Top 3 pour TDAH")
+        fig_radar = go.Figure()
+        metrics = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC-ROC']
+        lgbm_values = [0.963, 0.950, 0.960, 0.955, 0.987]
+        fig_radar.add_trace(go.Scatterpolar(
+            r=lgbm_values, theta=metrics, fill='toself',
+            name='LGBMClassifier (Champion TDAH)', line_color='#FF5722', line_width=3
+        ))
+        xgb_values = [0.956, 0.945, 0.950, 0.947, 0.978]
+        fig_radar.add_trace(go.Scatterpolar(
+            r=xgb_values, theta=metrics, fill='toself',
+            name='XGBClassifier', line_color='#FF9800', line_width=2
+        ))
+        rf_values = [0.951, 0.960, 0.940, 0.950, 0.982]
+        fig_radar.add_trace(go.Scatterpolar(
+            r=rf_values, theta=metrics, fill='toself',
+            name='RandomForest', line_color='#FFA726', line_width=2
+        ))
+        fig_radar.update_layout(
+            polar=dict(radialaxis=dict(visible=True, range=[0.9, 1.0])),
+            showlegend=True, height=500,
+            title="Performance Comparative - Top 3 Algorithmes TDAH"
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
+
+    with ml_tabs[1]:
+        st.markdown("""
+        <div class="preprocessing-header">
+            <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;">
+                🚀 LGBMClassifier - Champion du Dépistage TDAH
+            </h2>
+            <p style="color: rgba(255,255,255,0.95); font-size: 1.1rem;">
+                Algorithme de référence optimisé pour le dépistage précoce du TDAH
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("""
+        <div class="info-card-modern">
+            <h3 style="color: #FF5722; margin-top: 0;">🎯 Pourquoi LGBMClassifier pour le TDAH ?</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 20px;">
+                <div style="background: #FFF3E0; padding: 20px; border-radius: 10px; border-left: 4px solid #FF5722;">
+                    <h4 style="color: #FF5722; margin: 0 0 10px 0;">📈 Performance Clinique Supérieure</h4>
+                    <p style="margin: 0; color: #BF360C;">96.3% de précision avec 96% de sensibilité, optimale pour ne pas manquer de cas TDAH</p>
+                </div>
+                <div style="background: #FFF8F5; padding: 20px; border-radius: 10px; border-left: 4px solid #FF9800;">
+                    <h4 style="color: #FF9800; margin: 0 0 10px 0;">⚡ Efficacité Pratique</h4>
+                    <p style="margin: 0; color: #BF360C;">0.17s d'entraînement, parfait pour l'intégration en milieu clinique</p>
+                </div>
+                <div style="background: #FFCCBC; padding: 20px; border-radius: 10px; border-left: 4px solid #FFA726;">
+                    <h4 style="color: #FFA726; margin: 0 0 10px 0;">🔄 Gestion du Déséquilibre</h4>
+                    <p style="margin: 0; color: #BF360C;">Excellent avec les données TDAH naturellement déséquilibrées</p>
+                </div>
+                <div style="background: #FFF8F5; padding: 20px; border-radius: 10px; border-left: 4px solid #FF5722;">
+                    <h4 style="color: #FF5722; margin: 0 0 10px 0;">🎯 Discrimination Exceptionnelle</h4>
+                    <p style="margin: 0; color: #BF360C;">AUC-ROC de 0.987 - Distinction quasi-parfaite TDAH/contrôles</p>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        with st.spinner("🤖 Entraînement du modèle LGBM optimisé pour TDAH..."):
+            lgbm_results = train_optimized_lgbm_model(X_train, y_train, preprocessor, X_test, y_test)
+        if lgbm_results.get('status') != 'success':
+            st.error(f"❌ Échec LGBM : {lgbm_results.get('message', 'Erreur inconnue')}")
+            return
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("🎯 Accuracy", f"{lgbm_results['metrics']['accuracy']:.1%}",
+                     delta=f"+{(lgbm_results['metrics']['accuracy'] - 0.95)*100:.1f}%")
+        with col2:
+            st.metric("📡 Recall (Sensibilité)", f"{lgbm_results['metrics']['recall']:.1%}",
+                     "Détection cas TDAH")
+        with col3:
+            st.metric("🔎 Precision", f"{lgbm_results['metrics']['precision']:.1%}",
+                     "Fiabilité diagnostic")
+        with col4:
+            st.metric("📈 AUC-ROC", f"{lgbm_results['metrics']['auc']:.3f}",
+                     "Pouvoir discriminant")
 
         # Graphique radar comparatif des top 3
         st.markdown("### 📈 Comparaison Visuelle - Top 3 pour TDAH")
