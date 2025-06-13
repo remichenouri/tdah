@@ -2319,13 +2319,30 @@ def prepare_ml_data_safe(df):
 
 
 def train_simple_models_safe(X_train, X_test, y_train, y_test):
-    """Entraînement de modèles ML simplifié et sécurisé"""
+    """Entraînement de modèles ML avec validation des NaN"""
     try:
         import numpy as np_train
+        
+        # VALIDATION PRÉALABLE DES NaN
+        if X_train.isna().any().any():
+            st.error("❌ X_train contient des NaN")
+            return None
+        
+        if X_test.isna().any().any():
+            st.error("❌ X_test contient des NaN")
+            return None
+            
+        if y_train.isna().any():
+            st.error("❌ y_train contient des NaN")
+            return None
+            
+        if y_test.isna().any():
+            st.error("❌ y_test contient des NaN")
+            return None
 
         results = {}
 
-        # Modèles simples à entraîner
+        # Modèles à entraîner
         models_to_test = {
             'RandomForest': {
                 'class': RandomForestClassifier,
@@ -2337,45 +2354,33 @@ def train_simple_models_safe(X_train, X_test, y_train, y_test):
             }
         }
 
-        # Entraînement de chaque modèle
+        # Entraînement des modèles
         for model_name, model_config in models_to_test.items():
             try:
-
-                # Initialisation du modèle
                 model = model_config['class'](**model_config['params'])
-
-                # Entraînement
                 model.fit(X_train, y_train)
-
-                # Prédictions
                 y_pred = model.predict(X_test)
 
-                # Calcul des métriques avec protection
+                # Calcul des métriques
+                accuracy = accuracy_score(y_test, y_pred)
+                precision = precision_score(y_test, y_pred, zero_division=0)
+                recall = recall_score(y_test, y_pred, zero_division=0)
+                f1 = f1_score(y_test, y_pred, zero_division=0)
+
                 try:
-                    accuracy = accuracy_score(y_test, y_pred)
-                    precision = precision_score(y_test, y_pred, zero_division=0)
-                    recall = recall_score(y_test, y_pred, zero_division=0)
-                    f1 = f1_score(y_test, y_pred, zero_division=0)
+                    y_proba = model.predict_proba(X_test)[:, 1]
+                    auc = roc_auc_score(y_test, y_proba)
+                except:
+                    auc = 0.5
 
-                    # AUC seulement si proba disponible
-                    try:
-                        y_proba = model.predict_proba(X_test)[:, 1]
-                        auc = roc_auc_score(y_test, y_proba)
-                    except:
-                        auc = 0.5  # Valeur par défaut
-
-                    results[model_name] = {
-                        'model': model,
-                        'accuracy': accuracy,
-                        'precision': precision,
-                        'recall': recall,
-                        'f1': f1,
-                        'auc': auc
-                    }
-
-                except Exception as metric_error:
-                    st.warning(f"⚠️ Erreur métriques {model_name}: {metric_error}")
-                    continue
+                results[model_name] = {
+                    'model': model,
+                    'accuracy': accuracy,
+                    'precision': precision,
+                    'recall': recall,
+                    'f1': f1,
+                    'auc': auc
+                }
 
             except Exception as model_error:
                 st.warning(f"⚠️ Erreur entraînement {model_name}: {model_error}")
@@ -2385,7 +2390,6 @@ def train_simple_models_safe(X_train, X_test, y_train, y_test):
             st.error("❌ Aucun modèle n'a pu être entraîné")
             return None
 
-        # Sélection du meilleur modèle
         best_model_name = max(results.keys(), key=lambda x: results[x]['accuracy'])
 
         return {
