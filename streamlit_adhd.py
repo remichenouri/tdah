@@ -942,9 +942,8 @@ def calculate_std_safe(values):
 
 @st.cache_data(ttl=86400)
 def load_enhanced_dataset():
-    """Charge le dataset TDAH sans validation NaN excessive"""
+    """Charge et nettoie automatiquement le dataset TDAH"""
     try:
-        # URL du dataset Google Drive
         url = 'https://drive.google.com/file/d/15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR/view?usp=drive_link'
         file_id = url.split('/d/')[1].split('/')[0]
         download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
@@ -954,17 +953,20 @@ def load_enhanced_dataset():
         if df.empty:
             raise ValueError("Dataset vide")
         
-        # Vérification basique de la colonne diagnosis
+        # NOUVEAU: Nettoyage automatique
+        df = clean_data_robust(df)
+        
+        # Vérification de la colonne diagnosis
         if 'diagnosis' not in df.columns:
             st.warning("⚠️ Colonne 'diagnosis' manquante, création automatique")
             df['diagnosis'] = np.random.binomial(1, 0.3, len(df))
         
-        st.success(f"✅ Dataset chargé : {len(df)} échantillons")
+        st.success(f"✅ Dataset chargé et nettoyé : {len(df)} échantillons")
         return df
 
     except Exception as e:
         st.error(f"Erreur lors du chargement : {str(e)}")
-        return create_fallback_dataset_simple()
+        return create_fallback_dataset()
 
 
 def create_fallback_dataset():
