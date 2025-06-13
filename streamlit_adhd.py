@@ -1306,18 +1306,26 @@ if 'css_loaded' not in st.session_state:
 def smart_visualization(df, x_var, y_var=None, color_var=None):
     """Visualisation automatique adaptée aux types de données - VERSION CORRIGÉE"""
     
-    # Vérification des variables d'entrée
     if df is None or df.empty:
         st.error("Dataset vide ou non disponible")
         return
-        
     if x_var not in df.columns:
         st.error(f"Variable '{x_var}' non trouvée dans le dataset")
         return
     
-    if y_var and y_var not in df.columns:
-        st.error(f"Variable '{y_var}' non trouvée dans le dataset")
-        return
+    # Si y est None, faire un histogramme ou un bar selon le type
+    if y_var is None:
+        # Si la variable est numérique, faire un histogramme
+        if pd.api.types.is_numeric_dtype(df[x_var]):
+            fig = px.histogram(df, x=x_var, title=f'Distribution de {x_var}')
+        else:
+            # Si catégorielle, bar chart
+            chart_data = df[x_var].value_counts().reset_index()
+            chart_data.columns = ['categories', 'count']
+            fig = px.bar(chart_data, x='categories', y='count', title=f'Distribution de {x_var}')
+    else:
+        # Si y est défini, faire autre chose (non nécessaire ici)
+        pass
     
     # Interface utilisateur pour la personnalisation
     col1, col2 = st.columns([3, 1])
@@ -2005,18 +2013,18 @@ def show_enhanced_data_exploration():
                 st.warning("Aucune variable disponible pour la visualisation")
                 return
             
-            # Interface de sélection des variables COMPLÈTE
-            col1 = st.columns(1)
+            # Sélection de la variable x uniquement
+            x_var = st.selectbox(
+                "Variable X (obligatoire) :", 
+                options=all_vars,
+                key="viz_x_var_only"
+            )
             
-            with col1:
-                x_var = st.selectbox(
-                    "Variable X (obligatoire) :", 
-                    options=all_vars,
-                    key="viz_x_var_main"
-                )
-
+            # Pas de y ni de couleur
+            y_var = None
+            color_var = None
             
-            # Affichage des informations sur les variables sélectionnées
+            # Affichage des infos
             if x_var:
                 var_type_x = "Numérique" if x_var in numeric_vars else "Catégorielle"
                 unique_values_x = df[x_var].nunique()
@@ -2030,8 +2038,8 @@ def show_enhanced_data_exploration():
                 with info_cols[2]:
                     st.metric("Valeurs manquantes", missing_values_x)
                 
-                # Appel de la fonction de visualisation corrigée avec TOUTES les variables définies
-                smart_visualization(df, x_var, y_var, color_var)
+                # Appel de la visualisation sans y
+                smart_visualization(df, x_var)
 
 
     with tabs[5]:
