@@ -4845,7 +4845,7 @@ def show_about():
         - **Déploiement :** Streamlit Cloud
 
         ### 👥 Équipe
-
+        - **Auteur :** Rémi CHENOURI         
         - **Développement :** IA & Data Science
         - **Validation clinique :** Experts TDAH
         - **Design UX/UI :** Interface accessible
