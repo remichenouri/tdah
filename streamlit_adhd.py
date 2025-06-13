@@ -2648,7 +2648,7 @@ def show_enhanced_ml_analysis():
 
     try:
         with st.spinner("🔄 Chargement des données TDAH..."):
-            df = load_tdah_dataset()  # Remplacer par votre fonction
+            df = load_enhanced_dataset()
         if 'diagnosis' not in df.columns:
             st.error("❌ Colonne 'diagnosis' manquante dans le dataset TDAH")
             return
