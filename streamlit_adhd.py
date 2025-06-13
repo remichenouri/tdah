@@ -212,41 +212,18 @@ def safe_import_ml_libraries():
 
 def clean_data_robust(df):
     """Nettoyage robuste des données pour éliminer NaN et valeurs infinies"""
-    import numpy as np
-    import pandas as pd
-    
     if df is None or df.empty:
         return df
     
     # Copie pour éviter de modifier l'original
     df_clean = df.copy()
     
-    # 1. Remplacer les valeurs infinies par NaN
-    df_clean = df.dropna()
-    
-    # 2. Identifier les colonnes par type
-    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
-    categorical_cols = df_clean.select_dtypes(include=['object', 'category']).columns
-    
-    # 3. Nettoyer les colonnes numériques
-    for col in numeric_cols:
-        if df_clean[col].isnull().any():
-            median_val = df_clean[col].median()
-            if pd.isna(median_val):
-                df_clean.loc[:, col] = 0
-            else:
-                df_clean.loc[:, col] = df_clean[col].fillna(median_val)
-    
-    # 4. Nettoyer les colonnes catégorielles
-    for col in categorical_cols:
-        if df_clean[col].isnull().any():
-            mode_val = df_clean[col].mode()
-            if len(mode_val) > 0:
-                df_clean.loc[:, col] = df_clean[col].fillna(mode_val[0])
-            else:
-                df_clean.loc[:, col] = df_clean[col].fillna('Unknown')
+    # Remplacer les valeurs infinies par NaN puis supprimer les NaN
+    df_clean = df_clean.replace([np.inf, -np.inf], np.nan)
+    df_clean = df_clean.dropna()
     
     return df_clean
+
     
 def load_and_prepare_tdah_data():
     """Version corrigée du chargement des données"""
