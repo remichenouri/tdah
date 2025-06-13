@@ -1323,50 +1323,52 @@ def determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type=Non
             return "heatmap"
 
 def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_colors, x_is_numeric, y_is_numeric):
-    """Crée le graphique selon le type spécifié"""
+    """Crée le graphique selon le type spécifié - VERSION CORRIGÉE"""
     
-    if chart_type == "histogram":
-        fig = px.histogram(
-            df, 
-            x=x_var, 
-            color=color_var,
-            nbins=min(30, df[x_var].nunique()) if x_is_numeric else None,
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var}'
-        )
-    
-    elif chart_type == "bar":
-        if x_is_numeric:
-            df_temp = df.copy()
-            df_temp[f'{x_var}_bins'] = pd.cut(df_temp[x_var], bins=10)
-            chart_data = df_temp[f'{x_var}_bins'].value_counts().reset_index()
-            chart_data.columns = ['categories', 'count']
-        else:
-            chart_data = df[x_var].value_counts().reset_index()
-            chart_data.columns = ['categories', 'count']
+    try:
+        if chart_type == "histogram":
+            fig = px.histogram(
+                df, 
+                x=x_var, 
+                color=color_var,
+                nbins=min(30, df[x_var].nunique()) if x_is_numeric else None,
+                color_discrete_sequence=selected_colors,
+                title=f'Distribution de {x_var}'
+            )
         
-        fig = px.bar(
-            chart_data, 
-            x='categories', 
-            y='count',
-            color='categories',
-            color_discrete_sequence=selected_colors,
-            title=f'Distribution de {x_var}'
-        )
-    elif chart_type == "scatter":
-        fig = px.scatter(
-            df, 
-            x=x_var, 
-            y=y_var, 
-            color=color_var,
-            trendline="lowess" if len(df) > 10 else None,
-            opacity=0.7,
-            color_discrete_sequence=selected_colors,
-            title=f'Relation entre {x_var} et {y_var}'
-        )
-    
-    elif chart_type == "box":
-        fig = px.box(
+        elif chart_type == "bar":
+            if x_is_numeric:
+                df_temp = df.copy()
+                df_temp[f'{x_var}_bins'] = pd.cut(df_temp[x_var], bins=10)
+                chart_data = df_temp[f'{x_var}_bins'].value_counts().reset_index()
+                chart_data.columns = ['categories', 'count']
+            else:
+                chart_data = df[x_var].value_counts().reset_index()
+                chart_data.columns = ['categories', 'count']
+            
+            fig = px.bar(
+                chart_data, 
+                x='categories', 
+                y='count',
+                color='categories',
+                color_discrete_sequence=selected_colors,
+                title=f'Distribution de {x_var}'
+            )
+        
+        elif chart_type == "scatter":
+            fig = px.scatter(
+                df, 
+                x=x_var, 
+                y=y_var, 
+                color=color_var,
+                trendline="lowess" if len(df) > 10 else None,
+                opacity=0.7,
+                color_discrete_sequence=selected_colors,
+                title=f'Relation entre {x_var} et {y_var}'
+            )
+        
+        elif chart_type == "box":
+            fig = px.box(
                 df, 
                 x=y_var, 
                 y=x_var, 
@@ -1374,9 +1376,9 @@ def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_color
                 color_discrete_sequence=selected_colors,
                 title=f'Distribution de {x_var} par {y_var}'
             )
-        
-    elif chart_type == "violin":
-        fig = px.violin(
+            
+        elif chart_type == "violin":
+            fig = px.violin(
                 df, 
                 x=y_var, 
                 y=x_var, 
@@ -1385,20 +1387,20 @@ def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_color
                 color_discrete_sequence=selected_colors,
                 title=f'Distribution de {x_var} par {y_var}'
             )
-        
-    elif chart_type == "heatmap":
-        try:
-            crosstab = pd.crosstab(df[x_var], df[y_var])
-            fig = px.imshow(
+            
+        elif chart_type == "heatmap":
+            try:
+                crosstab = pd.crosstab(df[x_var], df[y_var])
+                fig = px.imshow(
                     crosstab,
                     color_continuous_scale='Oranges',
                     labels=dict(x=y_var, y=x_var, color="Fréquence"),
                     title=f'Heatmap : {x_var} vs {y_var}'
                 )
-        except Exception:
-            # Fallback vers un graphique en barres
-            chart_data = df.groupby([x_var, y_var]).size().reset_index(name='count')
-            fig = px.bar(
+            except Exception:
+                # Fallback vers un graphique en barres
+                chart_data = df.groupby([x_var, y_var]).size().reset_index(name='count')
+                fig = px.bar(
                     chart_data, 
                     x=x_var, 
                     y='count', 
@@ -1408,15 +1410,40 @@ def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_color
                 )
         
         else:
-            # Graphique par défaut
+            # CORRECTION PRINCIPALE : Graphique par défaut pour les cas non gérés
+            st.warning(f"Type de graphique '{chart_type}' non reconnu. Affichage d'un histogramme par défaut.")
             fig = px.histogram(
                 df, 
                 x=x_var,
                 color_discrete_sequence=selected_colors,
-                title=f'Distribution de {x_var}'
+                title=f'Distribution de {x_var} (par défaut)'
+            )
+        
+        # VÉRIFICATION CRITIQUE : S'assurer qu'une figure est toujours retournée
+        if fig is None:
+            # Création d'une figure vide en cas d'échec
+            fig = go.Figure()
+            fig.add_annotation(
+                text="Erreur lors de la création du graphique",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
             )
         
         return fig
+        
+    except Exception as e:
+        # Gestion d'erreur robuste avec figure de fallback
+        st.error(f"Erreur lors de la création du graphique : {str(e)}")
+        
+        # Retour d'une figure d'erreur plutôt que None
+        error_fig = go.Figure()
+        error_fig.add_annotation(
+            text=f"Erreur : {str(e)}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="red")
+        )
+        return error_fig
 
 def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_type):
     """Personnalise la mise en page du graphique"""
@@ -1473,8 +1500,9 @@ def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_ty
         )
         
 def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=None):
-    """Visualisation automatique adaptée aux types de données - VERSION CORRIGÉE"""
+    """Visualisation automatique avec gestion d'erreur renforcée"""
     
+    # Validations préalables
     if df is None or df.empty:
         st.error("Dataset vide ou non disponible")
         return
@@ -1486,7 +1514,7 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
     x_is_numeric = pd.api.types.is_numeric_dtype(df[x_var])
     y_is_numeric = y_var and pd.api.types.is_numeric_dtype(df[y_var])
     
-    # MAINTENANT la fonction determine_chart_type est accessible
+    # Détermination du type de graphique
     chart_type = determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type)
     
     # Interface utilisateur pour la personnalisation
@@ -1495,7 +1523,6 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
     with col2:
         st.markdown("**🎨 Personnalisation**")
         
-        # Sélection du schéma de couleurs
         color_scheme = st.selectbox(
             "Schéma de couleurs :",
             ["TDAH Optimisé", "Contraste Maximum", "Couleurs Vives", "Accessible"],
@@ -1503,7 +1530,6 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
             index=0
         )
         
-        # Options d'affichage
         show_values = st.checkbox(
             "Afficher les valeurs", 
             value=True, 
@@ -1515,11 +1541,10 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
             value=True, 
             key=f"borders_{x_var}_{y_var or 'none'}"
         )
-        
     
     with col1:
         try:
-            # Définition des palettes de couleurs optimisées
+            # Définition des palettes de couleurs
             color_schemes = {
                 "TDAH Optimisé": ['#2E4057', '#048A81', '#7209B7', '#C73E1D', '#F79824', '#6A994E', '#BC6C25', '#560BAD'],
                 "Contraste Maximum": ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#800000'],
@@ -1529,19 +1554,17 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
             
             selected_colors = color_schemes[color_scheme]
             
-            # Détection automatique des types de données
-            x_is_numeric = pd.api.types.is_numeric_dtype(df[x_var])
-            y_is_numeric = y_var and pd.api.types.is_numeric_dtype(df[y_var])
-            color_is_categorical = color_var and not pd.api.types.is_numeric_dtype(df[color_var])
-            
-            # Détermination du type de graphique
-            chart_type = determine_chart_type(x_is_numeric, y_is_numeric, y_var)
-            
-            # Création du graphique selon le type déterminé
+            # Création du graphique avec validation
             fig = create_chart_by_type(
                 df, x_var, y_var, color_var, chart_type, 
                 selected_colors, x_is_numeric, y_is_numeric
             )
+            
+            # VÉRIFICATION CRITIQUE : S'assurer que fig n'est pas None
+            if fig is None:
+                st.error("❌ Erreur : La fonction de création de graphique a retourné None")
+                st.info("💡 Vérifiez les données et réessayez")
+                return
             
             # Personnalisation commune du graphique
             customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_type)
@@ -1553,9 +1576,11 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
             display_contextual_stats(df, x_var, y_var, chart_type, x_is_numeric, y_is_numeric)
             
         except Exception as e:
-            st.error(f"Erreur lors de la création du graphique : {str(e)}")
-            st.info("Vérifiez que les variables sélectionnées contiennent des données valides")
-            st.code(f"Détails de l'erreur : {type(e).__name__}")
+            st.error(f"❌ Erreur lors de la création du graphique : {str(e)}")
+            st.info("💡 Suggestions de dépannage :")
+            st.write("• Vérifiez que les variables sélectionnées contiennent des données valides")
+            st.write("• Assurez-vous que le dataset n'est pas vide")
+            st.write("• Essayez avec d'autres variables")
 
 def display_contextual_stats(df, x_var, y_var, chart_type, x_is_numeric, y_is_numeric):
     """Affiche les statistiques contextuelles selon le type de graphique"""
