@@ -2205,9 +2205,8 @@ if 'ml_libs_loaded' not in st.session_state:
     st.session_state.ml_libs_loaded = load_ml_libraries()
 
 def prepare_ml_data_safe(df):
-    """Préparation des données ML avec gestion d'erreur complète"""
+    """Préparation des données ML avec nettoyage complet des NaN"""
     try:
-        # Import local sécurisé
         import numpy as np_safe
         import pandas as pd_safe
 
@@ -2221,20 +2220,24 @@ def prepare_ml_data_safe(df):
             st.error("❌ Colonne 'diagnosis' manquante dans le dataset")
             return None, None, None, None
 
-        # Préparation des features
-        feature_columns = [col for col in df.columns if col not in ['diagnosis', 'subject_id']]
-
-        if len(feature_columns) == 0:
-            st.error("❌ Aucune feature disponible pour l'entraînement")
+        # CORRECTION PRINCIPALE : Nettoyage des NaN dans la variable cible
+        df_clean = df.copy()
+        
+        # Supprimer les lignes où 'diagnosis' est NaN
+        df_clean = df_clean.dropna(subset=['diagnosis'])
+        
+        if len(df_clean) == 0:
+            st.error("❌ Aucune donnée valide après suppression des NaN")
             return None, None, None, None
 
-        # Sélection des variables numériques uniquement pour éviter les erreurs
+        # Préparation des features
+        feature_columns = [col for col in df_clean.columns if col not in ['diagnosis', 'subject_id']]
+        
+        # Sélection des variables numériques
         numeric_features = []
         for col in feature_columns:
             try:
-                # Test de conversion numérique
-                pd_safe.to_numeric(df[col], errors='coerce')
-                if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
+                if df_clean[col].dtype in ['int64', 'float64', 'int32', 'float32']:
                     numeric_features.append(col)
             except:
                 continue
@@ -2243,15 +2246,21 @@ def prepare_ml_data_safe(df):
             st.error("❌ Aucune variable numérique trouvée")
             return None, None, None, None
 
-        # Préparation des données
-        X = df[numeric_features].copy()
-        y = df['diagnosis'].copy()
+        # Préparation des données avec nettoyage des NaN
+        X = df_clean[numeric_features].copy()
+        y = df_clean['diagnosis'].copy()
 
-        # Nettoyage des valeurs manquantes
+        # Nettoyage des valeurs manquantes dans X avec fillna
         X = X.fillna(X.mean())
-
-        # Vérification des dimensions
-        st.info(f"📊 Dimensions finales : X={X.shape}, y={y.shape}")
+        
+        # Vérification finale des NaN
+        if X.isna().any().any():
+            st.warning("⚠️ Certaines colonnes contiennent encore des NaN, remplacement par 0")
+            X = X.fillna(0)
+        
+        if y.isna().any():
+            st.error("❌ La variable cible contient encore des NaN après nettoyage")
+            return None, None, None, None
 
         # Division train/test avec protection
         try:
@@ -2263,6 +2272,7 @@ def prepare_ml_data_safe(df):
                 stratify=y if len(np_safe.unique(y)) > 1 else None
             )
 
+            st.info(f"📊 Données nettoyées : {len(df_clean)} échantillons (supprimé {len(df) - len(df_clean)} lignes avec NaN)")
             return X_train, X_test, y_train, y_test
 
         except Exception as e:
@@ -2272,6 +2282,7 @@ def prepare_ml_data_safe(df):
     except Exception as e:
         st.error(f"❌ Erreur dans la préparation des données : {str(e)}")
         return None, None, None, None
+
 
 def train_simple_models_safe(X_train, X_test, y_train, y_test):
     """Entraînement de modèles ML simplifié et sécurisé"""
