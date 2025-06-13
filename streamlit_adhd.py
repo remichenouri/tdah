@@ -2250,82 +2250,69 @@ if 'ml_libs_loaded' not in st.session_state:
     st.session_state.ml_libs_loaded = load_ml_libraries()
 
 def prepare_ml_data_safe(df):
-    """Préparation des données ML avec nettoyage complet des NaN"""
+    """Préparation des données ML avec validation complète des NaN"""
     try:
-        import numpy as np_safe
-        import pandas as pd_safe
-
-        # Vérification du dataset
+        # Vérifications préliminaires
         if df is None or len(df) == 0:
             st.error("❌ Dataset vide ou non disponible")
             return None, None, None, None
 
-        # Vérification de la colonne target
         if 'diagnosis' not in df.columns:
-            st.error("❌ Colonne 'diagnosis' manquante dans le dataset")
+            st.error("❌ Colonne 'diagnosis' manquante")
             return None, None, None, None
 
-        # CORRECTION PRINCIPALE : Nettoyage des NaN dans la variable cible
-        df_clean = df.copy()
-        
-        # Supprimer les lignes où 'diagnosis' est NaN
-        df_clean = df_clean.dropna(subset=['diagnosis'])
-        
-        if len(df_clean) == 0:
-            st.error("❌ Aucune donnée valide après suppression des NaN")
+        # VALIDATION CRITIQUE : Vérification NaN dans la variable cible
+        if df['diagnosis'].isnull().any():
+            st.error("❌ ERREUR CRITIQUE : La variable 'diagnosis' contient des NaN")
+            st.error("Le dataset doit être nettoyé avant l'entraînement ML")
             return None, None, None, None
 
-        # Préparation des features
-        feature_columns = [col for col in df_clean.columns if col not in ['diagnosis', 'subject_id']]
+        # Préparation des features (exclusion des colonnes non-ML)
+        exclude_columns = ['diagnosis', 'subject_id', 'source_file', 'generation_date', 'version', 'streamlit_ready']
+        feature_columns = [col for col in df.columns if col not in exclude_columns]
         
-        # Sélection des variables numériques
+        # Sélection des variables numériques uniquement
         numeric_features = []
         for col in feature_columns:
-            try:
-                if df_clean[col].dtype in ['int64', 'float64', 'int32', 'float32']:
-                    numeric_features.append(col)
-            except:
-                continue
+            if pd.api.types.is_numeric_dtype(df[col]):
+                numeric_features.append(col)
 
         if len(numeric_features) == 0:
-            st.error("❌ Aucune variable numérique trouvée")
+            st.error("❌ Aucune variable numérique trouvée pour l'entraînement")
             return None, None, None, None
 
-        # Préparation des données avec nettoyage des NaN
-        X = df_clean[numeric_features].copy()
-        y = df_clean['diagnosis'].copy()
+        # Préparation des données finales
+        X = df[numeric_features].copy()
+        y = df['diagnosis'].copy()
 
-        # Nettoyage des valeurs manquantes dans X avec fillna
-        X = X.fillna(X.mean())
-        
-        # Vérification finale des NaN
-        if X.isna().any().any():
-            st.warning("⚠️ Certaines colonnes contiennent encore des NaN, remplacement par 0")
-            X = X.fillna(0)
-        
-        if y.isna().any():
-            st.error("❌ La variable cible contient encore des NaN après nettoyage")
+        # VALIDATION FINALE : Aucun NaN ne doit subsister
+        if X.isnull().any().any():
+            st.warning("⚠️ NaN détectés dans X, nettoyage automatique")
+            X = X.fillna(X.median())  # Remplacement par médiane
+            X = X.fillna(0)  # Fallback si médiane impossible
+
+        if y.isnull().any():
+            st.error("❌ NaN encore présents dans y après nettoyage")
             return None, None, None, None
 
-        # Division train/test avec protection
-        try:
-            from sklearn.model_selection import train_test_split
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y,
-                test_size=0.2,
-                random_state=42,
-                stratify=y if len(np_safe.unique(y)) > 1 else None
-            )
-
-            st.info(f"📊 Données nettoyées : {len(df_clean)} échantillons (supprimé {len(df) - len(df_clean)} lignes avec NaN)")
-            return X_train, X_test, y_train, y_test
-
-        except Exception as e:
-            st.error(f"❌ Erreur lors de la division : {str(e)}")
+        # Division train/test avec stratification sécurisée
+        unique_labels = y.nunique()
+        if unique_labels < 2:
+            st.error("❌ Pas assez de classes uniques pour la stratification")
             return None, None, None, None
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y,
+            test_size=0.2,
+            random_state=42,
+            stratify=y  # Stratification maintenant sûre
+        )
+
+        st.success(f"✅ Données ML préparées : {len(X_train)} train, {len(X_test)} test")
+        return X_train, X_test, y_train, y_test
 
     except Exception as e:
-        st.error(f"❌ Erreur dans la préparation des données : {str(e)}")
+        st.error(f"❌ Erreur dans prepare_ml_data_safe : {str(e)}")
         return None, None, None, None
 
 
