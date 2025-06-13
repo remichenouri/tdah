@@ -3641,29 +3641,6 @@ def show_enhanced_ai_prediction():
                 </div>
                 """, unsafe_allow_html=True)
 
-                # Options de réponse avec style personnalisé
-                col1, col2, col3, col4, col5 = st.columns(5)
-
-                with col1:
-                    if st.radio(f"q{i}", [0], format_func=lambda x: "Jamais", key=f"asrs_q{i}_0", label_visibility="collapsed"):
-                        st.session_state.asrs_responses[f'q{i}'] = 0
-
-                with col2:
-                    if st.radio(f"q{i}", [1], format_func=lambda x: "Rarement", key=f"asrs_q{i}_1", label_visibility="collapsed"):
-                        st.session_state.asrs_responses[f'q{i}'] = 1
-
-                with col3:
-                    if st.radio(f"q{i}", [2], format_func=lambda x: "Parfois", key=f"asrs_q{i}_2", label_visibility="collapsed"):
-                        st.session_state.asrs_responses[f'q{i}'] = 2
-
-                with col4:
-                    if st.radio(f"q{i}", [3], format_func=lambda x: "Souvent", key=f"asrs_q{i}_3", label_visibility="collapsed"):
-                        st.session_state.asrs_responses[f'q{i}'] = 3
-
-                with col5:
-                    if st.radio(f"q{i}", [4], format_func=lambda x: "Très souvent", key=f"asrs_q{i}_4", label_visibility="collapsed"):
-                        st.session_state.asrs_responses[f'q{i}'] = 4
-
                 # Sélection avec selectbox (plus pratique)
                 response = st.selectbox(
                     f"Votre réponse à la question {i}:",
