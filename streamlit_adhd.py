@@ -1502,14 +1502,20 @@ def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_ty
 def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=None):
     """Visualisation automatique avec gestion d'erreur renforcée"""
     
-    # Validations préalables
-    if df is None or df.empty:
-        st.error("Dataset vide ou non disponible")
-        return
-    if x_var not in df.columns:
-        st.error(f"Variable '{x_var}' non trouvée dans le dataset")
-        return
+    # Variables à exclure systématiquement des graphiques
+    excluded_vars = ['source_file', 'generation_date', 'version', 'streamlit_ready', 'subject_id']
     
+    # Filtrer le DataFrame pour la visualisation
+    df_viz = df.loc[:, ~df.columns.isin(excluded_vars)]
+    
+    # Validations préalables sur le DataFrame filtré
+    if df_viz is None or df_viz.empty:
+        st.error("Dataset vide ou non disponible après filtrage")
+        return
+    if x_var not in df_viz.columns:
+        st.error(f"Variable '{x_var}' non trouvée dans le dataset filtré")
+        return
+
     # Détection automatique des types de données
     x_is_numeric = pd.api.types.is_numeric_dtype(df[x_var])
     y_is_numeric = y_var and pd.api.types.is_numeric_dtype(df[y_var])
