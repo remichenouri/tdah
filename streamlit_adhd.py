@@ -479,6 +479,36 @@ def check_dependencies():
 # Appel de la vérification au début de l'application
 check_dependencies()
 
+def validate_ml_data(X, y):
+    """Validation des données pour l'apprentissage automatique"""
+    import numpy as np
+    
+    # Vérifier X
+    if X is None or len(X) == 0:
+        raise ValueError("X est vide ou None")
+    
+    if hasattr(X, 'isnull') and X.isnull().any().any():
+        raise ValueError("X contient des NaN")
+    
+    if isinstance(X, np.ndarray) and np.any(np.isnan(X)):
+        raise ValueError("X contient des NaN (numpy)")
+    
+    if isinstance(X, np.ndarray) and np.any(np.isinf(X)):
+        raise ValueError("X contient des valeurs infinies")
+    
+    # Vérifier y
+    if y is None or len(y) == 0:
+        raise ValueError("y est vide ou None")
+    
+    if hasattr(y, 'isnull') and y.isnull().any():
+        raise ValueError("y contient des NaN")
+    
+    # Vérifier les dimensions
+    if len(X) != len(y):
+        raise ValueError(f"Dimensions incompatibles: X={len(X)}, y={len(y)}")
+    
+    return True
+
 def safe_calculation(func, fallback_value=0, error_message="Erreur de calcul"):
     """Wrapper pour les calculs avec gestion d'erreur"""
     try:
