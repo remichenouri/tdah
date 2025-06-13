@@ -1346,12 +1346,6 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
             key=f"borders_{x_var}_{y_var or 'none'}"
         )
         
-        # Sélection du type de graphique (optionnel)
-        force_chart_type = st.selectbox(
-            "Forcer le type :",
-            ["Auto", "Histogramme", "Barres", "Nuage de points", "Boîte à moustaches"],
-            key=f"chart_type_{x_var}_{y_var or 'none'}"
-        )
     
     with col1:
         try:
@@ -2012,7 +2006,7 @@ def show_enhanced_data_exploration():
                 return
             
             # Interface de sélection des variables COMPLÈTE
-            col1, col2, col3 = st.columns(3)
+            col1 = st.columns(1)
             
             with col1:
                 x_var = st.selectbox(
@@ -2020,22 +2014,7 @@ def show_enhanced_data_exploration():
                     options=all_vars,
                     key="viz_x_var_main"
                 )
-            
-            with col2:
-                y_var = st.selectbox(
-                    "Variable Y (optionnel) :", 
-                    options=["Aucune"] + all_vars,
-                    key="viz_y_var_main"
-                )
-                y_var = None if y_var == "Aucune" else y_var
-            
-            with col3:
-                color_var = st.selectbox(
-                    "Variable couleur (optionnel) :", 
-                    options=["Aucune"] + categorical_vars,
-                    key="viz_color_var_main"
-                )
-                color_var = None if color_var == "Aucune" else color_var
+
             
             # Affichage des informations sur les variables sélectionnées
             if x_var:
