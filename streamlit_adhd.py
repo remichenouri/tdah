@@ -1309,28 +1309,34 @@ if 'css_loaded' not in st.session_state:
     """, unsafe_allow_html=True)
 
 def determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type=None):
-    """Détermine automatiquement le type de graphique approprié"""
+    """Détermine automatiquement le type de graphique approprié avec fallback"""
     
     if force_chart_type:
         return force_chart_type
     
-    # Logique automatique
-    if not y_var:
-        return "histogram" if x_is_numeric else "bar"
-    else:
-        if x_is_numeric and y_is_numeric:
-            return "scatter"
-        elif x_is_numeric and not y_is_numeric:
-            return "box"
-        elif not x_is_numeric and y_is_numeric:
-            return "violin"
+    # Logique automatique avec fallback vers histogram
+    try:
+        if not y_var:
+            return "histogram" if x_is_numeric else "bar"
         else:
-            return "heatmap"
+            if x_is_numeric and y_is_numeric:
+                return "scatter"
+            elif x_is_numeric and not y_is_numeric:
+                return "box"
+            elif not x_is_numeric and y_is_numeric:
+                return "violin"
+            else:
+                return "heatmap"
+    except Exception:
+        # Fallback en cas d'erreur
+        return "histogram"
 
 def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_colors, x_is_numeric, y_is_numeric):
     """Crée le graphique selon le type spécifié - VERSION CORRIGÉE"""
     
     try:
+        fig = None  # Initialisation explicite
+        
         if chart_type == "histogram":
             fig = px.histogram(
                 df, 
@@ -1414,9 +1420,9 @@ def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_color
                     title=f'Relation entre {x_var} et {y_var}'
                 )
         
-        else:
-            # CORRECTION PRINCIPALE : Graphique par défaut pour les cas non gérés
-            st.warning(f"Type de graphique '{chart_type}' non reconnu. Affichage d'un histogramme par défaut.")
+        # CORRECTION CRITIQUE : Graphique par défaut si type non reconnu
+        if fig is None:
+            st.warning(f"Type de graphique '{chart_type}' non reconnu. Création d'un histogramme par défaut.")
             fig = px.histogram(
                 df, 
                 x=x_var,
@@ -1424,15 +1430,17 @@ def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_color
                 title=f'Distribution de {x_var} (par défaut)'
             )
         
-        # VÉRIFICATION CRITIQUE : S'assurer qu'une figure est toujours retournée
+        # VALIDATION FINALE : S'assurer qu'une figure valide est retournée
         if fig is None:
-            # Création d'une figure vide en cas d'échec
+            # Création d'une figure d'erreur en dernier recours
             fig = go.Figure()
             fig.add_annotation(
                 text="Erreur lors de la création du graphique",
                 xref="paper", yref="paper",
-                x=0.5, y=0.5, showarrow=False
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(size=16, color="red")
             )
+            fig.update_layout(title="Erreur de visualisation")
         
         return fig
         
@@ -1448,6 +1456,7 @@ def create_chart_by_type(df, x_var, y_var, color_var, chart_type, selected_color
             x=0.5, y=0.5, showarrow=False,
             font=dict(size=16, color="red")
         )
+        error_fig.update_layout(title="Erreur de création du graphique")
         return error_fig
 
 def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_type):
@@ -1510,40 +1519,31 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
     # Variables à exclure systématiquement des graphiques
     excluded_vars = ['source_file', 'generation_date', 'version', 'streamlit_ready', 'subject_id']
     
-    # Filtrer le DataFrame pour la visualisation AVANT toute opération
-    df_viz = df.loc[:, ~df.columns.isin(excluded_vars)]
-    
-    # Vérification que les variables sélectionnées ne sont pas dans la liste d'exclusion
-    if x_var in excluded_vars:
-        st.error(f"❌ Variable '{x_var}' est exclue des visualisations")
-        st.info("💡 Cette variable technique ne peut pas être utilisée pour les graphiques")
+    # Vérifications préalables
+    if df is None or df.empty:
+        st.error("❌ Dataset vide ou non disponible")
         return
     
-    if y_var and y_var in excluded_vars:
-        st.error(f"❌ Variable '{y_var}' est exclue des visualisations")
-        st.info("💡 Cette variable technique ne peut pas être utilisée pour les graphiques")
+    # Vérifier que les variables sélectionnées existent et ne sont pas exclues
+    available_columns = [col for col in df.columns if col not in excluded_vars]
+    
+    if x_var not in available_columns:
+        st.error(f"❌ Variable '{x_var}' non disponible pour la visualisation")
+        st.info(f"💡 Variables disponibles : {', '.join(available_columns[:10])}")
+        return
+    
+    if y_var and y_var not in available_columns:
+        st.error(f"❌ Variable '{y_var}' non disponible pour la visualisation")
         return
         
-    if color_var and color_var in excluded_vars:
-        st.error(f"❌ Variable '{color_var}' est exclue des visualisations")
-        st.info("💡 Cette variable technique ne peut pas être utilisée pour les graphiques")
-        return
-    
-    # Validations préalables sur le DataFrame filtré
-    if df_viz is None or df_viz.empty:
-        st.error("Dataset vide ou non disponible après filtrage")
-        return
-    if x_var not in df_viz.columns:
-        st.error(f"Variable '{x_var}' non trouvée dans le dataset filtré")
-        return
-    if y_var and y_var not in df_viz.columns:
-        st.error(f"Variable '{y_var}' non trouvée dans le dataset filtré")
-        return
-    if color_var and color_var not in df_viz.columns:
-        st.error(f"Variable '{color_var}' non trouvée dans le dataset filtré")
+    if color_var and color_var not in available_columns:
+        st.error(f"❌ Variable '{color_var}' non disponible pour la visualisation")
         return
 
-    # Détection automatique des types de données sur le DataFrame filtré
+    # Filtrer le DataFrame pour la visualisation
+    df_viz = df[available_columns].copy()
+    
+    # Détection automatique des types de données
     x_is_numeric = pd.api.types.is_numeric_dtype(df_viz[x_var])
     y_is_numeric = y_var and pd.api.types.is_numeric_dtype(df_viz[y_var])
     
@@ -1593,19 +1593,23 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
                 selected_colors, x_is_numeric, y_is_numeric
             )
             
-            # VÉRIFICATION CRITIQUE : S'assurer que fig n'est pas None
+            # VALIDATION CRITIQUE : S'assurer que fig n'est pas None
             if fig is None:
                 st.error("❌ Erreur : La fonction de création de graphique a retourné None")
-                st.info("💡 Vérifiez les données et réessayez")
+                st.info("💡 Vérifiez les données et réessayez avec d'autres variables")
                 return
             
             # Personnalisation commune du graphique
             customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_type)
             
-            # Affichage du graphique
-            st.plotly_chart(fig, use_container_width=True, key=f"chart_{x_var}_{y_var or 'none'}")
+            # Affichage du graphique avec gestion d'erreur
+            try:
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_{x_var}_{y_var or 'none'}")
+            except Exception as display_error:
+                st.error(f"❌ Erreur d'affichage : {str(display_error)}")
+                return
             
-            # Statistiques contextuelles sur le DataFrame filtré
+            # Statistiques contextuelles
             display_contextual_stats(df_viz, x_var, y_var, chart_type, x_is_numeric, y_is_numeric)
             
         except Exception as e:
@@ -1614,7 +1618,6 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
             st.write("• Vérifiez que les variables sélectionnées contiennent des données valides")
             st.write("• Assurez-vous que le dataset n'est pas vide")
             st.write("• Essayez avec d'autres variables")
-
 
 def display_contextual_stats(df, x_var, y_var, chart_type, x_is_numeric, y_is_numeric):
     """Affiche les statistiques contextuelles selon le type de graphique"""
