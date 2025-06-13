@@ -1556,7 +1556,6 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
             st.error(f"Erreur lors de la création du graphique : {str(e)}")
             st.info("Vérifiez que les variables sélectionnées contiennent des données valides")
             st.code(f"Détails de l'erreur : {type(e).__name__}")
-        )
 
 def display_contextual_stats(df, x_var, y_var, chart_type, x_is_numeric, y_is_numeric):
     """Affiche les statistiques contextuelles selon le type de graphique"""
