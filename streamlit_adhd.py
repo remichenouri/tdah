@@ -1392,17 +1392,6 @@ def smart_visualization(df, x_var, y_var=None, color_var=None):
             st.error(f"Erreur lors de la création du graphique : {str(e)}")
             st.info("Vérifiez que les variables sélectionnées contiennent des données valides")
             st.code(f"Détails de l'erreur : {type(e).__name__}")
-
-def determine_chart_type(x_is_numeric, y_is_numeric, y_var, force_chart_type):
-    """Détermine le type de graphique approprié"""
-    if force_chart_type != "Auto":
-        type_mapping = {
-            "Histogramme": "histogram",
-            "Barres": "bar",
-            "Nuage de points": "scatter",
-            "Boîte à moustaches": "box"
-        }
-        return type_mapping.get(force_chart_type, "histogram")
     
     # Logique automatique
     if not y_var:
@@ -1548,8 +1537,7 @@ def customize_chart_layout(fig, x_var, y_var, add_borders, show_values, chart_ty
         height=450,
         hovermode="closest" if chart_type == "scatter" else "x unified"
     )
-    
-    # ✅ CORRECTION : Utiliser update_xaxes au lieu de update_xaxis
+
     fig.update_xaxes(
         title=dict(
             text=x_var,
