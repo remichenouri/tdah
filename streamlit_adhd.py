@@ -228,9 +228,56 @@ def clean_data_robust(df):
                 df_clean.loc[:, col] = df_clean[col].fillna('Unknown')
     
     return df_clean
+    
+def load_and_prepare_tdah_data():
+    """Version corrigée du chargement des données"""
+    try:
+        if st.session_state.df is None:
+            with st.spinner("🔄 Chargement des données TDAH..."):
+                df = load_enhanced_dataset()
+                st.session_state.df = df
+        
+        df = st.session_state.df
+        
+        if df is None or df.empty:
+            st.error("❌ Dataset vide ou non disponible")
+            return None, None, None, None
+        
+        # Vérification de l'existence des colonnes nécessaires
+        required_columns = ['diagnosis']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            st.error(f"❌ Colonnes manquantes : {missing_columns}")
+            return None, None, None, None
+        
+        # Préparation sécurisée des variables X et y
+        feature_columns = [col for col in df.columns if col.startswith('asrs_')]
+        if not feature_columns:
+            st.error("❌ Aucune colonne ASRS trouvée")
+            return None, None, None, None
+        
+        X = df[feature_columns].copy()
+        y = df['diagnosis'].copy()
+        
+        # Division train/test avec gestion d'erreur
+        if len(X) > 0 and len(y) > 0:
+            X_train, X_test, y_train, y_test = st.session_state.train_test_split(
+                X, y, test_size=0.3, random_state=42, stratify=y
+            )
+            
+            # Stockage dans session_state
+            st.session_state.X_train = X_train
+            st.session_state.X_test = X_test
+            st.session_state.y_train = y_train
+            st.session_state.y_test = y_test
+            
+            return X_train, X_test, y_train, y_test
+        
+    except Exception as e:
+        st.error(f"❌ Erreur de chargement : {str(e)}")
+        return None, None, None, None
 
-def prepare_tdah_data_safe(df):
-        return prepare_tdah_data_safe(df)
 
 
 def show_rgpd_panel():
