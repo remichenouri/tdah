@@ -852,20 +852,59 @@ def calculate_std_safe(values):
         return variance ** 0.5
 
 
-@st.cache_data(ttl=86400)
+@st.cache_data(ttl=3600, show_spinner="Chargement du dataset TDAH...")
 def load_enhanced_dataset():
-    """Charge le dataset TDAH enrichi depuis GitHub avec gestion d'erreur"""
+    """Charge le dataset TDAH enrichi depuis GitHub avec gestion d'erreur robuste"""
+    url = 'https://raw.githubusercontent.com/remichenouri/tdah/refs/heads/main/dataset_tdah_research_validated_2024.csv'
+    
     try:
-        # URL de votre fichier CSV sur GitHub (à personnaliser)
-        url = 'https://raw.githubusercontent.com/remichenouri/tdah/refs/heads/main/dataset_tdah_research_validated_2024.csv'
+        # Configuration de la session requests avec timeout et retry
+        import requests
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
         
-        # Chargement du dataset
-        df = pd.read_csv(url)
+        session = requests.Session()
+        retry_strategy = Retry(
+            total=3,
+            status_forcelist=[429, 500, 502, 503, 504],
+            backoff_factor=1
+        )
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        
+        # Tentative de chargement avec timeout étendu
+        response = session.get(url, timeout=60)
+        response.raise_for_status()
+        
+        # Lecture avec pandas via StringIO
+        from io import StringIO
+        df = pd.read_csv(StringIO(response.text))
+        
+        st.success(f"✅ Dataset chargé : {len(df):,} participants")
+        return df
+        
+    except requests.exceptions.Timeout:
+        st.error("❌ Timeout : Connexion trop lente vers GitHub")
+        return create_fallback_dataset()
+        
+    except requests.exceptions.ConnectionError:
+        st.error("❌ Erreur de connexion à raw.githubusercontent.com")
+        st.info("💡 Problème réseau détecté. Utilisation du dataset de fallback.")
+        return create_fallback_dataset()
+        
+    except requests.exceptions.HTTPError as e:
+        st.error(f"❌ Erreur HTTP {e.response.status_code}")
+        return create_fallback_dataset()
+        
+    except pd.errors.EmptyDataError:
+        st.error("❌ Fichier CSV vide ou corrompu")
+        return create_fallback_dataset()
         
     except Exception as e:
-        st.error(f"Erreur lors du chargement du dataset GitHub: {str(e)}")
-        st.info("Utilisation de données simulées à la place")
-      
+        st.error(f"❌ Erreur inattendue : {str(e)}")
+        return create_fallback_dataset()
+
 def test_numpy_availability():
     """Test de disponibilité de numpy et pandas"""
     try:
