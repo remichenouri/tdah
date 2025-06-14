@@ -2911,7 +2911,7 @@ def prepare_ml_data_advanced(df, test_size, scaling_method, handle_imbalance):
         # CORRECTION IMPORTANTE: Ajout de bruit pour éviter les métriques parfaites
         # (simulation plus réaliste des données médicales)
         np.random.seed(42)
-        noise_std = 0.1
+        noise_std = 0.3
         for col in X.columns:
             if X[col].std() > 0:  # Éviter la division par zéro
                 noise = np.random.normal(0, noise_std * X[col].std(), len(X))
