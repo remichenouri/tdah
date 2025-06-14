@@ -2938,11 +2938,21 @@ def prepare_ml_data_advanced(df, test_size, scaling_method, handle_imbalance):
         # Gestion du déséquilibre des classes
         if handle_imbalance:
             try:
-                from imblearn.over_sampling import SMOTE
-                smote = SMOTE(random_state=42)
+                # Installation automatique si nécessaire
+                try:
+                    from imblearn.over_sampling import SMOTE
+                except ImportError:
+                    import subprocess
+                    subprocess.check_call(["pip", "install", "imbalanced-learn"])
+                    from imblearn.over_sampling import SMOTE
+                
+                # Utilisation de fit_resample (nouvelle API)
+                smote = SMOTE(random_state=42, k_neighbors=min(5, len(X_train_scaled)-1))
                 X_train_scaled, y_train = smote.fit_resample(X_train_scaled, y_train)
-            except ImportError:
-                st.warning("⚠️ SMOTE non disponible, continuons sans équilibrage")
+
+                
+            except Exception as e:
+                st.warning(f"⚠️ Erreur SMOTE : {str(e)}. Continuons sans équilibrage")
         
         return {
             'X_train': X_train_scaled,
