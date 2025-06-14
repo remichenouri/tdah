@@ -1,35 +1,82 @@
 # -*- coding: utf-8 -*-
+"""
+Plateforme Avancée de Dépistage TDAH
+Analyse ML avec ASRS v1.1 et Intelligence Artificielle
+Auteur: Rémi CHENOURI
+"""
+
+# Imports de base
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
+import os, pickle, hashlib, warnings, uuid, time, json
+from io import BytesIO
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+
+# Imports Machine Learning
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
                            f1_score, roc_auc_score, confusion_matrix, classification_report)
-from sklearn.pipeline import Pipeline
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import warnings
-warnings.filterwarnings('ignore')
+from sklearn.decomposition import PCA
 
-# Configuration de la page
+# Imports statistiques CORRIGÉS
+from scipy.stats import chi2_contingency, pearsonr, spearmanr, mannwhitneyu
+from scipy import stats
+
+# Imports visualisation avec gestion d'erreur
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    PLOTLY_AVAILABLE = True
+except ImportError as e:
+    PLOTLY_AVAILABLE = False
+    st.warning(f"⚠️ Bibliothèques de visualisation non disponibles : {e}")
+
+# Configuration Streamlit UNIQUE
 st.set_page_config(
-    page_title="Analyse ML TDAH",
+    page_title="Analyse ML TDAH - Plateforme Avancée",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+# Initialisation des variables de session
+def initialize_session_variables():
+    """Initialise toutes les variables de session nécessaires"""
+    
+    # Variables RGPD et consentement
+    if 'gdpr_compliant' not in st.session_state:
+        st.session_state.gdpr_compliant = False
+    if 'rgpd_consent' not in st.session_state:
+        st.session_state.rgpd_consent = {}
+    if 'client_ip' not in st.session_state:
+        st.session_state.client_ip = ''
+    
+    # Variables de données
+    if 'df' not in st.session_state:
+        st.session_state.df = None
+    if 'ml_data' not in st.session_state:
+        st.session_state.ml_data = None
+    
+    # Variables ASRS
+    if 'asrs_responses' not in st.session_state:
+        st.session_state.asrs_responses = {}
+    if 'asrs_results' not in st.session_state:
+        st.session_state.asrs_results = None
+    
+    # Variables de navigation
+    if 'tool_choice' not in st.session_state:
+        st.session_state.tool_choice = "🏠 Accueil"
 
-import streamlit as st
-import uuid
-import hashlib
-import time
-from datetime import datetime
+# Appel de l'initialisation
+initialize_session_variables()
+
 
 class GDPRConsentManager:
     """Gestionnaire des consentements RGPD"""
