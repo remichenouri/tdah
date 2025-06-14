@@ -2492,58 +2492,110 @@ def safe_model_prediction(model, X_data):
         return None, None
 
 
-def evaluate_models_properly(X_train, X_test, y_train, y_test):
-    """Évaluation correcte des modèles sans LazyPredict"""
-    
+def evaluate_models_robust(X_train, X_test, y_train, y_test):
+    """
+    Évaluation robuste des modèles avec validation croisée appropriée
+    """
+    # Configuration des modèles avec paramètres optimisés
     models = {
-        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
-        'Gradient Boosting': GradientBoostingClassifier(n_estimators=100, random_state=42),
-        'Extra Trees': ExtraTreesClassifier(n_estimators=100, random_state=42),
-        'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
-        'SVM': SVC(probability=True, random_state=42)
+        'Random Forest': RandomForestClassifier(
+            n_estimators=100,
+            max_depth=10,
+            min_samples_split=5,
+            min_samples_leaf=2,
+            random_state=42,
+            class_weight='balanced'
+        ),
+        'Gradient Boosting': GradientBoostingClassifier(
+            n_estimators=100,
+            learning_rate=0.1,
+            max_depth=6,
+            random_state=42
+        ),
+        'Extra Trees': ExtraTreesClassifier(
+            n_estimators=100,
+            max_depth=10,
+            min_samples_split=5,
+            random_state=42,
+            class_weight='balanced'
+        ),
+        'Logistic Regression': LogisticRegression(
+            random_state=42,
+            max_iter=1000,
+            class_weight='balanced',
+            solver='liblinear'
+        ),
+        'SVM': SVC(
+            probability=True,
+            random_state=42,
+            class_weight='balanced',
+            kernel='rbf',
+            C=1.0
+        )
     }
     
     results = {}
     
+    # Configuration de la validation croisée stratifiée
+    cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    
     for name, model in models.items():
         try:
-            # Validation croisée sur les données d'entraînement
-            cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='roc_auc')
+            st.write(f"🔄 Entraînement du modèle : {name}")
             
-            # Entraînement sur l'ensemble d'entraînement
+            # Validation croisée sur les données d'entraînement
+            cv_scores = cross_val_score(
+                model, X_train, y_train, 
+                cv=cv_strategy, 
+                scoring='roc_auc',
+                n_jobs=-1
+            )
+            
+            # Entraînement sur l'ensemble d'entraînement complet
             model.fit(X_train, y_train)
             
             # Prédictions sur l'ensemble de test
             y_pred = model.predict(X_test)
             y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
             
-            # Calcul des métriques correctes
-            accuracy = accuracy_score(y_test, y_pred)
-            precision = precision_score(y_test, y_pred, zero_division=0)
-            recall = recall_score(y_test, y_pred, zero_division=0)
-            f1 = f1_score(y_test, y_pred, zero_division=0)
+            # Calcul des métriques sur l'ensemble de test
+            test_accuracy = accuracy_score(y_test, y_pred)
+            test_precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+            test_recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
+            test_f1 = f1_score(y_test, y_pred, average='weighted', zero_division=0)
             
-            # ROC-AUC calculé correctement avec les probabilités
-            roc_auc = roc_auc_score(y_test, y_proba) if y_proba is not None else 0.5
+            # ROC-AUC pour la classification binaire
+            if y_proba is not None and len(np.unique(y_test)) == 2:
+                test_roc_auc = roc_auc_score(y_test, y_proba)
+            else:
+                test_roc_auc = 0.5
             
+            # Stockage des résultats
             results[name] = {
                 'model': model,
                 'cv_scores': cv_scores,
                 'cv_mean': cv_scores.mean(),
                 'cv_std': cv_scores.std(),
-                'test_accuracy': accuracy,
-                'test_precision': precision,
-                'test_recall': recall,
-                'test_f1': f1,
-                'test_roc_auc': roc_auc,
-                'confusion_matrix': confusion_matrix(y_test, y_pred)
+                'test_accuracy': test_accuracy,
+                'test_precision': test_precision,
+                'test_recall': test_recall,
+                'test_f1': test_f1,
+                'test_roc_auc': test_roc_auc,
+                'confusion_matrix': confusion_matrix(y_test, y_pred),
+                'classification_report': classification_report(y_test, y_pred, output_dict=True),
+                'predictions': y_pred,
+                'probabilities': y_proba
             }
             
+            # Affichage des résultats en temps réel
+            st.success(f"✅ {name} - ROC-AUC: {test_roc_auc:.3f}, Accuracy: {test_accuracy:.3f}")
+            
         except Exception as e:
-            st.warning(f"⚠️ Erreur modèle {name}: {str(e)}")
+            st.warning(f"⚠️ Erreur avec le modèle {name}: {str(e)}")
             continue
     
     return results
+
 def perform_nested_cv(X, y, models_dict, cv_outer=5, cv_inner=3):
     """Validation croisée imbriquée pour une évaluation non biaisée"""
     
