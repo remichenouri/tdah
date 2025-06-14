@@ -852,16 +852,11 @@ def calculate_std_safe(values):
     """
     Calcul d'écart-type sécurisé avec ou sans numpy
     """
-    try:
-        import numpy as np_std
-        return np_std.std(values)
-    except:
-        # Calcul manuel de l'écart-type
-        if len(values) == 0:
-            return 0
+
         mean_val = sum(values) / len(values)
         variance = sum((x - mean_val) ** 2 for x in values) / len(values)
         return variance ** 0.5
+pass
 
 
 @st.cache_data(ttl=86400)
