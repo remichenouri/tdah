@@ -856,7 +856,7 @@ def calculate_std_safe(values):
         mean_val = sum(values) / len(values)
         variance = sum((x - mean_val) ** 2 for x in values) / len(values)
         return variance ** 0.5
-pass
+  pass
 
 
 @st.cache_data(ttl=86400)
