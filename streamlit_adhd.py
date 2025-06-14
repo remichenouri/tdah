@@ -2392,154 +2392,58 @@ def train_top_models_optimized(X_train, X_test, y_train, y_test, top_models_list
     return trained_models
 
 
-def prepare_ml_data_safe(df):
-    """Préparation des données ML avec gestion d'erreur complète"""
+def prepare_ml_data_robust(df):
+    """Préparation robuste des données pour éviter la fuite de données"""
     try:
-        # Import local sécurisé
-        import numpy as np_safe
-        import pandas as pd_safe
-
-        # Vérification du dataset
-        if df is None or len(df) == 0:
-            st.error("❌ Dataset vide ou non disponible")
+        # Variables à exclure strictement
+        excluded_vars = ['source_file', 'generation_date', 'version', 'streamlit_ready', 'subject_id']
+        
+        # Filtrage du dataset
+        df_clean = df.loc[:, ~df.columns.isin(excluded_vars)].copy()
+        
+        if 'diagnosis' not in df_clean.columns:
+            st.error("❌ Variable cible 'diagnosis' manquante")
             return None, None, None, None
-
-        # Vérification de la colonne target
-        if 'diagnosis' not in df.columns:
-            st.error("❌ Colonne 'diagnosis' manquante dans le dataset")
-            return None, None, None, None
-
-        # Préparation des features
-        feature_columns = [col for col in df.columns if col not in ['diagnosis', 'subject_id']]
-
-        if len(feature_columns) == 0:
-            st.error("❌ Aucune feature disponible pour l'entraînement")
-            return None, None, None, None
-
-        # Sélection des variables numériques uniquement pour éviter les erreurs
-        numeric_features = []
-        for col in feature_columns:
-            try:
-                # Test de conversion numérique
-                pd_safe.to_numeric(df[col], errors='coerce')
-                if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
-                    numeric_features.append(col)
-            except:
-                continue
-
-        if len(numeric_features) == 0:
-            st.error("❌ Aucune variable numérique trouvée")
-            return None, None, None, None
-
-        # Préparation des données
-        X = df[numeric_features].copy()
-        y = df['diagnosis'].copy()
-
-        # Nettoyage des valeurs manquantes
-        X = X.fillna(X.mean())
-
-        # Vérification des dimensions
-        st.info(f"📊 Dimensions finales : X={X.shape}, y={y.shape}")
-
-        # Division train/test avec protection
-        try:
-            from sklearn.model_selection import train_test_split
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y,
-                test_size=0.2,
-                random_state=42,
-                stratify=y if len(np_safe.unique(y)) > 1 else None
-            )
-
-            return X_train, X_test, y_train, y_test
-
-        except Exception as e:
-            st.error(f"❌ Erreur lors de la division : {str(e)}")
-            return None, None, None, None
-
+        
+        # Séparation features/target AVANT tout preprocessing
+        X = df_clean.drop('diagnosis', axis=1)
+        y = df_clean['diagnosis']
+        
+        # Division train/test AVANT preprocessing pour éviter la fuite
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+        
+        # Preprocessing séparé pour train et test
+        # Encodage des variables catégorielles
+        categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns
+        numerical_cols = X_train.select_dtypes(include=['int64', 'float64']).columns
+        
+        # Créer les encodeurs sur train uniquement
+        le_dict = {}
+        for col in categorical_cols:
+            le = LabelEncoder()
+            X_train[col] = le.fit_transform(X_train[col].astype(str))
+            le_dict[col] = le
+            # Appliquer aux données test sans refitting
+            X_test[col] = le.transform(X_test[col].astype(str))
+        
+        # Imputation des valeurs manquantes (fit sur train uniquement)
+        train_means = X_train[numerical_cols].mean()
+        X_train[numerical_cols] = X_train[numerical_cols].fillna(train_means)
+        X_test[numerical_cols] = X_test[numerical_cols].fillna(train_means)
+        
+        # Standardisation (fit sur train uniquement)
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        return X_train_scaled, X_test_scaled, y_train, y_test
+        
     except Exception as e:
-        st.error(f"❌ Erreur dans la préparation des données : {str(e)}")
+        st.error(f"❌ Erreur préparation données : {str(e)}")
         return None, None, None, None
 
-def train_simple_models_safe(X_train, X_test, y_train, y_test):
-    """Entraînement de modèles ML simplifié et sécurisé"""
-    try:
-        import numpy as np_train
-
-        results = {}
-
-        # Modèles simples à entraîner
-        models_to_test = {
-            'RandomForest': {
-                'class': RandomForestClassifier,
-                'params': {'n_estimators': 100, 'random_state': 42, 'max_depth': 10}
-            },
-            'LogisticRegression': {
-                'class': LogisticRegression,
-                'params': {'random_state': 42, 'max_iter': 1000}
-            }
-        }
-
-        # Entraînement de chaque modèle
-        for model_name, model_config in models_to_test.items():
-            try:
-
-                # Initialisation du modèle
-                model = model_config['class'](**model_config['params'])
-
-                # Entraînement
-                model.fit(X_train, y_train)
-
-                # Prédictions
-                y_pred = model.predict(X_test)
-
-                # Calcul des métriques avec protection
-                try:
-                    accuracy = accuracy_score(y_test, y_pred)
-                    precision = precision_score(y_test, y_pred, zero_division=0)
-                    recall = recall_score(y_test, y_pred, zero_division=0)
-                    f1 = f1_score(y_test, y_pred, zero_division=0)
-
-                    # AUC seulement si proba disponible
-                    try:
-                        y_proba = model.predict_proba(X_test)[:, 1]
-                        auc = roc_auc_score(y_test, y_proba)
-                    except:
-                        auc = 0.5  # Valeur par défaut
-
-                    results[model_name] = {
-                        'model': model,
-                        'accuracy': accuracy,
-                        'precision': precision,
-                        'recall': recall,
-                        'f1': f1,
-                        'auc': auc
-                    }
-
-                except Exception as metric_error:
-                    st.warning(f"⚠️ Erreur métriques {model_name}: {metric_error}")
-                    continue
-
-            except Exception as model_error:
-                st.warning(f"⚠️ Erreur entraînement {model_name}: {model_error}")
-                continue
-
-        if len(results) == 0:
-            st.error("❌ Aucun modèle n'a pu être entraîné")
-            return None
-
-        # Sélection du meilleur modèle
-        best_model_name = max(results.keys(), key=lambda x: results[x]['accuracy'])
-
-        return {
-            'models': results,
-            'best_model_name': best_model_name,
-            'training_completed': True
-        }
-
-    except Exception as e:
-        st.error(f"❌ Erreur générale d'entraînement : {str(e)}")
-        return None
 
 def check_ml_dependencies():
     """Vérifie que toutes les dépendances ML sont disponibles"""
@@ -2588,103 +2492,96 @@ def safe_model_prediction(model, X_data):
         return None, None
 
 
-@st.cache_resource(show_spinner="Entraînement des modèles...")
-def train_optimized_models(df):
-    """Pipeline ML optimisée avec sélection automatique de modèle"""
-    try:
-        # Préparation des données
-        X = df.drop('diagnosis', axis=1)
-        y = df['diagnosis']
-
-        # Division des données
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y,
-            test_size=0.2,
-            stratify=y,
-            random_state=42
-        )
-
-        # Phase 1: Sélection de modèle avec LazyPredict
-        lazy_clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=None)
-        models, predictions = lazy_clf.fit(X_train, X_test, y_train, y_test)
-
-        # Sélection des top 3 modèles
-        top_models = models.head(3).index.tolist()
-
-        # Configuration GridSearch pour les hyperparamètres
-        param_grids = {
-            'RandomForestClassifier': {
-                'n_estimators': [100, 200],
-                'max_depth': [None, 10, 20],
-                'min_samples_split': [2, 5]
-            },
-            'LogisticRegression': {
-                'C': [0.1, 1, 10],
-                'solver': ['lbfgs', 'liblinear']
-            },
-            'XGBClassifier': {
-                'n_estimators': [100, 200],
-                'learning_rate': [0.01, 0.1],
-                'max_depth': [3, 6]
-            }
-        }
-
-        # Entraînement des meilleurs modèles avec GridSearch
-        best_models = {}
-        for model_name in top_models:
-            try:
-                model_class = globals()[model_name]
-                grid_search = GridSearchCV(
-                    estimator=model_class(),
-                    param_grid=param_grids.get(model_name, {}),
-                    cv=3,
-                    n_jobs=-1,
-                    scoring='roc_auc'
-                )
-                grid_search.fit(X_train, y_train)
-
-                best_models[model_name] = {
-                    'model': grid_search.best_estimator_,
-                    'params': grid_search.best_params_,
-                    'score': grid_search.best_score_
-                }
-
-            except Exception as e:
-                st.warning(f"Erreur sur {model_name}: {str(e)}")
-                continue
-
-        # Validation finale
-        results = {}
-        for name, data in best_models.items():
-            model = data['model']
+def evaluate_models_properly(X_train, X_test, y_train, y_test):
+    """Évaluation correcte des modèles sans LazyPredict"""
+    
+    models = {
+        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
+        'Gradient Boosting': GradientBoostingClassifier(n_estimators=100, random_state=42),
+        'Extra Trees': ExtraTreesClassifier(n_estimators=100, random_state=42),
+        'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
+        'SVM': SVC(probability=True, random_state=42)
+    }
+    
+    results = {}
+    
+    for name, model in models.items():
+        try:
+            # Validation croisée sur les données d'entraînement
+            cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='roc_auc')
+            
+            # Entraînement sur l'ensemble d'entraînement
             model.fit(X_train, y_train)
+            
+            # Prédictions sur l'ensemble de test
             y_pred = model.predict(X_test)
-            y_proba = model.predict_proba(X_test)[:,1] if hasattr(model, 'predict_proba') else None
-
-            # Métriques avec protection division par zéro
-            metrics = {
-                'accuracy': accuracy_score(y_test, y_pred),
-                'precision': precision_score(y_test, y_pred, zero_division=0),
-                'recall': recall_score(y_test, y_pred, zero_division=0),
-                'f1': f1_score(y_test, y_pred, zero_division=0),
-                'auc': roc_auc_score(y_test, y_proba) if y_proba is not None and len(np.unique(y_test)) > 1 else 0.5,
-                'best_params': data['params']
+            y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
+            
+            # Calcul des métriques correctes
+            accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred, zero_division=0)
+            recall = recall_score(y_test, y_pred, zero_division=0)
+            f1 = f1_score(y_test, y_pred, zero_division=0)
+            
+            # ROC-AUC calculé correctement avec les probabilités
+            roc_auc = roc_auc_score(y_test, y_proba) if y_proba is not None else 0.5
+            
+            results[name] = {
+                'model': model,
+                'cv_scores': cv_scores,
+                'cv_mean': cv_scores.mean(),
+                'cv_std': cv_scores.std(),
+                'test_accuracy': accuracy,
+                'test_precision': precision,
+                'test_recall': recall,
+                'test_f1': f1,
+                'test_roc_auc': roc_auc,
+                'confusion_matrix': confusion_matrix(y_test, y_pred)
             }
-
-            results[name] = metrics
-
-        # Sélection du meilleur modèle
-        best_model_name = max(results.keys(), key=lambda x: results[x]['auc'])
-
-        return {
-            'best_model': best_models[best_model_name]['model'],
-            'all_results': results,
-            'lazy_report': models
+            
+        except Exception as e:
+            st.warning(f"⚠️ Erreur modèle {name}: {str(e)}")
+            continue
+    
+    return results
+def perform_nested_cv(X, y, models_dict, cv_outer=5, cv_inner=3):
+    """Validation croisée imbriquée pour une évaluation non biaisée"""
+    
+    from sklearn.model_selection import StratifiedKFold, GridSearchCV
+    
+    outer_cv = StratifiedKFold(n_splits=cv_outer, shuffle=True, random_state=42)
+    
+    nested_scores = {}
+    
+    for model_name, (model, param_grid) in models_dict.items():
+        scores = []
+        
+        for train_idx, test_idx in outer_cv.split(X, y):
+            X_train_fold, X_test_fold = X[train_idx], X[test_idx]
+            y_train_fold, y_test_fold = y[train_idx], y[test_idx]
+            
+            # Validation croisée interne pour l'optimisation des hyperparamètres
+            inner_cv = StratifiedKFold(n_splits=cv_inner, shuffle=True, random_state=42)
+            
+            grid_search = GridSearchCV(
+                model, param_grid, cv=inner_cv, 
+                scoring='roc_auc', n_jobs=-1
+            )
+            
+            grid_search.fit(X_train_fold, y_train_fold)
+            
+            # Évaluation sur le fold externe
+            y_proba = grid_search.predict_proba(X_test_fold)[:, 1]
+            score = roc_auc_score(y_test_fold, y_proba)
+            scores.append(score)
+        
+        nested_scores[model_name] = {
+            'scores': scores,
+            'mean': np.mean(scores),
+            'std': np.std(scores)
         }
-
-    except Exception as e:
-        st.error(f"Erreur d'entraînement : {str(e)}")
-        return None
+    
+    return nested_scores
 
 
 import pandas as pd
@@ -2699,290 +2596,117 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-def prepare_ml_data_corrected(df):
-    """Préparation sécurisée des données pour ML"""
-    try:
-        # Variables à exclure
-        excluded_vars = ['source_file', 'generation_date', 'version', 'streamlit_ready', 'subject_id']
-        
-        # Filtrage du dataset
-        df_clean = df.loc[:, ~df.columns.isin(excluded_vars)]
-        
-        if 'diagnosis' not in df_clean.columns:
-            st.error("❌ Variable cible 'diagnosis' manquante")
-            return None, None, None, None
-        
-        # Séparation features/target
-        X = df_clean.drop('diagnosis', axis=1)
-        y = df_clean['diagnosis']
-        
-        # Sélection des variables numériques
-        numeric_cols = X.select_dtypes(include=['int64', 'float64']).columns
-        categorical_cols = X.select_dtypes(include=['object', 'category']).columns
-        
-        # Encodage des variables catégorielles
-        le = LabelEncoder()
-        for col in categorical_cols:
-            X[col] = le.fit_transform(X[col].astype(str))
-        
-        # Gestion des valeurs manquantes
-        X = X.fillna(X.mean())
-        
-        # Division train/test stratifiée
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42, stratify=y
-        )
-        
-        # Standardisation
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        
-        return X_train_scaled, X_test_scaled, y_train, y_test
-        
-    except Exception as e:
-        st.error(f"❌ Erreur préparation données : {str(e)}")
-        return None, None, None, None
 
-def train_multiple_models(X_train, X_test, y_train, y_test):
-    """Entraîne et évalue 5 modèles ML comme dans les apps autisme"""
-    models = {
-        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
-        'Gradient Boosting': GradientBoostingClassifier(n_estimators=100, random_state=42),
-        'Extra Trees': ExtraTreesClassifier(n_estimators=100, random_state=42),
-        'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
-        'SVM': SVC(probability=True, random_state=42)
-    }
-    
-    results = {}
-    
-    for name, model in models.items():
-        try:
-            # Entraînement
-            model.fit(X_train, y_train)
-            
-            # Prédictions
-            y_pred = model.predict(X_test)
-            y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
-            
-            # Métriques
-            accuracy = accuracy_score(y_test, y_pred)
-            precision = precision_score(y_test, y_pred, zero_division=0)
-            recall = recall_score(y_test, y_pred, zero_division=0)
-            f1 = f1_score(y_test, y_pred, zero_division=0)
-            
-            # Validation croisée
-            cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='accuracy')
-            
-            # ROC AUC si disponible
-            roc_auc = roc_auc_score(y_test, y_proba) if y_proba is not None else 0.5
-            
-            results[name] = {
-                'model': model,
-                'accuracy': accuracy,
-                'precision': precision,
-                'recall': recall,
-                'f1_score': f1,
-                'roc_auc': roc_auc,
-                'cv_mean': cv_scores.mean(),
-                'cv_std': cv_scores.std(),
-                'y_pred': y_pred,
-                'y_proba': y_proba,
-                'confusion_matrix': confusion_matrix(y_test, y_pred)
-            }
-            
-        except Exception as e:
-            st.warning(f"⚠️ Erreur modèle {name}: {str(e)}")
-            continue
-    
-    return results
-
-def show_enhanced_ml_analysis():
-    """Interface ML corrigée avec composants similaires aux apps autisme"""
+def show_corrected_ml_analysis():
+    """Interface ML corrigée avec validation appropriée"""
     
     # En-tête
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
-        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
-                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            🧠 Analyse Machine Learning - TDAH
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;">
+            🧠 Analyse ML Corrigée - TDAH
         </h1>
-        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
-                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Entraînement et évaluation de modèles de classification
+        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;">
+            Évaluation robuste avec validation croisée appropriée
         </p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Chargement des données
     df = load_enhanced_dataset()
     
     if df is None or len(df) == 0:
         st.error("❌ Impossible de charger le dataset")
         return
     
-    # Onglets ML
     ml_tabs = st.tabs([
-        "🔧 Entraînement des Modèles",
-        "📊 Comparaison des Modèles", 
-        "📈 Validation & Performance",
-        "🎯 Prédiction",
-        "📋 Résultats Finaux"
+        "🔧 Préparation Robuste",
+        "📊 Évaluation Correcte", 
+        "📈 Validation Croisée",
+        "🎯 Métriques Fiables",
+        "💡 Recommandations"
     ])
     
     with ml_tabs[0]:
-        st.subheader("🔧 Entraînement des Modèles")
+        st.subheader("🔧 Préparation Robuste des Données")
         
-        st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <h4 style="color: #ef6c00; margin-top: 0;">🤖 Modèles ML pour le TDAH</h4>
-            <p style="color: #f57c00; line-height: 1.6;">
-                Nous allons entraîner 5 modèles de machine learning différents et comparer leurs performances
-                pour le dépistage du TDAH, similaire aux applications de dépistage autisme.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.warning("""
+        **⚠️ Correction des Problèmes Identifiés :**
+        - Division train/test AVANT preprocessing
+        - Aucune fuite de données du test vers l'entraînement
+        - Standardisation et encodage séparés
+        """)
         
-        if st.button("🚀 Lancer l'entraînement des modèles", type="primary", use_container_width=True):
+        if st.button("🚀 Préparer les données correctement", type="primary"):
             
-            with st.spinner("Préparation des données..."):
-                X_train, X_test, y_train, y_test = prepare_ml_data_corrected(df)
+            with st.spinner("Préparation robuste des données..."):
+                X_train, X_test, y_train, y_test = prepare_ml_data_robust(df)
                 
                 if X_train is not None:
-                    st.session_state.ml_data_prepared = {
+                    st.session_state.ml_data_corrected = {
                         'X_train': X_train, 'X_test': X_test, 
                         'y_train': y_train, 'y_test': y_test
                     }
                     
-                    st.success("✅ Données préparées avec succès")
+                    st.success("✅ Données préparées sans fuite de données")
                     
-                    # Métriques de préparation
+                    # Métriques de validation
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         st.metric("Features", X_train.shape[1])
                     with col2:
-                        st.metric("Échantillons Train", len(X_train))
+                        st.metric("Train", len(X_train))
                     with col3:
-                        st.metric("Échantillons Test", len(X_test))
+                        st.metric("Test", len(X_test))
                     with col4:
-                        st.metric("Équilibre classes", f"{y_train.mean():.1%}")
-            
-            with st.spinner("Entraînement des 5 modèles ML..."):
-                results = train_multiple_models(X_train, X_test, y_train, y_test)
-                
-                if results:
-                    st.session_state.ml_results = results
-                    st.success(f"✅ {len(results)} modèles entraînés avec succès!")
-                    
-                    # Aperçu rapide des résultats
-                    st.markdown("### 🎯 Aperçu des Performances")
-                    
-                    quick_results = []
-                    for name, result in results.items():
-                        quick_results.append({
-                            'Modèle': name,
-                            'Accuracy': f"{result['accuracy']:.3f}",
-                            'F1-Score': f"{result['f1_score']:.3f}",
-                            'ROC-AUC': f"{result['roc_auc']:.3f}"
-                        })
-                    
-                    quick_df = pd.DataFrame(quick_results)
-                    st.dataframe(quick_df, use_container_width=True)
+                        balance = y_train.mean()
+                        st.metric("Équilibre", f"{balance:.1%}")
     
     with ml_tabs[1]:
-        st.subheader("📊 Comparaison des Modèles")
+        st.subheader("📊 Évaluation Correcte des Modèles")
         
-        if 'ml_results' not in st.session_state:
-            st.warning("⚠️ Veuillez d'abord entraîner les modèles dans l'onglet précédent")
+        if 'ml_data_corrected' not in st.session_state:
+            st.warning("⚠️ Veuillez d'abord préparer les données")
             return
+        
+        if st.button("🔍 Évaluer les modèles correctement", type="primary"):
             
-        results = st.session_state.ml_results
-        
-        # Tableau de comparaison détaillé
-        st.markdown("### 📋 Tableau de Comparaison Détaillé")
-        
-        comparison_data = []
-        for name, result in results.items():
-            comparison_data.append({
-                'Modèle': name,
-                'Accuracy': f"{result['accuracy']:.3f}",
-                'Precision': f"{result['precision']:.3f}",
-                'Recall': f"{result['recall']:.3f}",
-                'F1-Score': f"{result['f1_score']:.3f}",
-                'ROC-AUC': f"{result['roc_auc']:.3f}",
-                'CV Mean': f"{result['cv_mean']:.3f}",
-                'CV Std': f"{result['cv_std']:.3f}"
-            })
-        
-        comparison_df = pd.DataFrame(comparison_data)
-        st.dataframe(comparison_df, use_container_width=True)
-        
-        # Graphique de comparaison
-        st.markdown("### 📈 Visualisation des Performances")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Graphique en barres des métriques principales
-            metrics = ['accuracy', 'precision', 'recall', 'f1_score', 'roc_auc']
+            ml_data = st.session_state.ml_data_corrected
             
-            fig_metrics = go.Figure()
-            
-            for metric in metrics:
-                values = [results[name][metric] for name in results.keys()]
-                fig_metrics.add_trace(go.Bar(
-                    name=metric.replace('_', ' ').title(),
-                    x=list(results.keys()),
-                    y=values
-                ))
-            
-            fig_metrics.update_layout(
-                title='Comparaison des Métriques par Modèle',
-                xaxis_title='Modèles',
-                yaxis_title='Score',
-                barmode='group',
-                height=500
-            )
-            
-            st.plotly_chart(fig_metrics, use_container_width=True)
-        
-        with col2:
-            # Graphique radar des performances
-            model_names = list(results.keys())
-            selected_model = st.selectbox("Sélectionner un modèle pour le radar", model_names)
-            
-            if selected_model:
-                model_data = results[selected_model]
-                
-                fig_radar = go.Figure()
-                
-                fig_radar.add_trace(go.Scatterpolar(
-                    r=[model_data['accuracy'], model_data['precision'], 
-                       model_data['recall'], model_data['f1_score'], model_data['roc_auc']],
-                    theta=['Accuracy', 'Precision', 'Recall', 'F1-Score', 'ROC-AUC'],
-                    fill='toself',
-                    name=selected_model,
-                    line=dict(color='#ff5722')
-                ))
-                
-                fig_radar.update_layout(
-                    polar=dict(
-                        radialaxis=dict(
-                            visible=True,
-                            range=[0, 1]
-                        )),
-                    showlegend=True,
-                    title=f'Profil de Performance - {selected_model}',
-                    height=500
+            with st.spinner("Évaluation rigoureuse des modèles..."):
+                results = evaluate_models_properly(
+                    ml_data['X_train'], ml_data['X_test'],
+                    ml_data['y_train'], ml_data['y_test']
                 )
                 
-                st.plotly_chart(fig_radar, use_container_width=True)
-        
-        # Sélection du meilleur modèle
-        best_model_name = max(results.keys(), key=lambda x: results[x]['roc_auc'])
-        st.success(f"🏆 Meilleur modèle (ROC-AUC) : **{best_model_name}**")
-    
+                if results:
+                    st.session_state.corrected_results = results
+                    
+                    st.success(f"✅ {len(results)} modèles évalués correctement")
+                    
+                    # Tableau des résultats corrigés
+                    st.markdown("### 📋 Résultats Corrigés")
+                    
+                    corrected_data = []
+                    for name, result in results.items():
+                        corrected_data.append({
+                            'Modèle': name,
+                            'CV ROC-AUC': f"{result['cv_mean']:.3f} ± {result['cv_std']:.3f}",
+                            'Test Accuracy': f"{result['test_accuracy']:.3f}",
+                            'Test ROC-AUC': f"{result['test_roc_auc']:.3f}",
+                            'Test F1': f"{result['test_f1']:.3f}"
+                        })
+                    
+                    corrected_df = pd.DataFrame(corrected_data)
+                    st.dataframe(corrected_df, use_container_width=True)
+                    
+                    # Alerte sur les scores réalistes
+                    best_roc = max([r['test_roc_auc'] for r in results.values()])
+                    if best_roc < 0.9:
+                        st.info(f"✅ Scores réalistes détectés (meilleur ROC-AUC: {best_roc:.3f})")
+                    else:
+                        st.warning("⚠️ Scores encore suspicieusement élevés - vérification supplémentaire nécessaire")
+
     with ml_tabs[2]:
         st.subheader("📈 Validation & Performance")
         
