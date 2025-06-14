@@ -853,7 +853,8 @@ def calculate_std_safe(values):
 @st.cache_data(ttl=86400)
 def load_enhanced_dataset():
     try:
-        download_url = "https://drive.google.com/uc?export=download&id=191cQ9ATj9HJKWKWDlNKnQOTz9SQk-uiz"
+        # Remplacez NOUVEAU_ID par l'identifiant de votre fichier
+        download_url = "https://drive.google.com/uc?export=download&id=NOUVEAU_ID"
         df = pd.read_csv(download_url)
         if len(df.columns) < 2:
             st.error("Le fichier téléchargé ne contient pas de colonnes valides.")
@@ -864,11 +865,6 @@ def load_enhanced_dataset():
         st.error(f"Erreur de chargement du dataset : {e}")
         return None
 
-
-    except Exception as e:
-        st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
-        st.info("Utilisation de données simulées à la place")
-        return create_fallback_dataset()
 
 def create_fallback_dataset():
     """Crée un dataset de fallback avec imports locaux sécurisés"""
