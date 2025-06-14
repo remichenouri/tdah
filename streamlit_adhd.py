@@ -852,58 +852,78 @@ def calculate_std_safe(values):
         return variance ** 0.5
 
 
-@st.cache_data(ttl=3600, show_spinner="Chargement du dataset TDAH...")
+@st.cache_data(ttl=3600, show_spinner="Chargement du dataset TDAH depuis Google Drive...")
 def load_enhanced_dataset():
-    """Charge le dataset TDAH enrichi depuis GitHub avec gestion d'erreur robuste"""
-    url = 'https://github.com/remichenouri/tdah/blob/main/dataset_tdah_research_validated_2024(1).csv'
+    """
+    Charge le dataset TDAH directement depuis Google Drive
+    URL Google Drive: https://drive.google.com/file/d/1KQKBo8mMwtqOEri15BH9Tr7sN1HTvkDh/view?usp=drive_link
+    """
+    
+    # ID extrait de votre lien Google Drive
+    file_id = '1KQKBo8mMwtqOEri15BH9Tr7sN1HTvkDh'
+    
+    # URL de téléchargement direct
+    download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
     
     try:
-        # Configuration de la session requests avec timeout et retry
-        import requests
-        from requests.adapters import HTTPAdapter
-        from urllib3.util.retry import Retry
+        st.info("🔄 Chargement du dataset depuis Google Drive...")
         
-        session = requests.Session()
-        retry_strategy = Retry(
-            total=3,
-            status_forcelist=[429, 500, 502, 503, 504],
-            backoff_factor=1
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        
-        # Tentative de chargement avec timeout étendu
-        response = session.get(url, timeout=60)
+        # Téléchargement du fichier
+        response = requests.get(download_url, timeout=60)
         response.raise_for_status()
         
-        # Lecture avec pandas via StringIO
-        from io import StringIO
-        df = pd.read_csv(StringIO(response.text))
+        # Vérification du contenu
+        content = response.text
         
-        st.success(f"✅ Dataset chargé : {len(df):,} participants")
+        # Gestion de l'avertissement Google Drive pour les gros fichiers
+        if 'Google Drive - Virus scan warning' in content or 'too large to scan for viruses' in content:
+            st.info("📄 Fichier volumineux détecté - confirmation automatique...")
+            confirm_url = f"{download_url}&confirm=t"
+            response = requests.get(confirm_url, timeout=60)
+            response.raise_for_status()
+            content = response.text
+        
+        # Chargement en DataFrame
+        df = pd.read_csv(StringIO(content))
+        
+        # Validation de base
+        if len(df) < 100:
+            raise ValueError(f"Dataset trop petit: {len(df)} lignes")
+        
+        st.success(f"✅ Dataset TDAH chargé avec succès!")
+        st.success(f"📊 {len(df):,} participants, {len(df.columns)} variables")
+        
+        # Affichage des statistiques de base
+        if 'diagnosis' in df.columns:
+            adhd_cases = df['diagnosis'].sum()
+            st.info(f"🎯 Cas TDAH: {adhd_cases} ({adhd_cases/len(df)*100:.1f}%)")
+        
         return df
         
+    except requests.exceptions.HTTPError as e:
+        st.error(f"❌ Erreur HTTP {e.response.status_code}: {e}")
+        return None
+        
     except requests.exceptions.Timeout:
-        st.error("❌ Timeout : Connexion trop lente vers GitHub")
-        return create_fallback_dataset()
+        st.error("⏱️ Timeout - Le fichier est trop volumineux ou la connexion trop lente")
+        return None
         
     except requests.exceptions.ConnectionError:
-        st.error("❌ Erreur de connexion à raw.githubusercontent.com")
-        st.info("💡 Problème réseau détecté. Utilisation du dataset de fallback.")
-        return create_fallback_dataset()
-        
-    except requests.exceptions.HTTPError as e:
-        st.error(f"❌ Erreur HTTP {e.response.status_code}")
-        return create_fallback_dataset()
+        st.error("🌐 Erreur de connexion réseau")
+        return None
         
     except pd.errors.EmptyDataError:
-        st.error("❌ Fichier CSV vide ou corrompu")
-        return create_fallback_dataset()
+        st.error("📄 Le fichier CSV est vide")
+        return None
+        
+    except pd.errors.ParserError as e:
+        st.error(f"📊 Erreur de parsing CSV: {str(e)}")
+        return None
         
     except Exception as e:
-        st.error(f"❌ Erreur inattendue : {str(e)}")
-        return create_fallback_dataset()
+        st.error(f"⚠️ Erreur inattendue: {str(e)}")
+        return None
+
 
 def test_numpy_availability():
     """Test de disponibilité de numpy et pandas"""
