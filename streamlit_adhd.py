@@ -2887,6 +2887,21 @@ from plotly.subplots import make_subplots
 
 
 def show_enhanced_ml_analysis():
+    """Interface ML corrigée avec validation appropriée"""
+    
+    # Vérification préalable du dataset
+    if not check_dataset_availability():
+        return
+    
+    # Chargement sécurisé du dataset
+    try:
+        df = st.session_state.ml_dataset
+        if df is None or df.empty:
+            st.error("❌ Dataset non disponible")
+            return
+    except Exception as e:
+        st.error(f"❌ Erreur d'accès au dataset: {e}")
+        return
     """
     Interface ML corrigée avec validation appropriée et sans fuite de données
     """
