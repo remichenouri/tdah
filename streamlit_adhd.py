@@ -853,7 +853,7 @@ def calculate_std_safe(values):
         return variance ** 0.5
 
 
-@st.cache_data(ttl=3600, show_spinner="Chargement du dataset TDAH depuis Google Drive...")
+@st.cache_data(ttl=3600)
 def load_enhanced_dataset():
     """
     Charge le dataset TDAH directement depuis Google Drive
@@ -867,7 +867,6 @@ def load_enhanced_dataset():
     download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
     
     try:
-        st.info("🔄 Chargement du dataset depuis Google Drive...")
         
         # Téléchargement du fichier
         response = requests.get(download_url, timeout=60)
@@ -890,15 +889,11 @@ def load_enhanced_dataset():
         # Validation de base
         if len(df) < 100:
             raise ValueError(f"Dataset trop petit: {len(df)} lignes")
-        
-        st.success(f"✅ Dataset TDAH chargé avec succès!")
-        st.success(f"📊 {len(df):,} participants, {len(df.columns)} variables")
+
         
         # Affichage des statistiques de base
         if 'diagnosis' in df.columns:
             adhd_cases = df['diagnosis'].sum()
-            st.info(f"🎯 Cas TDAH: {adhd_cases} ({adhd_cases/len(df)*100:.1f}%)")
-        
         return df
         
     except requests.exceptions.HTTPError as e:
