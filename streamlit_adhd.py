@@ -1,15 +1,29 @@
 # -*- coding: utf-8 -*-
-
-# 1. IMPORTS STREAMLIT EN PREMIER
 import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
+                           f1_score, roc_auc_score, confusion_matrix, classification_report)
+from sklearn.pipeline import Pipeline
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import warnings
+warnings.filterwarnings('ignore')
 
-# 2. CONFIGURATION DE LA PAGE IMMÉDIATEMENT APRÈS
+# Configuration de la page
 st.set_page_config(
-    page_title="Dépistage TDAH",
+    page_title="Analyse ML TDAH",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
 
 import streamlit as st
 import uuid
