@@ -452,16 +452,22 @@ def show_rgpd_panel():
 
 
 def check_rgpd_consent():
-    """Vérifie si le consentement RGPD est donné"""
-    if 'rgpd_consent' not in st.session_state:
+    """Vérifie si le consentement RGPD est donné avec gestion d'erreur"""
+    # CORRECTION: Vérification de l'existence ET du contenu
+    if 'rgpd_consent' not in st.session_state or st.session_state.rgpd_consent is None:
         st.warning("⚠️ Veuillez donner votre consentement RGPD avant de continuer")
         if st.button("🔒 Aller au panneau RGPD"):
             st.session_state.tool_choice = "🔒 Panneau RGPD & Conformité IA"
-            st.experimental_rerun()
+            st.rerun()
         return False
 
     consent = st.session_state.rgpd_consent
+
+    if consent is None or not isinstance(consent, dict):
+        return False
+        
     return consent.get('data_processing', False) and consent.get('ai_analysis', False)
+
 
 # Utilisation dans les fonctions de test
 def show_enhanced_ai_prediction():
