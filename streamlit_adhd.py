@@ -855,7 +855,7 @@ def calculate_std_safe(values):
 @st.cache_data(ttl=3600, show_spinner="Chargement du dataset TDAH...")
 def load_enhanced_dataset():
     """Charge le dataset TDAH enrichi depuis GitHub avec gestion d'erreur robuste"""
-    url = 'https://raw.githubusercontent.com/remichenouri/tdah/refs/heads/main/dataset_tdah_research_validated_2024(1).csv'
+    url = 'https://github.com/remichenouri/tdah/blob/main/dataset_tdah_research_validated_2024(1).csv'
     
     try:
         # Configuration de la session requests avec timeout et retry
