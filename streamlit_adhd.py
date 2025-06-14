@@ -46,33 +46,47 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialisation des variables de session
 def initialize_session_variables():
-    """Initialise toutes les variables de session nécessaires"""
+    """Initialise toutes les variables de session nécessaires avec gestion robuste"""
     
-    # Variables RGPD et consentement
+    # CORRECTION: Initialisation avec dictionnaires vides au lieu de None
     if 'gdpr_compliant' not in st.session_state:
         st.session_state.gdpr_compliant = False
+    
     if 'rgpd_consent' not in st.session_state:
-        st.session_state.rgpd_consent = {}
+        st.session_state.rgpd_consent = {
+            'data_processing': False,
+            'ai_analysis': False,
+            'user_id': '',
+            'timestamp': ''
+        }  # Dictionnaire par défaut au lieu de None
+    
     if 'client_ip' not in st.session_state:
         st.session_state.client_ip = ''
     
-    # Variables de données
+    # CORRECTION: Initialisation avec DataFrames vides
     if 'df' not in st.session_state:
-        st.session_state.df = None
-    if 'ml_data' not in st.session_state:
-        st.session_state.ml_data = None
+        st.session_state.df = pd.DataFrame()  # DataFrame vide au lieu de None
     
-    # Variables ASRS
+    if 'ml_data' not in st.session_state:
+        st.session_state.ml_data = {
+            'X_train': None,
+            'X_test': None,
+            'y_train': None,
+            'y_test': None,
+            'scaler': None
+        }  # Dictionnaire structuré
+    
+    # Variables ASRS avec structure par défaut
     if 'asrs_responses' not in st.session_state:
         st.session_state.asrs_responses = {}
-    if 'asrs_results' not in st.session_state:
-        st.session_state.asrs_results = None
     
-    # Variables de navigation
-    if 'tool_choice' not in st.session_state:
-        st.session_state.tool_choice = "🏠 Accueil"
+    if 'asrs_results' not in st.session_state:
+        st.session_state.asrs_results = {
+            'responses': {},
+            'scores': {},
+            'demographics': {}
+        }
 
 # Appel de l'initialisation
 initialize_session_variables()
