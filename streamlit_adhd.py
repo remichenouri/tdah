@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
-import streamlit as st
-import os
-import sys
-import warnings
-from datetime import datetime
 
-# Configuration de la page en premier
+# 1. IMPORTS STREAMLIT EN PREMIER
+import streamlit as st
+
+# 2. CONFIGURATION DE LA PAGE IMMÉDIATEMENT APRÈS
 st.set_page_config(
     page_title="Dépistage TDAH",
     page_icon="🧠",
@@ -13,39 +11,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+import streamlit as st
+import uuid
+import hashlib
+import time
+from datetime import datetime
+
 # Gestion sécurisée des dépendances
-def load_dependencies():
-    """Charge les dépendances de manière sécurisée"""
-    missing_deps = []
-    
-    try:
-        import numpy as np
-        import pandas as pd
-    except ImportError:
-        missing_deps.append("numpy pandas")
-    
-    try:
-        import plotly.express as px
-        import plotly.graph_objects as go
-    except ImportError:
-        missing_deps.append("plotly")
-    
-    try:
-        from sklearn.ensemble import RandomForestClassifier
-        from sklearn.model_selection import train_test_split
-    except ImportError:
-        missing_deps.append("scikit-learn")
-    
-    if missing_deps:
-        st.error(f"❌ Dépendances manquantes : {', '.join(missing_deps)}")
-        st.code("pip install numpy pandas plotly scikit-learn streamlit", language="bash")
-        st.stop()
-    
-    return np, pd, px, go
-
-# Chargement des dépendances
-np, pd, px, go = load_dependencies()
-
 
 class GDPRConsentManager:
     """Gestionnaire des consentements RGPD"""
