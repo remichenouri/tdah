@@ -1095,7 +1095,7 @@ if 'css_loaded' not in st.session_state:
     st.markdown("""
     <div class="info-card-modern">
         <h2 style="color: #ff5722; margin-bottom: 25px; font-size: 2.2rem; text-align: center;">
-            🔬 Qu'est-ce que le TDAH ?
+            \U0001F52C Qu'est-ce que le TDAH ?
         </h2>
         <p style="font-size: 1.2rem; line-height: 1.8; text-align: justify;
                   max-width: 900px; margin: 0 auto; color: #d84315;">
