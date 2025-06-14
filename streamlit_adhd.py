@@ -852,20 +852,18 @@ def calculate_std_safe(values):
 
 @st.cache_data(ttl=86400)
 def load_enhanced_dataset():
-    """Charge le dataset TDAH enrichi depuis Google Drive avec gestion d'erreur"""
     try:
-        # Import local de pandas pour éviter les erreurs de portée
-        import pandas as pd_local
-        import numpy as np_local
-
-        # URL du dataset Google Drive
-        url = 'https://drive.google.com/file/d/15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR/view?usp=drive_link'
-        file_id = url.split('/d/')[1].split('/')[0]
-        download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
-
-        # Chargement du dataset
-        df = pd_local.read_csv(download_url)
+        download_url = "https://drive.google.com/uc?export=download&id=191cQ9ATj9HJKWKWDlNKnQOTz9SQk-uiz"
+        df = pd.read_csv(download_url)
+        if len(df.columns) < 2:
+            st.error("Le fichier téléchargé ne contient pas de colonnes valides.")
+            return None
+        st.success(f"✅ Dataset chargé avec succès ({len(df)} lignes)")
         return df
+    except Exception as e:
+        st.error(f"Erreur de chargement du dataset : {e}")
+        return None
+
 
     except Exception as e:
         st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
