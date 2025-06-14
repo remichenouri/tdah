@@ -2381,8 +2381,8 @@ import pandas as pd
 def prepare_ml_data_secure(df):
     """Préparation sécurisée des données avec validation robuste"""
     try:
-        # CORRECTION: Vérification préalable du DataFrame
-        if df is None or df.empty:
+        # CORRECTION: Vérification préalable complète
+        if df is None or not isinstance(df, pd.DataFrame) or df.empty:
             st.error("❌ Dataset vide ou non disponible")
             return None, None, None, None, None
         
@@ -2392,11 +2392,11 @@ def prepare_ml_data_secure(df):
             'streamlit_ready', 'subject_id', 'timestamp'
         ]
         
-        # CORRECTION: Copie sécurisée avec vérification
+        # Copie sécurisée avec vérification
         try:
             df_clean = df.copy()
-        except AttributeError:
-            st.error("❌ Erreur lors de la copie du DataFrame")
+        except Exception as e:
+            st.error(f"❌ Erreur lors de la copie du DataFrame: {e}")
             return None, None, None, None, None
         
         # Suppression sécurisée des variables exclues
@@ -2404,7 +2404,7 @@ def prepare_ml_data_secure(df):
             if var in df_clean.columns:
                 df_clean = df_clean.drop(var, axis=1)
         
-        # CORRECTION: Vérification de la variable cible
+        # Vérification de la variable cible
         if 'diagnosis' not in df_clean.columns:
             st.error("❌ Variable cible 'diagnosis' manquante")
             return None, None, None, None, None
