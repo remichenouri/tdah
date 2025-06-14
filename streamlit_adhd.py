@@ -49,7 +49,6 @@ st.set_page_config(
 def initialize_session_variables():
     """Initialise toutes les variables de session nécessaires avec gestion robuste"""
     
-    # CORRECTION: Initialisation avec dictionnaires vides au lieu de None
     if 'gdpr_compliant' not in st.session_state:
         st.session_state.gdpr_compliant = False
     
@@ -59,37 +58,47 @@ def initialize_session_variables():
             'ai_analysis': False,
             'user_id': '',
             'timestamp': ''
-        }  # Dictionnaire par défaut au lieu de None
+        }
     
-    if 'client_ip' not in st.session_state:
-        st.session_state.client_ip = ''
-    
-    # CORRECTION: Initialisation avec DataFrames vides
+    # CORRECTION: Initialisation avec DataFrames vides au lieu de None
     if 'df' not in st.session_state:
-        st.session_state.df = pd.DataFrame()  # DataFrame vide au lieu de None
+        st.session_state.df = pd.DataFrame()
+    
+    if 'ml_dataset' not in st.session_state:
+        st.session_state.ml_dataset = pd.DataFrame()
     
     if 'ml_data' not in st.session_state:
         st.session_state.ml_data = {
-            'X_train': None,
-            'X_test': None,
-            'y_train': None,
-            'y_test': None,
+            'X_train': pd.DataFrame(),
+            'X_test': pd.DataFrame(),
+            'y_train': pd.Series(dtype=float),
+            'y_test': pd.Series(dtype=float),
             'scaler': None
-        }  # Dictionnaire structuré
-    
-    # Variables ASRS avec structure par défaut
-    if 'asrs_responses' not in st.session_state:
-        st.session_state.asrs_responses = {}
-    
-    if 'asrs_results' not in st.session_state:
-        st.session_state.asrs_results = {
-            'responses': {},
-            'scores': {},
-            'demographics': {}
         }
+
 
 # Appel de l'initialisation
 initialize_session_variables()
+
+def check_dataset_availability():
+    """Vérifie la disponibilité des données avec validation complète"""
+    
+    # Vérification de l'existence ET du type
+    if ('ml_dataset' not in st.session_state or 
+        st.session_state.ml_dataset is None or 
+        not isinstance(st.session_state.ml_dataset, pd.DataFrame) or
+        st.session_state.ml_dataset.empty):
+        
+        st.error("❌ Aucun dataset chargé ou dataset vide")
+        st.info("👉 Retournez à l'onglet 'Chargement des Données'")
+        
+        if st.button("🔄 Aller au chargement des données"):
+            st.session_state.tool_choice = "📊 Chargement des Données"
+            st.rerun()
+        
+        return False
+    
+    return True
 
 
 class GDPRConsentManager:
