@@ -942,43 +942,6 @@ if 'numpy_tested' not in st.session_state:
     st.session_state.numpy_tested = test_numpy_availability()
 
 
-def create_fallback_dataset():
-    """Crée un dataset de fallback compatible avec la structure attendue"""
-    np.random.seed(42)
-    n_samples = 1500
-
-    # Structure basée sur le vrai dataset
-    data = {
-        'subject_id': [f'FALLBACK_{str(i).zfill(5)}' for i in range(1, n_samples + 1)],
-        'age': np.random.randint(18, 65, n_samples),
-        'gender': np.random.choice(['M', 'F'], n_samples),
-        'diagnosis': np.random.binomial(1, 0.3, n_samples),
-        'site': np.random.choice(['Site_Paris', 'Site_Lyon', 'Site_Marseille'], n_samples),
-    }
-
-    # Questions ASRS
-    for i in range(1, 19):
-        data[f'asrs_q{i}'] = np.random.randint(0, 5, n_samples)
-
-    # Scores calculés
-    data['asrs_inattention'] = np.random.randint(0, 36, n_samples)
-    data['asrs_hyperactivity'] = np.random.randint(0, 36, n_samples)
-    data['asrs_total'] = data['asrs_inattention'] + data['asrs_hyperactivity']
-    data['asrs_part_a'] = np.random.randint(0, 24, n_samples)
-    data['asrs_part_b'] = np.random.randint(0, 48, n_samples)
-
-    # Variables supplémentaires
-    data.update({
-        'education': np.random.choice(['Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'], n_samples),
-        'job_status': np.random.choice(['CDI', 'CDD', 'Freelance', 'Étudiant', 'Chômeur'], n_samples),
-        'marital_status': np.random.choice(['Célibataire', 'En couple', 'Marié(e)', 'Divorcé(e)'], n_samples),
-        'quality_of_life': np.random.uniform(1, 10, n_samples),
-        'stress_level': np.random.uniform(1, 5, n_samples),
-        'sleep_problems': np.random.uniform(1, 5, n_samples),
-    })
-
-    return pd.DataFrame(data)
-
 def perform_statistical_tests(df):
     """Effectue des tests statistiques avancés sur le dataset"""
     results = {}
