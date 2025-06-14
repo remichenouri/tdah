@@ -2597,7 +2597,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 
-def show_corrected_ml_analysis():
+def show_enhanced_ml_analysis():
     """Interface ML corrigée avec validation appropriée"""
     
     # En-tête
