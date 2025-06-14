@@ -1020,28 +1020,66 @@ def perform_statistical_tests(df):
     return results
 
 def create_famd_analysis(df):
-    """Crée une analyse FAMD (Factor Analysis of Mixed Data) simplifiée"""
+    """Crée une analyse FAMD (Factor Analysis of Mixed Data) simplifiée avec vérification des colonnes"""
     try:
-        # Sélection des variables pour FAMD
-        numeric_vars = ['age', 'asrs_total', 'quality_of_life', 'stress_level']
-        categorical_vars = ['gender', 'education', 'marital_status']
-
-        # Préparation des données
-        df_famd = df[numeric_vars + categorical_vars + ['diagnosis']].dropna()
-
+        # Variables souhaitées pour FAMD
+        desired_numeric_vars = ['age', 'asrs_total', 'quality_of_life', 'stress_level']
+        desired_categorical_vars = ['gender', 'education', 'marital_status']
+        
+        # Vérification et sélection des variables numériques disponibles
+        available_numeric_vars = [var for var in desired_numeric_vars if var in df.columns]
+        
+        # Vérification et sélection des variables catégorielles disponibles
+        available_categorical_vars = [var for var in desired_categorical_vars if var in df.columns]
+        
+        # Si pas assez de variables, utiliser les colonnes disponibles
+        if len(available_numeric_vars) < 2:
+            # Fallback vers toutes les colonnes numériques disponibles
+            numeric_columns = df.select_dtypes(include=['int64', 'float64', 'int32', 'float32']).columns
+            available_numeric_vars = [col for col in numeric_columns if col != 'diagnosis'][:4]
+        
+        if len(available_categorical_vars) < 1:
+            # Fallback vers toutes les colonnes catégorielles disponibles
+            categorical_columns = df.select_dtypes(include=['object', 'category']).columns
+            available_categorical_vars = list(categorical_columns)[:3]
+        
+        # Vérification minimale pour FAMD
+        if len(available_numeric_vars) == 0 and len(available_categorical_vars) == 0:
+            st.warning("⚠️ Aucune variable appropriée trouvée pour l'analyse FAMD")
+            return None, None
+        
+        # Préparation des données avec les variables disponibles
+        all_vars = available_numeric_vars + available_categorical_vars
+        if 'diagnosis' in df.columns:
+            all_vars.append('diagnosis')
+        
+        df_famd = df[all_vars].dropna()
+        
+        # Affichage des variables utilisées
+        st.info(f"📊 Variables numériques utilisées: {available_numeric_vars}")
+        st.info(f"📊 Variables catégorielles utilisées: {available_categorical_vars}")
+        
         # Encodage des variables catégorielles pour visualisation
         df_encoded = df_famd.copy()
-        for var in categorical_vars:
-            df_encoded[var] = pd.Categorical(df_encoded[var]).codes
+        for var in available_categorical_vars:
+            if var in df_encoded.columns:
+                df_encoded[var] = pd.Categorical(df_encoded[var]).codes
 
-        # Analyse de corrélation
-        correlation_matrix = df_encoded[numeric_vars + categorical_vars].corr()
+        # Analyse de corrélation sur les variables disponibles
+        correlation_vars = available_numeric_vars + available_categorical_vars
+        if len(correlation_vars) > 1:
+            correlation_matrix = df_encoded[correlation_vars].corr()
+        else:
+            st.warning("⚠️ Pas assez de variables pour calculer les corrélations")
+            correlation_matrix = None
 
         return df_encoded, correlation_matrix
 
     except Exception as e:
-        st.error(f"Erreur dans l'analyse FAMD: {str(e)}")
+        st.error(f"❌ Erreur dans l'analyse FAMD: {str(e)}")
+        st.info("💡 Suggestion: Vérifiez que le dataset contient des variables numériques et catégorielles appropriées")
         return None, None
+
 
 def show_home_page():
     """Page d'accueil pour le TDAH avec design moderne"""
