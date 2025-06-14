@@ -848,15 +848,33 @@ def safe_numpy_operation(operation, data, fallback_value=0):
         st.warning(f"⚠️ Opération numpy échouée : {e}. Utilisation de calcul alternatif.")
         return fallback_value
 
-def calculate_std_safe(values):
+@st.cache_data
+def calcul_ecart_type_securise(values):
     """
-    Calcul d'écart-type sécurisé avec ou sans numpy
+    Calcul d'ecart-type securise avec gestion des erreurs
+    
+    Args:
+        values: Liste ou array de valeurs numeriques
+        
+    Returns:
+        float: Ecart-type calcule
     """
-
-        mean_val = sum(values) / len(values)
-        variance = sum((x - mean_val) ** 2 for x in values) / len(values)
-        return variance ** 0.5
-  pass
+    try:
+        if hasattr(np, 'std'):
+            return np.std(values, ddof=1)
+        else:
+            # Calcul manuel si numpy non disponible
+            n = len(values)
+            if n < 2:
+                return 0.0
+            
+            mean_val = sum(values) / n
+            variance = sum((x - mean_val) ** 2 for x in values) / (n - 1)
+            return variance ** 0.5
+            
+    except Exception as e:
+        st.warning(f"Erreur calcul ecart-type: {e}")
+        return 0.0
 
 
 @st.cache_data(ttl=86400)
