@@ -2219,6 +2219,33 @@ def show_enhanced_data_exploration():
                 mime="text/csv"
             )
 
+def initialize_ml_session_state():
+    """Initialise toutes les variables nécessaires pour l'analyse ML"""
+    
+    # Variables de dataset principal
+    if 'dataset_loaded' not in st.session_state:
+        st.session_state.dataset_loaded = False
+    
+    if 'ml_dataset' not in st.session_state:
+        st.session_state.ml_dataset = None
+    
+    if 'dataset_info' not in st.session_state:
+        st.session_state.dataset_info = {}
+    
+    # Variables pour l'analyse ML
+    if 'ml_results' not in st.session_state:
+        st.session_state.ml_results = None
+    
+    if 'model_trained' not in st.session_state:
+        st.session_state.model_trained = False
+    
+    # Variables ASRS pour l'analyse TDAH
+    if 'asrs_data_ready' not in st.session_state:
+        st.session_state.asrs_data_ready = False
+
+# Appel obligatoire au début de l'application
+initialize_ml_session_state()
+
 def load_ml_libraries():
     """Charge les bibliothèques ML nécessaires de manière sécurisée"""
     try:
