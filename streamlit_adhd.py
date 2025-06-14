@@ -260,6 +260,24 @@ ASRS_OPTIONS = {
     4: "Très souvent"
 }
 
+def validate_ml_results(results):
+    """Valide les résultats ML avant affichage"""
+    if results is None:
+        st.error("❌ Aucun résultat ML disponible")
+        return False
+    
+    if not isinstance(results, dict):
+        st.error("❌ Format de résultats ML incorrect")
+        return False
+    
+    required_keys = ['models', 'best_model_name']
+    for key in required_keys:
+        if key not in results:
+            st.error(f"❌ Clé manquante dans les résultats: {key}")
+            return False
+    
+    return True
+
 def show_rgpd_panel():
     """Affiche le panneau RGPD & Conformité IA"""
     st.markdown("""
