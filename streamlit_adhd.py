@@ -928,7 +928,7 @@ def show_navigation_menu():
 
     options = [
         "🏠 Accueil",
-        "🔍 Exploration",
+        "🔍 Exploration", 
         "🧠 Analyse ML",
         "🤖 Prédiction par IA",
         "📚 Documentation",
@@ -941,10 +941,11 @@ def show_navigation_menu():
 
     current_index = options.index(st.session_state.tool_choice)
 
+    # CORRECTION PRINCIPALE
     tool_choice = st.radio(
-        "Navigation principale",  # ← CORRECTION : Label descriptif
+        "Menu de navigation principal",  # Label descriptif pour l'accessibilité
         options,
-        label_visibility="collapsed",  # Cache le label visuellement
+        label_visibility="collapsed",    # Cache le label visuellement
         index=current_index,
         key="main_navigation"
     )
@@ -953,6 +954,7 @@ def show_navigation_menu():
         st.session_state.tool_choice = tool_choice
 
     return tool_choice
+
 
 
 def safe_numpy_operation(operation, data, fallback_value=0):
