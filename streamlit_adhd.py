@@ -2687,284 +2687,150 @@ def train_optimized_models(df):
         return None
 
 
-def show_enhanced_ml_analysis():
-    """Interface d'analyse ML enrichie pour TDAH"""
+def show_enhanced_ml_analysis_corrected():
+    """Interface ML corrigée avec LazyPredict et top 5 modèles"""
+    
+    # En-tête avec style TDAH
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
         <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
                    text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            🧠 Analyse Machine Learning TDAH
+            🧠 Analyse ML Optimisée - TDAH
         </h1>
         <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
                   max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Entraînement et évaluation de modèles IA pour le diagnostic TDAH
+            Sélection automatique des 5 meilleurs modèles avec LazyPredict
         </p>
     </div>
     """, unsafe_allow_html=True)
-
-    # Chargement du dataset
+    
+    # Chargement des données
     df = load_enhanced_dataset()
-
+    
     if df is None or len(df) == 0:
-        st.error("Impossible de charger le dataset pour l'analyse ML")
+        st.error("❌ Impossible de charger le dataset")
         return
-
-    # Onglets pour l'analyse ML
+    
+    # Onglets ML améliorés
     ml_tabs = st.tabs([
-        "🔬 Préparation données",
-        "🤖 Entraînement modèles",
-        "📊 Évaluation performance",
-        "📈 Métriques avancées",
-        "💡 Recommandations"
+        "🔍 Sélection Automatique",
+        "🏆 Top 5 Modèles", 
+        "📊 Performances Détaillées",
+        "📈 Validation Croisée",
+        "💾 Modèles Finaux"
     ])
-
+    
     with ml_tabs[0]:
-        st.subheader("🔬 Préparation des Données")
-
-        # Vérification des bibliothèques ML
-        if not st.session_state.get('ml_libs_loaded', False):
-            st.error("❌ Bibliothèques ML non chargées")
-            if st.button("🔄 Recharger les bibliothèques"):
-                st.session_state.ml_libs_loaded = load_ml_libraries()
-                st.experimental_rerun()
-            return
-
-        try:
-            # Import sécurisé local
-            import numpy as np_analysis
-            import pandas as pd_analysis
-
-            # Informations sur le dataset
-            st.markdown("### 📊 Aperçu du dataset")
-
-            col1, col2, col3, col4 = st.columns(4)
-
-            with col1:
-                st.metric("Participants", f"{len(df):,}")
-            with col2:
-                if 'diagnosis' in df.columns:
-                    st.metric("Cas TDAH", f"{df['diagnosis'].sum():,}")
-            with col3:
-                st.metric("Variables", len(df.columns))
-            with col4:
-                try:
-                    missing_pct = (df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100
-                    st.metric("Données manquantes", f"{missing_pct:.1f}%")
-                except:
-                    st.metric("Données manquantes", "N/A")
-
-            # Test de préparation des données
-            st.markdown("### 🛠️ Test de Préparation des Features")
-
-            # APRÈS (version corrigée)
-            if st.button("🔍 Analyser les variables disponibles"):
-                # Vérification des dépendances d'abord
-                if not check_ml_dependencies():
-                    st.stop()
-
-            with st.spinner("Analyse en cours..."):
-                # Test de préparation avec la fonction maintenant définie
-                X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
-
+        st.subheader("🔍 Sélection Automatique avec LazyPredict")
+        
+        st.markdown("""
+        <div class="info-card-modern">
+            <h4 style="color: #ff5722; margin-top: 0;">🤖 Qu'est-ce que LazyPredict ?</h4>
+            <p style="color: #d84315; line-height: 1.7;">
+                LazyPredict est une bibliothèque qui teste automatiquement dizaines d'algorithmes ML 
+                sur vos données et les classe par performance. Cela nous permet d'identifier rapidement 
+                les 5 modèles les plus prometteurs pour le dépistage TDAH.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("🚀 Lancer l'analyse LazyPredict", type="primary", use_container_width=True):
+            
+            with st.spinner("Préparation des données optimisée..."):
+                X_train, X_test, y_train, y_test = prepare_enhanced_ml_data(df)
+                
                 if X_train is not None:
-                    st.session_state.ml_data_prepared = {
-                        'X_train': X_train,
-                        'X_test': X_test,
-                        'y_train': y_train,
-                        'y_test': y_test
+                    st.session_state.ml_data_optimized = {
+                        'X_train': X_train, 'X_test': X_test, 
+                        'y_train': y_train, 'y_test': y_test
                     }
-
-                    st.markdown("""
-                    <div style="background-color: #e8f5e9; border-radius: 10px; padding: 18px 22px; margin-bottom: 18px; border-left: 5px solid #43a047;">
-                        <span style="color: #2e7d32; font-size: 1.15rem; font-weight: 600;">
-                            ✅ Données préparées avec succès !
-                        </span>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    # --- Deux colonnes pour variables et stats ---
-                    col1, col2 = st.columns(2)
-
+                    
+                    st.success("✅ Données préparées avec succès")
+                    
+                    # Métriques de la préparation
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.markdown("""
-                        <div class="info-card-modern">
-                            <h4 style="color: #ff5722; margin-top: 0;">🗂️ Variables sélectionnées</h4>
-                            <ul style="color: #d84315; line-height: 1.7; font-size: 1.05rem; margin-bottom: 0;">
-                                <li>age</li>
-                                <li>asrs_q1</li>
-                                <li>asrs_q2</li>
-                                <li>asrs_q3</li>
-                                <li>asrs_q4</li>
-                                <li>asrs_q5</li>
-                                <li>asrs_q6</li>
-                                <li>asrs_q7</li>
-                                <li>asrs_q8</li>
-                                <li>asrs_q9</li>
-                                <li>... et 22 autres</li>
-                            </ul>
-                        </div>
-                        """, unsafe_allow_html=True)
-
+                        st.metric("Features", len(X_train.columns))
                     with col2:
-                        st.markdown("""
-                        <div class="info-card-modern">
-                            <h4 style="color: #ff9800; margin-top: 0;">📊 Statistiques</h4>
-                            <ul style="color: #ef6c00; line-height: 1.7; font-size: 1.05rem; margin-bottom: 0;">
-                                <li>Features : 32</li>
-                                <li>Échantillons d'entraînement : 11 108</li>
-                                <li>Échantillons de test : 2 778</li>
-                                <li>Classe positive : 5 554 / 11 108</li>
-                            </ul>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-        except Exception as e:
-            st.error(f"❌ Erreur dans l'analyse des données : {str(e)}")
-            st.info("💡 Suggestion : Rechargez la page et réessayez")
-
-
+                        st.metric("Train", len(X_train))
+                    with col3:
+                        st.metric("Test", len(X_test))
+                    with col4:
+                        st.metric("Équilibre classes", f"{y_train.mean():.1%}")
+            
+            with st.spinner("Analyse LazyPredict en cours... (peut prendre 2-3 minutes)"):
+                lazy_results = lazy_predict_analysis(X_train, X_test, y_train, y_test)
+                
+                if lazy_results['success']:
+                    st.session_state.lazy_results = lazy_results
+                    
+                    st.markdown("### 🏆 Résultats LazyPredict")
+                    
+                    # Affichage des résultats
+                    results_df = lazy_results['lazy_results'].head(10)
+                    st.dataframe(results_df, use_container_width=True)
+                    
+                    # Top 5 modèles
+                    top_5 = lazy_results['top_5']
+                    st.markdown("### 🥇 Top 5 Modèles Sélectionnés")
+                    
+                    for i, (model_name, row) in enumerate(top_5.iterrows(), 1):
+                        col1, col2, col3, col4 = st.columns([1, 2, 2, 2])
+                        with col1:
+                            st.markdown(f"**#{i}**")
+                        with col2:
+                            st.markdown(f"**{model_name}**")
+                        with col3:
+                            st.metric("Accuracy", f"{row['Accuracy']:.3f}")
+                        with col4:
+                            st.metric("ROC-AUC", f"{row.get('ROC AUC', 0):.3f}")
+    
     with ml_tabs[1]:
-        st.subheader("🤖 Entraînement des Modèles")
-
-        # Vérification que les données sont préparées
-        if 'ml_data_prepared' not in st.session_state:
-            st.warning("⚠️ Préparez d'abord les données dans l'onglet précédent")
+        st.subheader("🏆 Entraînement Optimisé des Top 5")
+        
+        if 'lazy_results' not in st.session_state:
+            st.warning("⚠️ Lancez d'abord l'analyse LazyPredict")
             return
-
-        if st.button("🚀 Lancer l'entraînement des modèles", type="primary"):
-            with st.spinner("Entraînement en cours... Cela peut prendre quelques minutes."):
-
-                # Récupération des données
-                ml_data = st.session_state.ml_data_prepared
-                X_train = ml_data['X_train']
-                X_test = ml_data['X_test']
-                y_train = ml_data['y_train']
-                y_test = ml_data['y_test']
-
-                # Entraînement
-                ml_results = train_simple_models_safe(X_train, X_test, y_train, y_test)
-
-                if ml_results is not None:
-                    st.session_state.ml_results = ml_results
-                    st.success("✅ Entraînement terminé avec succès !")
-                else:
-                    st.error("❌ Échec de l'entraînement")
-
-        # Affichage des résultats si disponibles
-        if 'ml_results' in st.session_state and st.session_state.ml_results is not None:
-            st.markdown("### 🏆 Résultats d'entraînement")
-
-            results_data = []
-            for model_name, metrics in st.session_state.ml_results['models'].items():
-                results_data.append({
-                    'Modèle': model_name,
-                    'Accuracy': f"{metrics['accuracy']:.3f}",
-                    'Precision': f"{metrics['precision']:.3f}",
-                    'Recall': f"{metrics['recall']:.3f}",
-                    'F1-Score': f"{metrics['f1']:.3f}",
-                    'AUC-ROC': f"{metrics['auc']:.3f}"
-                })
-
-            results_df = pd.DataFrame(results_data)
-            st.dataframe(results_df, use_container_width=True)
-
-            best_model = st.session_state.ml_results['best_model_name']
-            st.success(f"🏆 Meilleur modèle : {best_model}")
-
-
-    with ml_tabs[2]:
-        st.subheader("📊 Évaluation des Performances")
-
-        if hasattr(st.session_state, 'ml_results') and st.session_state.ml_results is not None:
-            # Graphique de comparaison des modèles
-            import plotly.graph_objects as go
-
-            models = list(st.session_state.ml_results['models'].keys())
-            accuracy_scores = [st.session_state.ml_results['models'][m]['accuracy'] for m in models]
-            auc_scores = [st.session_state.ml_results['models'][m]['auc'] for m in models]
-            f1_scores = [st.session_state.ml_results['models'][m]['f1'] for m in models]
-
-            fig = go.Figure(data=[
-                go.Bar(name='Accuracy', x=models, y=accuracy_scores, marker_color='#ff5722'),
-                go.Bar(name='AUC-ROC', x=models, y=auc_scores, marker_color='#ff9800'),
-                go.Bar(name='F1-Score', x=models, y=f1_scores, marker_color='#ffcc02')
-            ])
-
-            fig.update_layout(
-                title='Comparaison des performances des modèles',
-                xaxis_title='Modèles',
-                yaxis_title='Score',
-                barmode='group',
-                height=500
-            )
-
-            st.plotly_chart(fig, use_container_width=True)
-
-        else:
-            st.warning("Veuillez d'abord entraîner les modèles dans l'onglet précédent.")
-
-    with ml_tabs[3]:
-        st.subheader("📈 Métriques Avancées")
-
-        if hasattr(st.session_state, 'ml_results'):
-            st.markdown("### 🎯 Métriques de Performance Détaillées")
-
-            # Matrice de confusion simulée
-            import numpy as np
-
-            # Simulation d'une matrice de confusion
-            confusion_matrix = np.array([[150, 20], [15, 85]])
-
-            fig_cm = go.Figure(data=go.Heatmap(
-                z=confusion_matrix,
-                x=['Prédit Négatif', 'Prédit Positif'],
-                y=['Réel Négatif', 'Réel Positif'],
-                colorscale='Oranges',
-                text=confusion_matrix,
-                texttemplate="%{text}",
-                textfont={"size": 16}
-            ))
-
-            fig_cm.update_layout(
-                title='Matrice de Confusion - Meilleur Modèle',
-                xaxis_title='Prédictions',
-                yaxis_title='Valeurs Réelles'
-            )
-
-            st.plotly_chart(fig_cm, use_container_width=True)
-
-        else:
-            st.warning("Entraînez d'abord les modèles pour voir les métriques détaillées.")
-
-    with ml_tabs[4]:
-        st.subheader("💡 Recommandations et Conclusions")
-
-        st.markdown("""
-        <div style="background-color: #e8f5e8; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <h4 style="color: #2e7d32;">✅ Points Forts du Système</h4>
-            <ul style="color: #388e3c; line-height: 1.8;">
-                <li>Performance élevée sur données réelles (AUC > 0.85)</li>
-                <li>Validation croisée robuste</li>
-                <li>Intégration de l'échelle ASRS validée</li>
-                <li>Approche multimodale (démographie + symptômes)</li>
-                <li>Interface utilisateur intuitive</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <h4 style="color: #ef6c00;">⚠️ Limitations et Précautions</h4>
-            <ul style="color: #f57c00; line-height: 1.8;">
-                <li>Outil d'aide au diagnostic, pas de remplacement médical</li>
-                <li>Validation sur population française/européenne</li>
-                <li>Nécessite supervision professionnelle</li>
-                <li>Mise à jour régulière des modèles requise</li>
-                <li>Formation des utilisateurs recommandée</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+            
+        if st.button("🔧 Optimiser les Top 5 Modèles", type="primary", use_container_width=True):
+            
+            # Récupération des données
+            ml_data = st.session_state.ml_data_optimized
+            top_models_list = st.session_state.lazy_results['top_5'].index.tolist()
+            
+            with st.spinner("Optimisation avec GridSearchCV..."):
+                optimized_models = train_top_models_optimized(
+                    ml_data['X_train'], ml_data['X_test'],
+                    ml_data['y_train'], ml_data['y_test'],
+                    top_models_list
+                )
+                
+                st.session_state.optimized_models = optimized_models
+                
+                # Affichage des résultats optimisés
+                st.markdown("### 📊 Performances Après Optimisation")
+                
+                results_data = []
+                for model_name, model_data in optimized_models.items():
+                    metrics = model_data['metrics']
+                    results_data.append({
+                        'Modèle': model_name,
+                        'Accuracy': f"{metrics['accuracy']:.3f}",
+                        'Precision': f"{metrics['precision']:.3f}",
+                        'Recall': f"{metrics['recall']:.3f}",
+                        'F1-Score': f"{metrics['f1_score']:.3f}",
+                        'ROC-AUC': f"{metrics['roc_auc']:.3f}",
+                        'CV Score': f"{metrics['cv_score']:.3f}"
+                    })
+                
+                results_df = pd.DataFrame(results_data)
+                st.dataframe(results_df, use_container_width=True)
+                
+                # Meilleur modèle
+                best_model_name = max(optimized_models.keys(), 
+                                    key=lambda x: optimized_models[x]['metrics']['roc_auc'])
+                st.success(f"🏆 Meilleur modèle final : **{best_model_name}**")
 
 
 def show_enhanced_ai_prediction():
