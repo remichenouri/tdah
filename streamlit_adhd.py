@@ -2339,27 +2339,34 @@ import numpy as np
 import pandas as pd
 
 def prepare_ml_data_secure(df):
-    """
-    Préparation sécurisée des données pour éviter la fuite de données
-    """
+    """Préparation sécurisée des données avec validation robuste"""
     try:
-        # Variables à exclure strictement pour éviter la contamination
+        # CORRECTION: Vérification préalable du DataFrame
+        if df is None or df.empty:
+            st.error("❌ Dataset vide ou non disponible")
+            return None, None, None, None, None
+        
+        # Variables à exclure strictement
         excluded_vars = [
-            'source_file', 'generation_date', 'version', 'streamlit_ready', 
-            'subject_id', 'timestamp', 'session_id', 'user_id'
+            'source_file', 'generation_date', 'version', 
+            'streamlit_ready', 'subject_id', 'timestamp'
         ]
         
-        # Copie propre du dataset
-        df_clean = df.copy()
+        # CORRECTION: Copie sécurisée avec vérification
+        try:
+            df_clean = df.copy()
+        except AttributeError:
+            st.error("❌ Erreur lors de la copie du DataFrame")
+            return None, None, None, None, None
         
-        # Suppression des variables exclues
+        # Suppression sécurisée des variables exclues
         for var in excluded_vars:
             if var in df_clean.columns:
                 df_clean = df_clean.drop(var, axis=1)
         
-        # Vérification de la variable cible
+        # CORRECTION: Vérification de la variable cible
         if 'diagnosis' not in df_clean.columns:
-            st.error("❌ Variable cible 'diagnosis' manquante dans le dataset")
+            st.error("❌ Variable cible 'diagnosis' manquante")
             return None, None, None, None, None
         
         # Séparation X et y AVANT tout preprocessing
