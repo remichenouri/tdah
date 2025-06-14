@@ -860,16 +860,6 @@ def load_enhanced_dataset():
         # Chargement du dataset
         df = pd.read_csv(url)
         
-        # Validation basique du dataset
-        required_columns = ['subject_id', 'age', 'gender', 'diagnosis']
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        
-        if missing_columns:
-            raise Exception(f"Colonnes manquantes dans le dataset: {missing_columns}")
-        
-        st.success(f"Dataset chargé avec succès depuis GitHub ({len(df)} échantillons)")
-        return df
-        
     except Exception as e:
         st.error(f"Erreur lors du chargement du dataset GitHub: {str(e)}")
         st.info("Utilisation de données simulées à la place")
