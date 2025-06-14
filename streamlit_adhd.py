@@ -942,9 +942,9 @@ def show_navigation_menu():
     current_index = options.index(st.session_state.tool_choice)
 
     tool_choice = st.radio(
-        "",
+        "Navigation principale",  # ← CORRECTION : Label descriptif
         options,
-        label_visibility="collapsed",
+        label_visibility="collapsed",  # Cache le label visuellement
         index=current_index,
         key="main_navigation"
     )
