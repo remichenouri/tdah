@@ -852,73 +852,28 @@ def calculate_std_safe(values):
 
 @st.cache_data(ttl=86400)
 def load_enhanced_dataset():
-    """Charge le dataset TDAH enrichi depuis Google Drive avec gestion d'erreur"""
+    """Charge le dataset TDAH enrichi depuis GitHub avec gestion d'erreur"""
     try:
-        # Import local de pandas pour éviter les erreurs de portée
-        import pandas as pd_local
-        import numpy as np_local
-
-        # URL du dataset Google Drive
-        url = 'https://drive.google.com/file/d/15WW4GruZFQpyrLEbJtC-or5NPjXmqsnR/view?usp=drive_link'
-        file_id = url.split('/d/')[1].split('/')[0]
-        download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
-
+        # URL de votre fichier CSV sur GitHub (à personnaliser)
+        url = 'https://raw.githubusercontent.com/remichenouri/tdah/refs/heads/main/adhd_dataset_concat.csv'
+        
         # Chargement du dataset
-        df = pd_local.read_csv(download_url)
+        df = pd.read_csv(url)
+        
+        # Validation basique du dataset
+        required_columns = ['subject_id', 'age', 'gender', 'diagnosis']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            raise Exception(f"Colonnes manquantes dans le dataset: {missing_columns}")
+        
+        st.success(f"Dataset chargé avec succès depuis GitHub ({len(df)} échantillons)")
         return df
-
+        
     except Exception as e:
-        st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
+        st.error(f"Erreur lors du chargement du dataset GitHub: {str(e)}")
         st.info("Utilisation de données simulées à la place")
-        return create_fallback_dataset()
-
-def create_fallback_dataset():
-    """Crée un dataset de fallback avec imports locaux sécurisés"""
-    try:
-        import numpy as np_fallback
-        import pandas as pd_fallback
-
-        np_fallback.random.seed(42)
-        n_samples = 1500
-
-        # Structure basée sur le vrai dataset
-        data = {
-            'subject_id': [f'FALLBACK_{str(i).zfill(5)}' for i in range(1, n_samples + 1)],
-            'age': np_fallback.random.randint(18, 65, n_samples),
-            'gender': np_fallback.random.choice(['M', 'F'], n_samples),
-            'diagnosis': np_fallback.random.binomial(1, 0.3, n_samples),
-            'site': np_fallback.random.choice(['Site_Paris', 'Site_Lyon', 'Site_Marseille'], n_samples),
-        }
-
-        # Questions ASRS
-        for i in range(1, 19):
-            data[f'asrs_q{i}'] = np_fallback.random.randint(0, 5, n_samples)
-
-        # Scores calculés
-        data['asrs_inattention'] = np_fallback.random.randint(0, 36, n_samples)
-        data['asrs_hyperactivity'] = np_fallback.random.randint(0, 36, n_samples)
-        data['asrs_total'] = data['asrs_inattention'] + data['asrs_hyperactivity']
-        data['asrs_part_a'] = np_fallback.random.randint(0, 24, n_samples)
-        data['asrs_part_b'] = np_fallback.random.randint(0, 48, n_samples)
-
-        # Variables supplémentaires
-        data.update({
-            'education': np_fallback.random.choice(['Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'], n_samples),
-            'job_status': np_fallback.random.choice(['CDI', 'CDD', 'Freelance', 'Étudiant', 'Chômeur'], n_samples),
-            'marital_status': np_fallback.random.choice(['Célibataire', 'En couple', 'Marié(e)', 'Divorcé(e)'], n_samples),
-            'quality_of_life': np_fallback.random.uniform(1, 10, n_samples),
-            'stress_level': np_fallback.random.uniform(1, 5, n_samples),
-            'sleep_problems': np_fallback.random.uniform(1, 5, n_samples),
-        })
-
-        return pd_fallback.DataFrame(data)
-
-    except Exception as e:
-        st.error(f"Erreur critique dans la création du dataset de fallback : {e}")
-        # Retourner un DataFrame vide plutôt que de planter
-        return pd.DataFrame()
-
-
+      
 def test_numpy_availability():
     """Test de disponibilité de numpy et pandas"""
     try:
