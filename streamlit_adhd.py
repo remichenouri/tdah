@@ -855,7 +855,7 @@ def load_enhanced_dataset():
     """Charge le dataset TDAH enrichi depuis GitHub avec gestion d'erreur"""
     try:
         # URL de votre fichier CSV sur GitHub (à personnaliser)
-        url = 'https://raw.githubusercontent.com/remichenouri/tdah/refs/heads/main/dataset_tdah_reel_concatene.csv'
+        url = 'https://raw.githubusercontent.com/remichenouri/tdah/refs/heads/main/dataset_tdah_research_validated_2024.csv'
         
         # Chargement du dataset
         df = pd.read_csv(url)
