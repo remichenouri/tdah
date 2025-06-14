@@ -530,7 +530,33 @@ def safe_calculation(func, fallback_value=0, error_message="Erreur de calcul"):
     except Exception as e:
         st.warning(f"⚠️ {error_message} : {str(e)}")
         return fallback_value
-
+      
+def check_dataset_availability():
+    """Vérifie la disponibilité des données avec validation complète"""
+    # CORRECTION: Vérifications multiples
+    if 'dataset_loaded' not in st.session_state:
+        st.session_state.dataset_loaded = False
+    
+    if 'ml_dataset' not in st.session_state:
+        st.session_state.ml_dataset = None
+    
+    # Vérification de l'état de chargement ET du contenu
+    if (not st.session_state.dataset_loaded or 
+        st.session_state.ml_dataset is None or 
+        (hasattr(st.session_state.ml_dataset, 'empty') and 
+         st.session_state.ml_dataset.empty)):
+        
+        st.error("❌ Aucun dataset chargé ou dataset vide")
+        st.info("👉 Retournez à l'onglet 'Chargement des Données'")
+        
+        if st.button("🔄 Aller au chargement des données"):
+            st.session_state.tool_choice = "📊 Chargement des Données"
+            st.rerun()
+        
+        return False
+    
+    return True
+  
 def initialize_session_state():
     """Initialise l'état de session pour conserver les configurations entre les recharges"""
     if 'initialized' not in st.session_state:
