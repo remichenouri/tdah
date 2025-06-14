@@ -519,9 +519,14 @@ def check_dependencies():
 check_dependencies()
 
 def safe_calculation(func, fallback_value=0, error_message="Erreur de calcul"):
-    """Wrapper pour les calculs avec gestion d'erreur"""
+    """Wrapper sécurisé pour les calculs avec gestion d'erreur robuste"""
     try:
-        return func()
+        result = func()
+        # CORRECTION: Vérification que le résultat n'est pas None
+        if result is None:
+            st.warning(f"⚠️ {error_message} : Résultat None détecté")
+            return fallback_value
+        return result
     except Exception as e:
         st.warning(f"⚠️ {error_message} : {str(e)}")
         return fallback_value
