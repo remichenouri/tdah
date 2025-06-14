@@ -16,7 +16,8 @@ import uuid
 import hashlib
 import time
 from datetime import datetime
-
+import requests
+from io import StringIO
 # Gestion sécurisée des dépendances
 
 class GDPRConsentManager:
