@@ -2204,6 +2204,194 @@ def load_ml_libraries():
 if 'ml_libs_loaded' not in st.session_state:
     st.session_state.ml_libs_loaded = load_ml_libraries()
 
+from lazypredict.Supervised import LazyClassifier
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
+import numpy as np
+import pandas as pd
+
+def prepare_enhanced_ml_data(df):
+    """Préparation optimisée des données pour ML"""
+    # Variables à exclure
+    excluded_vars = ['source_file', 'generation_date', 'version', 'streamlit_ready', 'subject_id']
+    
+    # Filtrage du dataset
+    df_clean = df.loc[:, ~df.columns.isin(excluded_vars)]
+    
+    if 'diagnosis' not in df_clean.columns:
+        st.error("❌ Variable cible 'diagnosis' manquante")
+        return None, None, None, None
+    
+    # Séparation features/target
+    X = df_clean.drop('diagnosis', axis=1)
+    y = df_clean['diagnosis']
+    
+    # Gestion des variables catégorielles
+    categorical_cols = X.select_dtypes(include=['object', 'category']).columns
+    numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns
+    
+    # Encodage des variables catégorielles
+    le = LabelEncoder()
+    for col in categorical_cols:
+        X[col] = le.fit_transform(X[col].astype(str))
+    
+    # Gestion des valeurs manquantes
+    X[numerical_cols] = X[numerical_cols].fillna(X[numerical_cols].median())
+    X[categorical_cols] = X[categorical_cols].fillna(0)
+    
+    # Division train/test stratifiée
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    
+    # Standardisation des features numériques
+    scaler = StandardScaler()
+    X_train[numerical_cols] = scaler.fit_transform(X_train[numerical_cols])
+    X_test[numerical_cols] = scaler.transform(X_test[numerical_cols])
+    
+    return X_train, X_test, y_train, y_test
+
+@st.cache_resource(show_spinner="Sélection automatique des meilleurs modèles...")
+def lazy_predict_analysis(X_train, X_test, y_train, y_test):
+    """Analyse LazyPredict pour sélectionner les 5 meilleurs modèles"""
+    try:
+        # Initialisation LazyClassifier
+        lazy_clf = LazyClassifier(
+            verbose=0,
+            ignore_warnings=True,
+            custom_metric=None,
+            predictions=True,
+            random_state=42,
+            classifiers='all'
+        )
+        
+        # Entraînement et évaluation
+        models, predictions = lazy_clf.fit(X_train, X_test, y_train, y_test)
+        
+        # Sélection des 5 meilleurs modèles
+        top_5_models = models.head(5)
+        
+        return {
+            'lazy_results': models,
+            'top_5': top_5_models,
+            'predictions': predictions,
+            'success': True
+        }
+        
+    except Exception as e:
+        st.error(f"❌ Erreur LazyPredict : {str(e)}")
+        return {'success': False, 'error': str(e)}
+
+def train_top_models_optimized(X_train, X_test, y_train, y_test, top_models_list):
+    """Entraînement optimisé des top 5 modèles avec GridSearch"""
+    
+    # Configuration des hyperparamètres pour GridSearch
+    param_grids = {
+        'RandomForestClassifier': {
+            'n_estimators': [100, 200, 300],
+            'max_depth': [None, 10, 20, 30],
+            'min_samples_split': [2, 5, 10],
+            'min_samples_leaf': [1, 2, 4]
+        },
+        'XGBClassifier': {
+            'n_estimators': [100, 200],
+            'learning_rate': [0.01, 0.1, 0.2],
+            'max_depth': [3, 6, 9],
+            'subsample': [0.8, 1.0]
+        },
+        'LGBMClassifier': {
+            'n_estimators': [100, 200],
+            'learning_rate': [0.01, 0.1],
+            'num_leaves': [31, 50],
+            'feature_fraction': [0.8, 1.0]
+        },
+        'LogisticRegression': {
+            'C': [0.01, 0.1, 1, 10, 100],
+            'solver': ['lbfgs', 'liblinear'],
+            'max_iter': [1000, 2000]
+        },
+        'GradientBoostingClassifier': {
+            'n_estimators': [100, 200],
+            'learning_rate': [0.01, 0.1, 0.2],
+            'max_depth': [3, 6, 9]
+        }
+    }
+    
+    trained_models = {}
+    
+    for model_name in top_models_list:
+        try:
+            # Import dynamique du modèle
+            if model_name == 'RandomForestClassifier':
+                base_model = RandomForestClassifier(random_state=42)
+            elif model_name == 'XGBClassifier':
+                base_model = XGBClassifier(random_state=42, eval_metric='logloss')
+            elif model_name == 'LGBMClassifier':
+                base_model = LGBMClassifier(random_state=42, verbose=-1)
+            elif model_name == 'LogisticRegression':
+                base_model = LogisticRegression(random_state=42)
+            elif model_name == 'GradientBoostingClassifier':
+                base_model = GradientBoostingClassifier(random_state=42)
+            else:
+                continue
+            
+            # GridSearchCV avec validation croisée
+            if model_name in param_grids:
+                grid_search = GridSearchCV(
+                    base_model,
+                    param_grids[model_name],
+                    cv=5,
+                    scoring='roc_auc',
+                    n_jobs=-1,
+                    verbose=0
+                )
+                
+                grid_search.fit(X_train, y_train)
+                best_model = grid_search.best_estimator_
+                best_params = grid_search.best_params_
+                cv_score = grid_search.best_score_
+                
+            else:
+                # Modèle par défaut si pas de grid définie
+                best_model = base_model
+                best_model.fit(X_train, y_train)
+                best_params = {}
+                cv_score = cross_val_score(best_model, X_train, y_train, cv=5, scoring='roc_auc').mean()
+            
+            # Évaluation finale
+            y_pred = best_model.predict(X_test)
+            y_proba = best_model.predict_proba(X_test)[:, 1] if hasattr(best_model, 'predict_proba') else None
+            
+            # Calcul des métriques
+            metrics = {
+                'accuracy': accuracy_score(y_test, y_pred),
+                'precision': precision_score(y_test, y_pred, zero_division=0),
+                'recall': recall_score(y_test, y_pred, zero_division=0),
+                'f1_score': f1_score(y_test, y_pred, zero_division=0),
+                'roc_auc': roc_auc_score(y_test, y_proba) if y_proba is not None else 0.5,
+                'cv_score': cv_score,
+                'best_params': best_params
+            }
+            
+            trained_models[model_name] = {
+                'model': best_model,
+                'metrics': metrics
+            }
+            
+        except Exception as e:
+            st.warning(f"⚠️ Erreur entraînement {model_name}: {str(e)}")
+            continue
+    
+    return trained_models
+
+
 def prepare_ml_data_safe(df):
     """Préparation des données ML avec gestion d'erreur complète"""
     try:
