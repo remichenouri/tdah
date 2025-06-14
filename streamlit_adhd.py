@@ -52,14 +52,6 @@ def initialize_session_variables():
     if 'gdpr_compliant' not in st.session_state:
         st.session_state.gdpr_compliant = False
     
-    if 'rgpd_consent' not in st.session_state:
-        st.session_state.rgpd_consent = {
-            'data_processing': False,
-            'ai_analysis': False,
-            'user_id': '',
-            'timestamp': ''
-        }
-    
     # CORRECTION: Initialisation avec DataFrames vides au lieu de None
     if 'df' not in st.session_state:
         st.session_state.df = pd.DataFrame()
@@ -75,7 +67,9 @@ def initialize_session_variables():
             'y_test': pd.Series(dtype=float),
             'scaler': None
         }
-
+    
+    if 'ml_results' not in st.session_state:
+        st.session_state.ml_results = None
 
 # Appel de l'initialisation
 initialize_session_variables()
@@ -87,7 +81,7 @@ def check_dataset_availability():
     if ('ml_dataset' not in st.session_state or 
         st.session_state.ml_dataset is None or 
         not isinstance(st.session_state.ml_dataset, pd.DataFrame) or
-        st.session_state.ml_dataset.empty):
+        (hasattr(st.session_state.ml_dataset, 'empty') and st.session_state.ml_dataset.empty)):
         
         st.error("❌ Aucun dataset chargé ou dataset vide")
         st.info("👉 Retournez à l'onglet 'Chargement des Données'")
@@ -99,7 +93,6 @@ def check_dataset_availability():
         return False
     
     return True
-
 
 class GDPRConsentManager:
     """Gestionnaire des consentements RGPD"""
