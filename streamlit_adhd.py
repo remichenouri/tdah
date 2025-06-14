@@ -2424,10 +2424,6 @@ def prepare_ml_data_secure(df):
         X = df_clean.drop('diagnosis', axis=1)
         y = df_clean['diagnosis']
         
-        # Vérification de l'équilibre des classes
-        class_balance = y.value_counts(normalize=True)
-        st.info(f"📊 Équilibre des classes : {class_balance.to_dict()}")
-        
         # Division stratifiée train/test AVANT preprocessing
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, 
@@ -2437,56 +2433,17 @@ def prepare_ml_data_secure(df):
             shuffle=True
         )
         
-        # Identification des types de colonnes
-        numeric_cols = X_train.select_dtypes(include=['int64', 'float64']).columns.tolist()
-        categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
-        
-        # Preprocessing séparé pour train et test
-        # 1. Gestion des valeurs manquantes (fit sur train uniquement)
-        if len(numeric_cols) > 0:
-            train_medians = X_train[numeric_cols].median()
-            X_train[numeric_cols] = X_train[numeric_cols].fillna(train_medians)
-            X_test[numeric_cols] = X_test[numeric_cols].fillna(train_medians)
-        
-        # 2. Encodage des variables catégorielles (fit sur train uniquement)
-        label_encoders = {}
-        for col in categorical_cols:
-            le = LabelEncoder()
-            # Conversion en string pour éviter les erreurs
-            X_train[col] = X_train[col].astype(str)
-            X_test[col] = X_test[col].astype(str)
-            
-            # Fit sur train uniquement
-            le.fit(X_train[col])
-            X_train[col] = le.transform(X_train[col])
-            
-            # Transform sur test (gérer les nouvelles catégories)
-            X_test_col_encoded = []
-            for val in X_test[col]:
-                if val in le.classes_:
-                    X_test_col_encoded.append(le.transform([val])[0])
-                else:
-                    # Valeur par défaut pour les nouvelles catégories
-                    X_test_col_encoded.append(0)
-            
-            X_test[col] = X_test_col_encoded
-            label_encoders[col] = le
-        
-        # 3. Standardisation (fit sur train uniquement)
+        # Preprocessing sécurisé avec gestion d'erreur
         scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
         
-        # Conversion en DataFrame pour garder les noms de colonnes
-        feature_names = X_train.columns.tolist()
-        X_train_final = pd.DataFrame(X_train_scaled, columns=feature_names)
-        X_test_final = pd.DataFrame(X_test_scaled, columns=feature_names)
-        
-        return X_train_final, X_test_final, y_train, y_test, scaler
+        return X_train_scaled, X_test_scaled, y_train, y_test, scaler
         
     except Exception as e:
         st.error(f"❌ Erreur lors de la préparation des données : {str(e)}")
         return None, None, None, None, None
+
 
 @st.cache_resource(show_spinner="Sélection automatique des meilleurs modèles...")
 def lazy_predict_analysis(X_train, X_test, y_train, y_test):
@@ -2886,6 +2843,10 @@ def show_enhanced_ml_analysis():
     if not check_dataset_availability():
         return
     
+    # Vérification des dépendances
+    if not check_ml_dependencies():
+        return
+    
     # Chargement sécurisé du dataset
     try:
         df = st.session_state.ml_dataset
@@ -2895,9 +2856,6 @@ def show_enhanced_ml_analysis():
     except Exception as e:
         st.error(f"❌ Erreur d'accès au dataset: {e}")
         return
-    """
-    Interface ML corrigée avec validation appropriée et sans fuite de données
-    """
     
     # En-tête avec style TDAH
     st.markdown("""
@@ -2914,13 +2872,6 @@ def show_enhanced_ml_analysis():
     </div>
     """, unsafe_allow_html=True)
     
-    # Chargement du dataset
-    if 'df' not in st.session_state:
-        st.error("❌ Dataset non chargé. Veuillez retourner à l'onglet de chargement des données.")
-        return
-    
-    df = st.session_state.df
-    
     # Onglets pour l'analyse ML
     tabs = st.tabs([
         "🔧 Préparation Sécurisée",
@@ -2933,18 +2884,7 @@ def show_enhanced_ml_analysis():
     with tabs[0]:
         st.subheader("🔧 Préparation Sécurisée des Données")
         
-        st.markdown("""
-        <div style="background-color: #fff3e0; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <h4 style="color: #ef6c00; margin-top: 0;">⚠️ Prévention de la Fuite de Données</h4>
-            <p style="color: #f57c00; line-height: 1.6;">
-                Cette étape critique garantit que les modèles n'ont pas accès aux informations du test 
-                pendant l'entraînement. Nous appliquons la division train/test AVANT tout preprocessing.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("🚀 Préparer les données de manière sécurisée", type="primary", use_container_width=True):
-            
+        if st.button("🚀 Préparer les données de manière sécurisée", type="primary"):
             with st.spinner("Préparation sécurisée des données..."):
                 X_train, X_test, y_train, y_test, scaler = prepare_ml_data_secure(df)
                 
@@ -2959,7 +2899,6 @@ def show_enhanced_ml_analysis():
                     }
                     
                     st.success("✅ Données préparées avec succès sans fuite de données")
-                    
                     # Affichage des métriques
                     col1, col2, col3, col4 = st.columns(4)
                     with col1:
