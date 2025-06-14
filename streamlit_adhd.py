@@ -2499,59 +2499,217 @@ def train_optimized_models(df):
         return None
 
 
-def show_enhanced_ml_analysis():
-    """Interface d'analyse ML enrichie pour TDAH avec visuels adaptés - VERSION CORRIGÉE"""
+def load_and_validate_real_dataset():
+    """Charge et valide le dataset réel avec gestion d'erreurs robuste"""
+    try:
+        # Tentative de chargement du dataset réel
+        df = pd.read_csv("2025-06-14T19-20_export.csv")
+        
+        # Validation de la taille minimale
+        if len(df) < 1000:
+            st.error(f"❌ Dataset trop petit : {len(df)} échantillons")
+            st.error("   Minimum requis : 1000+ échantillons pour ML valide")
+            return None
+            
+        # Nettoyage des variables techniques
+        technical_vars = ['Unnamed: 0', 'source_file', 'generation_date', 
+                         'version', 'streamlit_ready']
+        df_clean = df.drop(columns=[col for col in technical_vars if col in df.columns])
+        
+        # Validation des colonnes essentielles
+        required_cols = ['diagnosis', 'age', 'gender'] + [f'asrs_q{i}' for i in range(1, 19)]
+        missing_cols = [col for col in required_cols if col not in df_clean.columns]
+        
+        if missing_cols:
+            st.error(f"❌ Colonnes manquantes : {missing_cols}")
+            return None
+            
+        # Recalcul et validation des scores ASRS
+        df_validated = recalculate_asrs_scores(df_clean)
+        
+        # Validation de la qualité des données
+        if validate_data_quality(df_validated):
+            st.success(f"✅ Dataset valide : {len(df_validated)} échantillons")
+            return df_validated
+        else:
+            st.error("❌ Dataset ne passe pas les contrôles qualité")
+            return None
+            
+    except FileNotFoundError:
+        st.error("❌ Fichier dataset non trouvé")
+        return None
+    except Exception as e:
+        st.error(f"❌ Erreur chargement : {str(e)}")
+        return None
+
+def recalculate_asrs_scores(df):
+    """Recalcule tous les scores ASRS selon les formules officielles"""
+    df_calc = df.copy()
     
-    # En-tête avec design TDAH
-    st.markdown("""
-    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
-                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
-        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
-                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            🧠 Analyse Machine Learning TDAH
-        </h1>
-        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
-                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Entraînement et évaluation de modèles IA pour le diagnostic TDAH
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Chargement du dataset avec validation renforcée
-    df = load_enhanced_dataset_corrected()
+    # Score Partie A (questions 1-6)
+    df_calc['asrs_part_a'] = df_calc[[f'asrs_q{i}' for i in range(1, 7)]].sum(axis=1)
     
-    if df is None or len(df) == 0:
-        st.error("❌ Impossible de charger le dataset pour l'analyse ML")
+    # Score Partie B (questions 7-18)  
+    df_calc['asrs_part_b'] = df_calc[[f'asrs_q{i}' for i in range(7, 19)]].sum(axis=1)
+    
+    # Score Total
+    df_calc['asrs_total'] = df_calc['asrs_part_a'] + df_calc['asrs_part_b']
+    
+    # Score Inattention (questions 1,2,3,4,7,8,9 selon DSM-5)
+    inatt_questions = ['asrs_q1', 'asrs_q2', 'asrs_q3', 'asrs_q4', 'asrs_q7', 'asrs_q8', 'asrs_q9']
+    df_calc['asrs_inattention'] = df_calc[inatt_questions].sum(axis=1)
+    
+    # Score Hyperactivité-Impulsivité (questions 5,6,10-18)
+    hyper_questions = ['asrs_q5', 'asrs_q6'] + [f'asrs_q{i}' for i in range(10, 19)]
+    df_calc['asrs_hyperactivity'] = df_calc[hyper_questions].sum(axis=1)
+    
+    return df_calc
+
+def validate_data_quality(df):
+    """Valide la qualité des données pour éviter l'overfitting"""
+    
+    # Vérification 1: Taille suffisante
+    if len(df) < 1000:
+        st.warning(f"⚠️ Taille insuffisante : {len(df)} < 1000")
+        return False
+    
+    # Vérification 2: Distribution équilibrée des classes
+    class_balance = df['diagnosis'].mean()
+    if class_balance < 0.1 or class_balance > 0.9:
+        st.warning(f"⚠️ Classes déséquilibrées : {class_balance:.1%}")
+        return False
+    
+    # Vérification 3: Variabilité des réponses ASRS
+    asrs_questions = [f'asrs_q{i}' for i in range(1, 19)]
+    for col in asrs_questions[:5]:  # Vérifier quelques questions
+        if df[col].nunique() < 3:  # Au moins 3 valeurs différentes
+            st.warning(f"⚠️ Manque de variabilité dans {col}")
+            return False
+    
+    # Vérification 4: Corrélations réalistes (pas parfaites)
+    corr_diagnosis = abs(df['asrs_total'].corr(df['diagnosis']))
+    if corr_diagnosis > 0.95:
+        st.warning(f"⚠️ Corrélation trop parfaite : {corr_diagnosis:.3f}")
+        return False
+    
+    # Vérification 5: Valeurs dans les ranges attendus
+    if not all(df[asrs_questions].values.flatten() >= 0):
+        st.warning("⚠️ Valeurs ASRS négatives détectées")
+        return False
+    
+    if not all(df[asrs_questions].values.flatten() <= 4):
+        st.warning("⚠️ Valeurs ASRS > 4 détectées")
+        return False
+        
+    return True
+
+def prepare_ml_data_validated(df):
+    """Préparation ML avec dataset validé - plus de simulation"""
+    try:
+        # Exclusion stricte des variables non-prédictives
+        excluded_vars = ['subject_id', 'site', 'handedness', 'income_monthly', 'children_count']
+        
+        # Sélection des features numériques validées
+        numeric_features = df.select_dtypes(include=[np.number]).columns.tolist()
+        numeric_features = [f for f in numeric_features if f not in excluded_vars + ['diagnosis']]
+        
+        if len(numeric_features) < 10:
+            st.error(f"❌ Pas assez de features : {len(numeric_features)}")
+            return None
+        
+        X = df[numeric_features].copy()
+        y = df['diagnosis'].copy()
+        
+        # Gestion des valeurs manquantes (médiane plus robuste)
+        X = X.fillna(X.median())
+        
+        # Division stratifiée
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+        
+        # Normalisation
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        st.success(f"✅ Données ML préparées : {len(X_train)} train, {len(X_test)} test")
+        
+        return {
+            'X_train': X_train_scaled,
+            'X_test': X_test_scaled, 
+            'y_train': y_train,
+            'y_test': y_test,
+            'feature_names': numeric_features,
+            'scaler': scaler
+        }
+        
+    except Exception as e:
+        st.error(f"❌ Erreur préparation ML : {str(e)}")
+        return None
+
+# Fonction principale corrigée
+def show_enhanced_ml_analysis_corrected():
+    """Analyse ML avec validation stricte du dataset"""
+    
+    st.title("🧠 Analyse ML TDAH - Version Corrigée")
+    
+    # Chargement et validation du dataset réel
+    df = load_and_validate_real_dataset()
+    
+    if df is None:
+        st.error("❌ Dataset invalide - Impossible de continuer l'analyse ML")
+        st.info("💡 Solutions requises :")
+        st.write("• Augmenter la taille du dataset (minimum 1000 échantillons)")
+        st.write("• Corriger les incohérences dans les scores calculés")
+        st.write("• Nettoyer les variables techniques")
+        st.write("• Réduire les corrélations parfaites")
         return
-
-    # Validation des données avant ML
-    if not validate_dataset_for_ml(df):
-        st.error("❌ Dataset non valide pour l'analyse ML")
-        return
-
-    # Onglets d'analyse ML
-    ml_tabs = st.tabs([
-        "🔬 Préparation données", 
-        "🤖 Entraînement modèles", 
-        "📊 Évaluation performance",
-        "📈 Métriques avancées",
-        "🎯 Analyse prédictive"
-    ])
-
-    with ml_tabs[0]:  # Préparation des données
-        show_enhanced_data_preparation(df)
-
-    with ml_tabs[1]:  # Entraînement des modèles
-        show_enhanced_model_training(df)
-
-    with ml_tabs[2]:  # Évaluation des performances
-        show_enhanced_performance_evaluation()
-
-    with ml_tabs[3]:  # Métriques avancées
-        show_enhanced_advanced_metrics()
-
-    with ml_tabs[4]:  # Analyse prédictive
-        show_enhanced_predictive_analysis()
+    
+    # Interface ML avec dataset validé
+    tabs = st.tabs(["🔬 Données Validées", "🤖 ML Réaliste", "📊 Résultats Fiables"])
+    
+    with tabs[0]:
+        st.subheader("🔬 Dataset Validé")
+        
+        # Métriques de qualité
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("📊 Échantillons", f"{len(df):,}")
+        with col2:
+            st.metric("🎯 Features", len(df.select_dtypes(include=[np.number]).columns) - 1)
+        with col3:
+            balance = df['diagnosis'].mean()
+            st.metric("⚖️ Équilibre", f"{balance:.1%}")
+        with col4:
+            corr = abs(df['asrs_total'].corr(df['diagnosis']))
+            st.metric("🔗 Corrélation", f"{corr:.3f}")
+        
+        # Affichage des données nettoyées
+        st.dataframe(df.head(), use_container_width=True)
+    
+    with tabs[1]:
+        st.subheader("🤖 Entraînement ML Réaliste")
+        
+        if st.button("🚀 Lancer l'analyse ML", type="primary"):
+            ml_data = prepare_ml_data_validated(df)
+            
+            if ml_data:
+                # Entraînement avec dataset réel (pas de simulation)
+                results = train_realistic_models(ml_data)
+                st.session_state.ml_results_real = results
+                
+                if results:
+                    st.success("✅ Entraînement terminé avec dataset réel")
+                else:
+                    st.error("❌ Échec entraînement")
+    
+    with tabs[2]:
+        if 'ml_results_real' in st.session_state:
+            st.subheader("📊 Résultats Basés sur Données Réelles")
+            display_realistic_results(st.session_state.ml_results_real)
+        else:
+            st.info("Lancez l'entraînement dans l'onglet précédent")
 
 def load_enhanced_dataset_corrected():
     """Charge le dataset avec corrections pour éviter l'overfitting"""
