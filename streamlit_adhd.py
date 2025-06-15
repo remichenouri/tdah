@@ -2589,6 +2589,7 @@ def show_enhanced_ml_analysis():
 
 
 
+
 def show_enhanced_ai_prediction():
     if not check_rgpd_consent():
         return
