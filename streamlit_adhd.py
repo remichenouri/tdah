@@ -3007,7 +3007,190 @@ def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
     except Exception as e:
         st.error(f"❌ Erreur globale : {str(e)}")
         return None
+
+
+def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
+    """Optimise les hyperparamètres des meilleurs modèles - VERSION CORRIGÉE"""
+    
+    try:
+        from sklearn.model_selection import GridSearchCV
+        from sklearn.metrics import accuracy_score, roc_auc_score
         
+        # Grilles de paramètres optimisées
+        param_grids = {
+            'RandomForestClassifier': {
+                'n_estimators': [50, 100, 200],
+                'max_depth': [5, 10, 20, None],
+                'min_samples_split': [2, 5, 10],
+                'min_samples_leaf': [1, 2, 4]
+            },
+            'RandomForest_50': {
+                'n_estimators': [50, 100, 150],
+                'max_depth': [5, 10, 15],
+                'min_samples_split': [2, 5]
+            },
+            'RandomForest_200': {
+                'n_estimators': [150, 200, 250],
+                'max_depth': [10, 15, 20],
+                'min_samples_split': [2, 5]
+            },
+            'LogisticRegression': {
+                'C': [0.01, 0.1, 1, 10, 100],
+                'solver': ['lbfgs', 'liblinear'],
+                'max_iter': [1000, 2000]
+            },
+            'LogReg_L1': {
+                'C': [0.01, 0.1, 1, 10],
+                'solver': ['liblinear']
+            },
+            'LogReg_L2': {
+                'C': [0.01, 0.1, 1, 10],
+                'solver': ['lbfgs', 'liblinear']
+            },
+            'GradientBoostingClassifier': {
+                'n_estimators': [50, 100, 200],
+                'learning_rate': [0.01, 0.1, 0.2],
+                'max_depth': [3, 5, 7]
+            },
+            'SVC': {
+                'C': [0.1, 1, 10],
+                'kernel': ['linear', 'rbf'],
+                'gamma': ['scale', 'auto']
+            },
+            'SVC_Linear': {
+                'C': [0.1, 1, 10, 100]
+            },
+            'KNeighborsClassifier': {
+                'n_neighbors': [3, 5, 7, 9],
+                'weights': ['uniform', 'distance']
+            },
+            'KNN_3': {
+                'weights': ['uniform', 'distance'],
+                'metric': ['euclidean', 'manhattan']
+            },
+            'KNN_7': {
+                'weights': ['uniform', 'distance'],
+                'metric': ['euclidean', 'manhattan']
+            }
+        }
+        
+        optimized_results = {}
+        
+        for model_name, model_data in best_models.items():
+            try:
+                st.info(f"🔧 Optimisation de {model_name}...")
+                
+                # Récupérer le modèle et la grille de paramètres
+                base_model = model_data['model']
+                
+                # Déterminer la grille de paramètres
+                grid_key = model_name
+                if grid_key not in param_grids:
+                    # Fallback pour les modèles non mappés
+                    grid_key = 'RandomForestClassifier'
+                    base_model = RandomForestClassifier(random_state=42)
+                
+                param_grid = param_grids[grid_key]
+                
+                # Configuration GridSearchCV avec gestion d'erreur
+                grid_search = GridSearchCV(
+                    estimator=base_model,
+                    param_grid=param_grid,
+                    cv=3,  # Réduction à 3-fold pour éviter les timeouts
+                    scoring='roc_auc',
+                    n_jobs=-1,
+                    verbose=1,
+                    error_score='raise'
+                )
+                
+                # Entraînement avec gestion du timeout
+                grid_search.fit(X_train, y_train)
+                
+                # Évaluation sur test set
+                y_pred = grid_search.predict(X_test)
+                y_proba = grid_search.predict_proba(X_test)[:, 1]
+                
+                # Calcul des métriques
+                test_accuracy = accuracy_score(y_test, y_pred)
+                test_auc = roc_auc_score(y_test, y_proba)
+                
+                # Stockage des résultats
+                optimized_results[model_name] = {
+                    'best_model': grid_search.best_estimator_,
+                    'best_params': grid_search.best_params_,
+                    'best_cv_score': grid_search.best_score_,
+                    'test_accuracy': test_accuracy,
+                    'test_auc': test_auc,
+                    'n_candidates': grid_search.n_splits_ * len(grid_search.cv_results_['params'])
+                }
+                
+                st.success(f"✅ {model_name} optimisé - AUC: {test_auc:.3f}")
+                
+            except Exception as e:
+                st.warning(f"⚠️ Erreur optimisation {model_name}: {str(e)}")
+                continue
+        
+        return optimized_results
+        
+    except ImportError as e:
+        st.error(f"❌ Erreur d'import : {e}")
+        st.info("💡 Installez scikit-learn : pip install scikit-learn")
+        return None
+        
+    except Exception as e:
+        st.error(f"❌ Erreur générale d'optimisation : {str(e)}")
+        return None
+def display_optimization_results(optimized_results):
+    """Affiche les résultats d'optimisation de manière détaillée"""
+    
+    if not optimized_results:
+        st.warning("⚠️ Aucun résultat d'optimisation disponible")
+        return
+    
+    st.markdown("### 🏆 Résultats de l'Optimisation")
+    
+    # Tableau récapitulatif
+    results_data = []
+    for model_name, results in optimized_results.items():
+        results_data.append({
+            'Modèle': model_name,
+            'AUC Test': f"{results.get('test_auc', 0):.4f}",
+            'Accuracy Test': f"{results.get('test_accuracy', 0):.4f}",
+            'CV Score': f"{results.get('best_cv_score', 0):.4f}",
+            'Nb Configs': results.get('n_candidates', 'N/A'),
+            'Meilleurs Paramètres': str(results.get('best_params', {}))[:100] + "..."
+        })
+    
+    if results_data:
+        results_df = pd.DataFrame(results_data)
+        st.dataframe(results_df, use_container_width=True)
+        
+        # Identification du meilleur modèle
+        best_model = max(optimized_results.items(), key=lambda x: x[1].get('test_auc', 0))
+        
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #4caf50, #8bc34a); 
+                   padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center;">
+            <h3 style="color: white; margin: 0;">🥇 MEILLEUR MODÈLE</h3>
+            <h2 style="color: white; margin: 10px 0;">{best_model[0]}</h2>
+            <p style="color: white; margin: 0; font-size: 1.2rem;">
+                AUC: {best_model[1].get('test_auc', 0):.4f} | 
+                Accuracy: {best_model[1].get('test_accuracy', 0):.4f}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Paramètres optimaux du meilleur modèle
+        st.markdown("### ⚙️ Paramètres Optimaux du Meilleur Modèle")
+        best_params = best_model[1].get('best_params', {})
+        
+        params_cols = st.columns(min(len(best_params), 4))
+        for i, (param, value) in enumerate(best_params.items()):
+            with params_cols[i % 4]:
+                st.metric(param, str(value))
+
+
+
 def show_enhanced_ml_analysis():
     """Version corrigée avec gestion complète du session state"""
     
@@ -3082,72 +3265,42 @@ def show_enhanced_ml_analysis():
                             del st.session_state[key]
 
     with ml_tabs[1]:
-        st.subheader("🏆 Optimisation des Meilleurs Modèles")
-        
-        # Vérification préalable de toutes les conditions
-        models_available = 'models_results' in st.session_state and st.session_state.models_results is not None
-        data_available = all(key in st.session_state for key in ['X_train', 'X_test', 'y_train', 'y_test'])
-        
-        if not models_available:
-            st.warning("⚠️ Aucun résultat de modèle disponible")
-            st.info("👆 Lancez d'abord la comparaison dans l'onglet précédent")
-            return
-        
-        if not data_available:
-            st.error("❌ Données d'entraînement manquantes")
-            st.info("🔄 Relancez la comparaison des modèles pour régénérer les données")
-            return
-        
-        # Si tout est OK, procéder à la sélection des top modèles
+        if st.button("🔧 Optimiser le Top 3", type="primary"):
+    with st.spinner("🔄 Optimisation en cours (cela peut prendre plusieurs minutes)..."):
         try:
-            models_results = st.session_state.models_results
+            # Récupération sécurisée des données
+            X_train = st.session_state.X_train
+            X_test = st.session_state.X_test
+            y_train = st.session_state.y_train
+            y_test = st.session_state.y_test
             
-            st.markdown("### 🎯 Sélection des 3 meilleurs modèles")
-            st.info(f"📊 {len(models_results)} modèles disponibles pour sélection")
-            
-            # Sélection sécurisée des meilleurs modèles
-            best_models = get_top_models(models_results, n=3)
-            
-            if not best_models:
-                st.error("❌ Impossible de sélectionner les meilleurs modèles")
+            # Vérification des données
+            if any(var is None for var in [X_train, X_test, y_train, y_test]):
+                st.error("❌ Variables d'entraînement manquantes")
                 return
             
-            # Affichage des modèles sélectionnés
-            st.markdown("**Modèles sélectionnés :**")
-            for name, metrics in best_models.items():
-                st.write(f"• **{name}** - AUC: {metrics['auc']:.3f}, Accuracy: {metrics['accuracy']:.3f}")
+            # Lancement de l'optimisation
+            optimized_results = optimize_selected_models(
+                best_models, X_train, X_test, y_train, y_test
+            )
             
-            if st.button("🔧 Optimiser le Top 3", type="primary"):
-                with st.spinner("Optimisation en cours..."):
-                    try:
-                        # Récupération sécurisée des données
-                        X_train = st.session_state.X_train
-                        X_test = st.session_state.X_test
-                        y_train = st.session_state.y_train
-                        y_test = st.session_state.y_test
-                        
-                        # Vérification finale
-                        if any(var is None for var in [X_train, X_test, y_train, y_test]):
-                            st.error("❌ Variables d'entraînement corrompues")
-                            return
-                        
-                        # Optimisation
-                        optimized_results = optimize_selected_models(
-                            best_models, X_train, X_test, y_train, y_test
-                        )
-                        
-                        if optimized_results and len(optimized_results) > 0:
-                            st.session_state.optimized_models = optimized_results
-                            st.success("✅ Optimisation terminée!")
-                            display_optimization_results(optimized_results)
-                        else:
-                            st.warning("⚠️ L'optimisation n'a pas produit de résultats")
-                            
-                    except Exception as e:
-                        st.error(f"❌ Erreur lors de l'optimisation : {str(e)}")
-        
+            if optimized_results and len(optimized_results) > 0:
+                st.session_state.optimized_models = optimized_results
+                st.success(f"✅ Optimisation terminée ! {len(optimized_results)} modèles optimisés")
+                display_optimization_results(optimized_results)
+                
+                # Sauvegarde automatique des résultats
+                try:
+                    save_optimization_results(optimized_results)
+                    st.info("💾 Résultats sauvegardés automatiquement")
+                except Exception as save_error:
+                    st.warning(f"⚠️ Sauvegarde échouée : {save_error}")
+            else:
+                st.error("❌ L'optimisation n'a produit aucun résultat")
+                
         except Exception as e:
-            st.error(f"❌ Erreur dans la sélection des modèles : {str(e)}")
+            st.error(f"❌ Erreur lors de l'optimisation : {str(e)}")
+            st.info("💡 Vérifiez que tous les modèles sont correctement configurés")
 
     # Autres onglets avec vérifications similaires
     with ml_tabs[2]:
@@ -3174,8 +3327,6 @@ def show_enhanced_ml_analysis():
             display_detailed_metrics(st.session_state.optimized_models)
         else:
             st.info("ℹ️ Optimisez d'abord les modèles pour voir les métriques")
-
-
 
 
 def show_enhanced_ai_prediction():
