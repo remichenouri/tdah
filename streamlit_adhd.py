@@ -458,6 +458,58 @@ def analyze_ml_with_lazypredict(df):
         st.error(f"❌ Erreur dans l'analyse ML : {str(e)}")
         return None
 
+def show_enhanced_ml_comparison():
+    """
+    Interface d'analyse ML avec LazyPredict
+    """
+    st.subheader("🤖 Analyse Comparative Automatisée")
+    
+    # Chargement des données
+    df = load_enhanced_dataset()
+    
+    if df is None:
+        st.error("❌ Impossible de charger le dataset")
+        return
+    
+    # Analyse avec LazyPredict
+    with st.spinner("🔄 Analyse en cours avec LazyPredict..."):
+        results = analyze_ml_with_lazypredict(df)
+    
+    if results is None:
+        return
+    
+    # Affichage des résultats
+    st.markdown("### 📊 Comparaison des Modèles")
+    
+    # Tableau des performances
+    models_df = results['models_comparison']
+    st.dataframe(models_df.head(10), use_container_width=True)
+    
+    # Détection des performances suspectes
+    warnings = detect_suspicious_performance(models_df.to_dict('index'))
+    
+    if warnings:
+        st.warning("⚠️ Performances suspectes détectées :")
+        for warning in warnings:
+            st.write(f"• {warning}")
+    
+    # Validation croisée
+    st.markdown("### 🔍 Validation Croisée")
+    cv_results = validate_models_with_cv(results)
+    
+    # Affichage des résultats CV
+    cv_df = pd.DataFrame({
+        name: {
+            'CV Mean': f"{data['cv_mean']:.3f}",
+            'CV Std': f"{data['cv_std']:.3f}",
+            'Overfitting': "🔴 Oui" if data['potential_overfitting'] else "🟢 Non"
+        }
+        for name, data in cv_results.items()
+    }).T
+    
+    st.dataframe(cv_df, use_container_width=True)
+
+
 def validate_models_with_cv(models_data):
     """
     Validation croisée pour détecter l'overfitting
