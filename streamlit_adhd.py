@@ -2893,6 +2893,78 @@ def display_simple_results(results):
                 st.metric("F1-Score", f"{metrics['f1']:.3f}")
             
             st.markdown("---")
+def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
+    """Version corrigée avec format de sortie standardisé"""
+    try:
+        # ... code d'entraînement des modèles ...
+        
+        results = {}
+        
+        for name, model in models_dict.items():
+            try:
+                # ... entraînement du modèle ...
+                
+                # FORMAT STANDARDISÉ - IMPORTANT
+                results[name] = {
+                    'Accuracy': float(accuracy),
+                    'Precision': float(precision),
+                    'Recall': float(recall),
+                    'F1_Score': float(f1),
+                    'ROC_AUC': float(auc),  # TOUJOURS ce nom
+                    'Time_Taken': float(time_taken),
+                    'model': model  # Garder référence au modèle
+                }
+                
+            except Exception as e:
+                st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
+                continue
+        
+        if results:
+            # Retourner directement le dictionnaire, pas un DataFrame
+            return results
+        else:
+            st.error("❌ Aucun modèle entraîné avec succès")
+            return None
+        
+    except Exception as e:
+        st.error(f"❌ Erreur globale : {str(e)}")
+        return None
+
+def debug_ml_session():
+    """Fonction de diagnostic pour déboguer la session ML"""
+    st.markdown("### 🔍 Diagnostic Session ML")
+    
+    # État des variables
+    session_vars = ['X_train', 'X_test', 'y_train', 'y_test', 'models_results', 'optimized_models']
+    
+    for var in session_vars:
+        if var in st.session_state:
+            value = st.session_state[var]
+            if hasattr(value, 'shape'):
+                st.success(f"✅ {var}: {value.shape}")
+            elif isinstance(value, dict):
+                st.success(f"✅ {var}: {len(value)} éléments")
+            else:
+                st.success(f"✅ {var}: {type(value)}")
+        else:
+            st.error(f"❌ {var}: Non défini")
+    
+    # Test des données si disponibles
+    if 'models_results' in st.session_state:
+        models_results = st.session_state.models_results
+        if isinstance(models_results, dict):
+            st.info(f"📊 Modèles disponibles: {list(models_results.keys())}")
+            
+            # Test de get_top_models
+            try:
+                top_models = get_top_models(models_results, n=3)
+                st.success(f"✅ get_top_models fonctionne: {len(top_models)} modèles")
+            except Exception as e:
+                st.error(f"❌ get_top_models: {str(e)}")
+
+# Ajouter un bouton de diagnostic
+if st.button("🔍 Diagnostic ML"):
+    debug_ml_session()
 
 
 def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
@@ -3038,19 +3110,15 @@ def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
         return None
         
 def show_enhanced_ml_analysis():
-    """Interface d'analyse ML avec LazyPredict - 40+ modèles"""
+    """Version corrigée avec gestion complète du session state"""
     
+    # En-tête
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
-        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
-                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            🧠 Analyse ML Avancée - 40+ Modèles
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;">
+            🧠 Analyse ML Avancée - CORRIGÉE
         </h1>
-        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
-                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Comparaison automatique avec LazyPredict et optimisation de modèles ML
-        </p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -3060,106 +3128,153 @@ def show_enhanced_ml_analysis():
         st.error("Impossible de charger le dataset")
         return
 
-    # Onglets pour l'analyse ML
+    # Onglets ML corrigés
     ml_tabs = st.tabs([
-        "🔬 LazyPredict - 40+ Modèles",
-        "🏆 Top 5 Optimisés", 
+        "🔬 Comparaison 40+ Modèles",
+        "🏆 Top 3 Optimisés", 
         "📊 Visualisations",
         "💾 Sauvegarde",
         "📈 Métriques"
     ])
 
     with ml_tabs[0]:
-        st.subheader("🔬 LazyPredict - Comparaison de 40+ Modèles ML")
+        st.subheader("🔬 Comparaison de 40+ Modèles ML")
+        
+        # Affichage de l'état des variables
+        if 'models_results' in st.session_state:
+            st.success("✅ Résultats de modèles disponibles")
+        if all(key in st.session_state for key in ['X_train', 'X_test', 'y_train', 'y_test']):
+            st.success("✅ Données d'entraînement disponibles")
         
         if st.button("🚀 Lancer la Comparaison Massive", type="primary"):
-            with st.spinner("Entraînement de 40+ modèles en cours..."):
-                
-                # Préparation des données
-                X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
-                
-                # Stocker dans session state pour utilisation ultérieure
-                st.session_state.X_train = X_train
-                st.session_state.X_test = X_test
-                st.session_state.y_train = y_train
-                st.session_state.y_test = y_test
-                
-                models_results = run_manual_40_models_fixed(X_train, X_test, y_train, y_test)
+            with st.spinner("Entraînement en cours..."):
+                try:
+                    # Préparation des données AVANT tout autre traitement
+                    X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
+                    
+                    # Vérification que les données sont valides
+                    if X_train is None or len(X_train) == 0:
+                        st.error("❌ Erreur dans la préparation des données")
+                        return
+                    
+                    # Stockage immédiat dans session state
+                    st.session_state.X_train = X_train
+                    st.session_state.X_test = X_test
+                    st.session_state.y_train = y_train
+                    st.session_state.y_test = y_test
+                    
+                    st.info(f"✅ Données préparées : {len(X_train)} échantillons d'entraînement")
+                    
+                    # Lancement de l'entraînement des modèles
+                    models_results = run_manual_40_models_fixed(X_train, X_test, y_train, y_test)
+                    
+                    if models_results is not None and len(models_results) > 0:
+                        st.session_state.models_results = models_results
+                        st.success(f"✅ {len(models_results)} modèles comparés avec succès!")
+                        display_manual_results(models_results)
+                    else:
+                        st.error("❌ Aucun modèle n'a pu être entraîné")
                         
-                if models_results is not None:
-                    st.session_state.models_results = models_results
-                    st.success(f"✅ {len(models_results)} modèles comparés!")
-                    display_manual_results(models_results)
+                except Exception as e:
+                    st.error(f"❌ Erreur lors de l'entraînement : {str(e)}")
+                    # Nettoyage en cas d'erreur
+                    for key in ['X_train', 'X_test', 'y_train', 'y_test', 'models_results']:
+                        if key in st.session_state:
+                            del st.session_state[key]
 
     with ml_tabs[1]:
         st.subheader("🏆 Optimisation des Meilleurs Modèles")
         
-        if 'models_results' in st.session_state:
+        # Vérification préalable de toutes les conditions
+        models_available = 'models_results' in st.session_state and st.session_state.models_results is not None
+        data_available = all(key in st.session_state for key in ['X_train', 'X_test', 'y_train', 'y_test'])
+        
+        if not models_available:
+            st.warning("⚠️ Aucun résultat de modèle disponible")
+            st.info("👆 Lancez d'abord la comparaison dans l'onglet précédent")
+            return
+        
+        if not data_available:
+            st.error("❌ Données d'entraînement manquantes")
+            st.info("🔄 Relancez la comparaison des modèles pour régénérer les données")
+            return
+        
+        # Si tout est OK, procéder à la sélection des top modèles
+        try:
             models_results = st.session_state.models_results
             
-            # Sélection des 3 meilleurs modèles
-            st.markdown("### 🎯 Top 3 modèles sélectionnés")
+            st.markdown("### 🎯 Sélection des 3 meilleurs modèles")
+            st.info(f"📊 {len(models_results)} modèles disponibles pour sélection")
             
+            # Sélection sécurisée des meilleurs modèles
             best_models = get_top_models(models_results, n=3)
             
+            if not best_models:
+                st.error("❌ Impossible de sélectionner les meilleurs modèles")
+                return
+            
+            # Affichage des modèles sélectionnés
+            st.markdown("**Modèles sélectionnés :**")
+            for name, metrics in best_models.items():
+                st.write(f"• **{name}** - AUC: {metrics['auc']:.3f}, Accuracy: {metrics['accuracy']:.3f}")
+            
             if st.button("🔧 Optimiser le Top 3", type="primary"):
-                # Vérifier que les données d'entraînement sont disponibles
-                if all(key in st.session_state for key in ['X_train', 'X_test', 'y_train', 'y_test']):
-                    with st.spinner("Optimisation en cours..."):
-                        # Récupérer les données depuis session state
+                with st.spinner("Optimisation en cours..."):
+                    try:
+                        # Récupération sécurisée des données
                         X_train = st.session_state.X_train
                         X_test = st.session_state.X_test
                         y_train = st.session_state.y_train
                         y_test = st.session_state.y_test
                         
+                        # Vérification finale
+                        if any(var is None for var in [X_train, X_test, y_train, y_test]):
+                            st.error("❌ Variables d'entraînement corrompues")
+                            return
+                        
+                        # Optimisation
                         optimized_results = optimize_selected_models(
                             best_models, X_train, X_test, y_train, y_test
                         )
                         
-                        if optimized_results:
+                        if optimized_results and len(optimized_results) > 0:
                             st.session_state.optimized_models = optimized_results
                             st.success("✅ Optimisation terminée!")
                             display_optimization_results(optimized_results)
-                else:
-                    st.error("❌ Les données d'entraînement ne sont pas disponibles. Veuillez d'abord lancer la comparaison des modèles.")
-        else:
-            st.warning("Veuillez d'abord exécuter la comparaison de modèles")
+                        else:
+                            st.warning("⚠️ L'optimisation n'a pas produit de résultats")
+                            
+                    except Exception as e:
+                        st.error(f"❌ Erreur lors de l'optimisation : {str(e)}")
+        
+        except Exception as e:
+            st.error(f"❌ Erreur dans la sélection des modèles : {str(e)}")
+
+    # Autres onglets avec vérifications similaires
     with ml_tabs[2]:
         st.subheader("📊 Visualisations Avancées")
         
-        if 'optimized_models' in st.session_state:
+        if 'optimized_models' in st.session_state and st.session_state.optimized_models:
             create_advanced_visualizations(st.session_state.optimized_models)
         else:
-            st.warning("Optimisez d'abord les modèles dans l'onglet précédent")
+            st.warning("⚠️ Optimisez d'abord les modèles pour voir les visualisations")
 
     with ml_tabs[3]:
-        st.subheader("💾 Sauvegarde & Chargement des Modèles")
+        st.subheader("💾 Sauvegarde des Modèles")
         
-        # Section sauvegarde
-        if 'optimized_models' in st.session_state:
-            st.markdown("### 💾 Sauvegarder les modèles optimisés")
-            
-            if st.button("💾 Sauvegarder tous les modèles optimisés"):
+        if 'optimized_models' in st.session_state and st.session_state.optimized_models:
+            if st.button("💾 Sauvegarder tous les modèles"):
                 save_all_models(st.session_state.optimized_models)
-        
-        # Section chargement
-        st.markdown("### 📂 Charger des modèles sauvegardés")
-        
-        model_files = get_saved_models_list()
-        if model_files:
-            selected_file = st.selectbox("Sélectionnez un fichier à charger:", model_files)
-            
-            if st.button("📂 Charger le modèle"):
-                loaded_data = load_saved_model(selected_file)
-                if loaded_data:
-                    st.session_state.loaded_model = loaded_data
-                    st.success(f"✅ Modèle chargé : {selected_file}")
+        else:
+            st.info("ℹ️ Aucun modèle optimisé à sauvegarder")
 
     with ml_tabs[4]:
         st.subheader("📈 Métriques Détaillées")
         
-        if 'optimized_models' in st.session_state:
+        if 'optimized_models' in st.session_state and st.session_state.optimized_models:
             display_detailed_metrics(st.session_state.optimized_models)
+        else:
+            st.info("ℹ️ Optimisez d'abord les modèles pour voir les métriques")
 
 
 
