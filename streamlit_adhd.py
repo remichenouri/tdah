@@ -3427,8 +3427,8 @@ def show_enhanced_ml_analysis():
             st.error("❌ Colonne 'TDAH' manquante dans le dataset")
             return
             
-        X = df_ml.drop(columns=['TDAH'])
-        y = df_ml['TDAH'].map({'Yes': 1, 'No': 0})
+        X = df_ml.drop(columns=['diagnosis'])
+        y = df_ml['diagnosis'].map({'Yes': 1, 'No': 0})
         
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
         
