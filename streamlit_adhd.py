@@ -2978,26 +2978,7 @@ def show_enhanced_ml_analysis():
                 
                 # Préparation des données
                 X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
-                
-                if X_train is not None:
-                    if not use_fallback:
-                        try:
-                            # Tentative avec LazyPredict
-                            models_results = run_lazypredict_analysis(X_train, X_test, y_train, y_test)
-                            
-                            if models_results is not None:
-                                st.session_state.models_results = models_results
-                                st.success(f"✅ {len(models_results)} modèles comparés avec LazyPredict!")
-                                display_lazypredict_results(models_results)
-                            
-                        except Exception as e:
-                            st.warning(f"⚠️ LazyPredict indisponible : {str(e)}")
-                            st.info("💡 Basculement vers l'alternative manuelle...")
-                            use_fallback = True
-                    
-                    if use_fallback:
-                        # Alternative manuelle avec 40 modèles
-                        models_results = run_manual_40_models(X_train, X_test, y_train, y_test)
+                models_results = run_manual_40_models_fixed(X_train, X_test, y_train, y_test)
                         
                         if models_results is not None:
                             st.session_state.models_results = models_results
