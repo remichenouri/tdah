@@ -867,7 +867,7 @@ def load_enhanced_dataset():
         df = pd_local.read_csv(download_url)
         return df
 
-    df.rename(columns={'diagnosis': 'TDAH'}, inplace=True)
+        df.rename(columns={'diagnosis': 'TDAH'}, inplace=True)
 
     except Exception as e:
         st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
