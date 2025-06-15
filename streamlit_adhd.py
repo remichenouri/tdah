@@ -2305,85 +2305,110 @@ def prepare_ml_data_corrected(df, test_size=0.2, scaling_method="StandardScaler"
         st.error(f"❌ Erreur lors de la préparation : {str(e)}")
         return None
 
-def train_simple_models_safe(X_train, X_test, y_train, y_test):
-    """Entraînement de modèles ML simplifié et sécurisé"""
+def train_realistic_models(ml_data, selected_models, config, optimize_hyperparams):
+    """Entraînement avec métriques réalistes - CORRIGÉ"""
     try:
-        import numpy as np_train
-
-        results = {}
-
-        # Modèles simples à entraîner
-        models_to_test = {
+        X_train, X_test = ml_data['X_train'], ml_data['X_test']
+        y_train, y_test = ml_data['y_train'], ml_data['y_test']
+        
+        # CORRECTION : Configuration de modèles avec régularisation forte
+        models_config = {
             'RandomForest': {
-                'class': RandomForestClassifier,
-                'params': {'n_estimators': 100, 'random_state': 42, 'max_depth': 10}
+                'model': RandomForestClassifier(
+                    n_estimators=50,      # Réduit vs 100
+                    max_depth=3,          # Très limité vs 10
+                    min_samples_split=10, # Élevé vs 5
+                    min_samples_leaf=5,   # Élevé vs 2
+                    max_features='sqrt',  # Limitation features
+                    random_state=42
+                ),
+                'params': {
+                    'n_estimators': [30, 50, 100],
+                    'max_depth': [2, 3, 5],
+                    'min_samples_split': [5, 10, 15]
+                }
             },
             'LogisticRegression': {
-                'class': LogisticRegression,
-                'params': {'random_state': 42, 'max_iter': 1000}
+                'model': LogisticRegression(
+                    C=0.1,               # Fort regularisation vs 1.0
+                    random_state=42,
+                    max_iter=1000,
+                    penalty='l2',        # Régularisation L2
+                    solver='liblinear'
+                ),
+                'params': {
+                    'C': [0.01, 0.1, 0.5, 1.0],  # Plus de régularisation
+                    'penalty': ['l1', 'l2']
+                }
             }
         }
-
-        # Entraînement de chaque modèle
-        for model_name, model_config in models_to_test.items():
+        
+        results = {'models': {}}
+        
+        # CORRECTION : Validation croisée pour détecter l'overfitting
+        from sklearn.model_selection import cross_val_score
+        
+        for model_name in selected_models:
+            if model_name not in models_config:
+                continue
+                
             try:
-
-                # Initialisation du modèle
-                model = model_config['class'](**model_config['params'])
-
-                # Entraînement
+                st.write(f"🔄 Entraînement de {model_name} avec régularisation...")
+                
+                model = models_config[model_name]['model']
+                
+                # VALIDATION CROISÉE pour détecter l'overfitting
+                cv_scores = cross_val_score(
+                    model, X_train, y_train, 
+                    cv=5, scoring='roc_auc'
+                )
+                
+                # Entraînement final
                 model.fit(X_train, y_train)
-
+                
                 # Prédictions
                 y_pred = model.predict(X_test)
-
-                # Calcul des métriques avec protection
-                try:
-                    accuracy = accuracy_score(y_test, y_pred)
-                    precision = precision_score(y_test, y_pred, zero_division=0)
-                    recall = recall_score(y_test, y_pred, zero_division=0)
-                    f1 = f1_score(y_test, y_pred, zero_division=0)
-
-                    # AUC seulement si proba disponible
-                    try:
-                        y_proba = model.predict_proba(X_test)[:, 1]
-                        auc = roc_auc_score(y_test, y_proba)
-                    except:
-                        auc = 0.5  # Valeur par défaut
-
-                    results[model_name] = {
-                        'model': model,
-                        'accuracy': accuracy,
-                        'precision': precision,
-                        'recall': recall,
-                        'f1': f1,
-                        'auc': auc
-                    }
-
-                except Exception as metric_error:
-                    st.warning(f"⚠️ Erreur métriques {model_name}: {metric_error}")
-                    continue
-
-            except Exception as model_error:
-                st.warning(f"⚠️ Erreur entraînement {model_name}: {model_error}")
+                y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
+                
+                # CORRECTION : Calcul de métriques avec validation
+                train_score = model.score(X_train, y_train)
+                test_score = model.score(X_test, y_test)
+                
+                # Détection d'overfitting
+                overfitting_ratio = train_score / test_score if test_score > 0 else float('inf')
+                
+                metrics = {
+                    'accuracy': accuracy_score(y_test, y_pred),
+                    'precision': precision_score(y_test, y_pred, zero_division=0),
+                    'recall': recall_score(y_test, y_pred, zero_division=0),
+                    'f1': f1_score(y_test, y_pred, zero_division=0),
+                    'auc': roc_auc_score(y_test, y_proba) if y_proba is not None else 0.5,
+                    'cv_mean': cv_scores.mean(),
+                    'cv_std': cv_scores.std(),
+                    'train_score': train_score,
+                    'test_score': test_score,
+                    'overfitting_ratio': overfitting_ratio
+                }
+                
+                # ALERTE si overfitting détecté
+                if overfitting_ratio > 1.2:
+                    st.warning(f"⚠️ {model_name}: Possible overfitting détecté (ratio: {overfitting_ratio:.2f})")
+                
+                if metrics['auc'] > 0.99:
+                    st.warning(f"⚠️ {model_name}: AUC suspicieusement élevée ({metrics['auc']:.3f}) - Vérifiez le data leakage")
+                
+                results['models'][model_name] = metrics
+                
+            except Exception as e:
+                st.warning(f"⚠️ Erreur pour {model_name}: {str(e)}")
                 continue
-
-        if len(results) == 0:
-            st.error("❌ Aucun modèle n'a pu être entraîné")
-            return None
-
-        # Sélection du meilleur modèle
-        best_model_name = max(results.keys(), key=lambda x: results[x]['accuracy'])
-
-        return {
-            'models': results,
-            'best_model_name': best_model_name,
-            'training_completed': True
-        }
-
+        
+        return results
+        
     except Exception as e:
         st.error(f"❌ Erreur générale d'entraînement : {str(e)}")
         return None
+
 
 def check_ml_dependencies():
     """Vérifie que toutes les dépendances ML sont disponibles"""
