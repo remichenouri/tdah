@@ -2930,43 +2930,6 @@ def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
         st.error(f"❌ Erreur globale : {str(e)}")
         return None
 
-def debug_ml_session():
-    """Fonction de diagnostic pour déboguer la session ML"""
-    st.markdown("### 🔍 Diagnostic Session ML")
-    
-    # État des variables
-    session_vars = ['X_train', 'X_test', 'y_train', 'y_test', 'models_results', 'optimized_models']
-    
-    for var in session_vars:
-        if var in st.session_state:
-            value = st.session_state[var]
-            if hasattr(value, 'shape'):
-                st.success(f"✅ {var}: {value.shape}")
-            elif isinstance(value, dict):
-                st.success(f"✅ {var}: {len(value)} éléments")
-            else:
-                st.success(f"✅ {var}: {type(value)}")
-        else:
-            st.error(f"❌ {var}: Non défini")
-    
-    # Test des données si disponibles
-    if 'models_results' in st.session_state:
-        models_results = st.session_state.models_results
-        if isinstance(models_results, dict):
-            st.info(f"📊 Modèles disponibles: {list(models_results.keys())}")
-            
-            # Test de get_top_models
-            try:
-                top_models = get_top_models(models_results, n=3)
-                st.success(f"✅ get_top_models fonctionne: {len(top_models)} modèles")
-            except Exception as e:
-                st.error(f"❌ get_top_models: {str(e)}")
-
-# Ajouter un bouton de diagnostic
-if st.button("🔍 Diagnostic ML"):
-    debug_ml_session()
-
-
 def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
     """Alternative manuelle avec modèles fonctionnels (sans NuSVC problématique)"""
     try:
