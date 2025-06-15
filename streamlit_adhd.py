@@ -1668,7 +1668,6 @@ def show_enhanced_data_exploration():
         "📊 Vue d'ensemble",
         "🔢 Variables ASRS",
         "📈 Analyses statistiques",
-        "🧮 Analyse factorielle",
         "🎯 Visualisations interactives",
         "📋 Dataset complet"
     ])
@@ -1677,7 +1676,7 @@ def show_enhanced_data_exploration():
         st.subheader("📊 Vue d'ensemble du dataset")
 
         # Métriques principales
-        col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2, col3, col4 = st.columns(4)
 
         with col1:
             st.metric("Participants", f"{len(df):,}")
@@ -1928,98 +1927,8 @@ def show_enhanced_data_exploration():
                         st.markdown(f"**{var_name}**")
                         st.dataframe(result['contingency_table'])
 
-    with tabs[3]:
-        st.subheader("🧮 Analyse factorielle des données mixtes (FAMD)")
-
-        st.markdown("""
-        <div style="background-color: #fff3e0; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-            <h4 style="color: #ef6c00; margin-top: 0;">📚 Qu'est-ce que la FAMD ?</h4>
-            <p style="color: #f57c00; line-height: 1.6;">
-                L'Analyse Factorielle de Données Mixtes (FAMD) est une technique qui permet d'analyser simultanément
-                des variables numériques et catégorielles. Elle révèle les patterns cachés dans les données et
-                les relations entre variables de types différents.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Analyse FAMD
-        with st.spinner("Calcul de l'analyse FAMD..."):
-            df_encoded, correlation_matrix = create_famd_analysis(df)
-
-        if df_encoded is not None and correlation_matrix is not None:
-            # Matrice de corrélation
-            st.markdown("### 🔗 Matrice de corrélation des variables mixtes")
-
-            fig_corr = px.imshow(
-                correlation_matrix,
-                title="Corrélations entre variables numériques et catégorielles",
-                color_continuous_scale='RdBu_r',
-                aspect="auto"
-            )
-            st.plotly_chart(fig_corr, use_container_width=True)
-
-            # Analyse des composantes principales (PCA simplifiée)
-            from sklearn.decomposition import PCA
-            from sklearn.preprocessing import StandardScaler
-
-            # Standardisation des données
-            scaler = StandardScaler()
-            numeric_cols = ['age', 'asrs_total', 'quality_of_life', 'stress_level']
-            available_numeric = [col for col in numeric_cols if col in df_encoded.columns]
-
-            if len(available_numeric) >= 2:
-                X_scaled = scaler.fit_transform(df_encoded[available_numeric])
-
-                # PCA
-                pca = PCA(n_components=min(4, len(available_numeric)))
-                X_pca = pca.fit_transform(X_scaled)
-
-                # Variance expliquée
-                st.markdown("### 📊 Analyse en Composantes Principales")
-
-                variance_explained = pca.explained_variance_ratio_
-                cumulative_variance = np.cumsum(variance_explained)
-
-                fig_variance = go.Figure()
-                fig_variance.add_trace(go.Bar(
-                    x=[f'PC{i+1}' for i in range(len(variance_explained))],
-                    y=variance_explained * 100,
-                    name='Variance expliquée',
-                    marker_color='#ff5722'
-                ))
-                fig_variance.add_trace(go.Scatter(
-                    x=[f'PC{i+1}' for i in range(len(cumulative_variance))],
-                    y=cumulative_variance * 100,
-                    mode='lines+markers',
-                    name='Variance cumulative',
-                    line=dict(color='#ff9800', width=3),
-                    yaxis='y2'
-                ))
-
-                fig_variance.update_layout(
-                    title='Variance expliquée par les composantes principales',
-                    xaxis_title='Composantes',
-                    yaxis_title='Variance expliquée (%)',
-                    yaxis2=dict(title='Variance cumulative (%)', overlaying='y', side='right')
-                )
-                st.plotly_chart(fig_variance, use_container_width=True)
-
-                # Projection des individus
-                if 'diagnosis' in df_encoded.columns:
-                    pca_df = pd.DataFrame(X_pca[:, :2], columns=['PC1', 'PC2'])
-                    pca_df['diagnosis'] = df_encoded['diagnosis'].values
-
-                    fig_pca = px.scatter(
-                        pca_df,
-                        x='PC1',
-                        y='PC2',
-                        color='diagnosis',
-                        title='Projection des participants sur les 2 premières composantes',
-                        color_discrete_map={0: '#ff9800', 1: '#ff5722'}
-                    )
-                    st.plotly_chart(fig_pca, use_container_width=True)
-
-        with tabs[4]:  # Onglet Visualisations interactives
+    
+        with tabs[3]:  # Onglet Visualisations interactives
             st.subheader("🎯 Visualisations interactives")
 
             # Vérification du dataset
@@ -2067,7 +1976,7 @@ def show_enhanced_data_exploration():
                 smart_visualization(df, x_var, None, None)
 
 
-    with tabs[5]:
+    with tabs[4]:
         st.subheader("📋 Dataset complet")
 
         # Filtres
