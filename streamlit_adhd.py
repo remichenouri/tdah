@@ -2893,42 +2893,6 @@ def display_simple_results(results):
                 st.metric("F1-Score", f"{metrics['f1']:.3f}")
             
             st.markdown("---")
-def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
-    """Version corrigée avec format de sortie standardisé"""
-    try:
-        # ... code d'entraînement des modèles ...
-        
-        results = {}
-        
-        for name, model in models_dict.items():
-            try:
-                # ... entraînement du modèle ...
-                
-                # FORMAT STANDARDISÉ - IMPORTANT
-                results[name] = {
-                    'Accuracy': float(accuracy),
-                    'Precision': float(precision),
-                    'Recall': float(recall),
-                    'F1_Score': float(f1),
-                    'ROC_AUC': float(auc),  # TOUJOURS ce nom
-                    'Time_Taken': float(time_taken),
-                    'model': model  # Garder référence au modèle
-                }
-                
-            except Exception as e:
-                st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
-                continue
-        
-        if results:
-            # Retourner directement le dictionnaire, pas un DataFrame
-            return results
-        else:
-            st.error("❌ Aucun modèle entraîné avec succès")
-            return None
-        
-    except Exception as e:
-        st.error(f"❌ Erreur globale : {str(e)}")
-        return None
 
 def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
     """Alternative manuelle avec modèles fonctionnels (sans NuSVC problématique)"""
@@ -3044,32 +3008,28 @@ def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
                 
                 # Utiliser des noms cohérents pour les colonnes
                 results[name] = {
-                    'Accuracy': accuracy,
-                    'Precision': precision,
-                    'Recall': recall,
-                    'F1_Score': f1,
-                    'ROC_AUC': auc,  # Utiliser ROC_AUC de manière cohérente
-                    'Time_Taken': time_taken,
-                    'model': model  # Garder une référence au modèle
+                    'Accuracy': float(accuracy),
+                    'Balanced Accuracy': float(accuracy),  # Ou calculer la balanced accuracy réelle
+                    'ROC AUC': float(auc),  # AVEC ESPACE, pas underscore
+                    'F1 Score': float(f1),
+                    'Time Taken': float(time_taken)
                 }
                 
             except Exception as e:
                 st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
                 continue
         
-        # Conversion en DataFrame avec gestion d'erreur
         if results:
+            # Créer le DataFrame avec les bons noms de colonnes
             results_df = pd.DataFrame(results).T
-            # Retirer la colonne 'model' pour l'affichage mais la garder séparément
-            display_df = results_df.drop('model', axis=1, errors='ignore')
-            results_df_sorted = display_df.sort_values(['ROC_AUC', 'Accuracy'], ascending=False)
+            results_df_sorted = results_df.sort_values(['ROC AUC', 'Accuracy'], ascending=False)
             return results_df_sorted
         else:
-            st.error("❌ Aucun modèle n'a pu être entraîné avec succès")
+            st.error("❌ Aucun modèle entraîné avec succès")
             return None
-        
+            
     except Exception as e:
-        st.error(f"❌ Erreur dans l'entraînement des modèles : {str(e)}")
+        st.error(f"❌ Erreur globale : {str(e)}")
         return None
         
 def show_enhanced_ml_analysis():
