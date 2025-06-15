@@ -3359,7 +3359,7 @@ def show_enhanced_ml_analysis():
             st.info(f"📊 {len(models_results)} modèles disponibles")
             
             # Sélection des meilleurs modèles avec gestion d'erreur
-            best_models = get_top_models(models_results, n=3)
+            best_models = get_top_models_corrected(models_results, n=3)
             
             if not best_models:
                 st.error("❌ Impossible de sélectionner les meilleurs modèles")
