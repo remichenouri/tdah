@@ -2965,12 +2965,6 @@ def show_enhanced_ml_analysis():
     with ml_tabs[0]:
         st.subheader("🔬 LazyPredict - Comparaison de 40+ Modèles ML")
         
-        # Vérification des dépendances
-        st.info("💡 Installation requise : `pip install lazypredict scikit-learn==1.0.2`")
-        
-        # Option de fallback si LazyPredict n'est pas disponible
-        use_fallback = st.checkbox("Utiliser l'alternative manuelle (si LazyPredict indisponible)", value=False)
-        
         if st.button("🚀 Lancer la Comparaison Massive", type="primary"):
             with st.spinner("Entraînement de 40+ modèles en cours..."):
                 
