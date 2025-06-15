@@ -2439,489 +2439,111 @@ def check_ml_dependencies():
 
     return True
 
-def safe_model_prediction(model, X_data):
-    """Prédiction sécurisée avec gestion d'erreur"""
+def create_roc_curve_plot(y_true, y_pred_proba, model_name="Model"):
+    """
+    Crée un graphique ROC avec Plotly - FONCTION MANQUANTE CORRIGÉE
+    """
     try:
-        if hasattr(model, 'predict'):
-            predictions = model.predict(X_data)
-            probabilities = None
-
-            if hasattr(model, 'predict_proba'):
-                probabilities = model.predict_proba(X_data)
-
-            return predictions, probabilities
-        else:
-            st.error("❌ Modèle non valide pour la prédiction")
-            return None, None
-
+        # Calculer les valeurs ROC
+        fpr, tpr, thresholds = roc_curve(y_true, y_pred_proba)
+        roc_auc = auc(fpr, tpr)
+        
+        # Créer le graphique avec Plotly
+        fig = go.Figure()
+        
+        # Courbe ROC
+        fig.add_trace(go.Scatter(
+            x=fpr, 
+            y=tpr,
+            mode='lines',
+            name=f'{model_name} (AUC = {roc_auc:.3f})',
+            line=dict(color='#FF6B35', width=2)
+        ))
+        
+        # Ligne de référence
+        fig.add_trace(go.Scatter(
+            x=[0, 1], 
+            y=[0, 1],
+            mode='lines',
+            name='Référence (AUC = 0.5)',
+            line=dict(color='gray', width=1, dash='dash')
+        ))
+        
+        # Mise en forme
+        fig.update_layout(
+            title=f'Courbe ROC - {model_name}',
+            xaxis_title='Taux de Faux Positifs',
+            yaxis_title='Taux de Vrais Positifs',
+            width=600,
+            height=400,
+            showlegend=True
+        )
+        
+        return fig, roc_auc
+        
     except Exception as e:
-        st.error(f"❌ Erreur de prédiction : {str(e)}")
-        return None, None
-
-
-@st.cache_resource(show_spinner="Entraînement des modèles...")
-def train_optimized_models(df):
-    """Pipeline ML optimisée avec sélection automatique de modèle"""
+        st.error(f"Erreur dans create_roc_curve_plot: {str(e)}")
+        return None, 0
+def try_lazypredict_analysis(data_dict):
+    """
+    Analyse LazyPredict avec gestion d'erreur et installation automatique
+    """
     try:
-        # Préparation des données
-        X = df.drop('diagnosis', axis=1)
-        y = df['diagnosis']
-
-        # Division des données
+        # Tentative d'import LazyPredict
+        from lazypredict.Supervised import LazyClassifier
+        
+        X = data_dict['X']
+        y = data_dict['y']
+        
+        # Division train/test
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y,
-            test_size=0.2,
-            stratify=y,
-            random_state=42
+            X, y, test_size=0.2, random_state=42, stratify=y
         )
-
-        # Phase 1: Sélection de modèle avec LazyPredict
-        lazy_clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=None)
-        models, predictions = lazy_clf.fit(X_train, X_test, y_train, y_test)
-
-        # Sélection des top 3 modèles
-        top_models = models.head(3).index.tolist()
-
-        # Configuration GridSearch pour les hyperparamètres
-        param_grids = {
-            'RandomForestClassifier': {
-                'n_estimators': [100, 200],
-                'max_depth': [None, 10, 20],
-                'min_samples_split': [2, 5]
-            },
-            'LogisticRegression': {
-                'C': [0.1, 1, 10],
-                'solver': ['lbfgs', 'liblinear']
-            },
-            'XGBClassifier': {
-                'n_estimators': [100, 200],
-                'learning_rate': [0.01, 0.1],
-                'max_depth': [3, 6]
-            }
-        }
-
-        # Entraînement des meilleurs modèles avec GridSearch
-        best_models = {}
-        for model_name in top_models:
-            try:
-                model_class = globals()[model_name]
-                grid_search = GridSearchCV(
-                    estimator=model_class(),
-                    param_grid=param_grids.get(model_name, {}),
-                    cv=3,
-                    n_jobs=-1,
-                    scoring='roc_auc'
-                )
-                grid_search.fit(X_train, y_train)
-
-                best_models[model_name] = {
-                    'model': grid_search.best_estimator_,
-                    'params': grid_search.best_params_,
-                    'score': grid_search.best_score_
-                }
-
-            except Exception as e:
-                st.warning(f"Erreur sur {model_name}: {str(e)}")
-                continue
-
-        # Validation finale
-        results = {}
-        for name, data in best_models.items():
-            model = data['model']
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
-            y_proba = model.predict_proba(X_test)[:,1] if hasattr(model, 'predict_proba') else None
-
-            # Métriques avec protection division par zéro
-            metrics = {
-                'accuracy': accuracy_score(y_test, y_pred),
-                'precision': precision_score(y_test, y_pred, zero_division=0),
-                'recall': recall_score(y_test, y_pred, zero_division=0),
-                'f1': f1_score(y_test, y_pred, zero_division=0),
-                'auc': roc_auc_score(y_test, y_proba) if y_proba is not None and len(np.unique(y_test)) > 1 else 0.5,
-                'best_params': data['params']
-            }
-
-            results[name] = metrics
-
-        # Sélection du meilleur modèle
-        best_model_name = max(results.keys(), key=lambda x: results[x]['auc'])
-
+        
+        # Normalisation
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        # LazyPredict avec paramètres optimisés
+        clf = LazyClassifier(
+            verbose=0, 
+            ignore_warnings=True, 
+            custom_metric=None,
+            predictions=True
+        )
+        
+        models_df, predictions = clf.fit(X_train_scaled, X_test_scaled, y_train, y_test)
+        
         return {
-            'best_model': best_models[best_model_name]['model'],
-            'all_results': results,
-            'lazy_report': models
+            'models_df': models_df,
+            'predictions': predictions,
+            'success': True
         }
-
+        
+    except ImportError:
+        st.warning("⚠️ LazyPredict non installé. Installation automatique en cours...")
+        try:
+            import subprocess
+            import sys
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'lazypredict==0.2.12'])
+            st.success("✅ LazyPredict installé. Veuillez relancer l'application.")
+            st.rerun()  # Remplace st.experimental_rerun()
+        except Exception as install_error:
+            st.error(f"❌ Impossible d'installer LazyPredict: {str(install_error)}")
+            return {'success': False, 'error': str(install_error)}
+            
     except Exception as e:
-        st.error(f"Erreur d'entraînement : {str(e)}")
-        return None
+        st.error(f"❌ Erreur LazyPredict: {str(e)}")
+        return {'success': False, 'error': str(e)}
 
-
-def show_enhanced_ml_analysis():
-    """Interface d'analyse ML enrichie pour TDAH avec visuels adaptés"""
-    
-    # En-tête avec design TDAH
-    st.markdown("""
-    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
-                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
-        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
-                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            🧠 Analyse Machine Learning TDAH
-        </h1>
-        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
-                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Entraînement et évaluation de modèles IA pour le diagnostic TDAH
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Chargement du dataset avec validation
-    df = load_enhanced_dataset()
-    
-    if df is None or len(df) == 0:
-        st.error("❌ Impossible de charger le dataset pour l'analyse ML")
-        return
-
-    # Onglets d'analyse ML
-    ml_tabs = st.tabs([
-        "🔬 Préparation données", 
-        "🤖 Entraînement modèles", 
-        "📊 Évaluation performance",
-        "📈 Métriques avancées",
-        "🎯 Analyse prédictive"
-    ])
-
-    with ml_tabs[0]:  # Préparation des données
-        st.subheader("🔬 Préparation des Données TDAH")
-        
-        # Aperçu dataset avec métriques TDAH
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric(
-                "👥 Participants", 
-                f"{len(df):,}",
-                help="Nombre total de participants dans l'étude TDAH"
-            )
-        with col2:
-            if 'diagnosis' in df.columns:
-                tdah_count = df['diagnosis'].sum()
-                st.metric(
-                    "🧠 Cas TDAH", 
-                    f"{tdah_count:,}",
-                    f"{tdah_count/len(df):.1%}"
-                )
-        with col3:
-            st.metric(
-                "📊 Variables", 
-                len(df.columns),
-                help="Nombre total de variables disponibles"
-            )
-        with col4:
-            missing_pct = (df.isnull().sum().sum() / (len(df) * len(df.columns))) * 100
-            st.metric(
-                "❓ Données manquantes", 
-                f"{missing_pct:.1f}%"
-            )
-
-        # Interface de préparation avec design TDAH
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #fff3e0, #ffcc02);
-                   border-radius: 15px; padding: 25px; margin: 20px 0;
-                   border-left: 4px solid #ff5722;">
-            <h3 style="color: #d84315; margin-top: 0;">🛠️ Configuration du Pipeline ML</h3>
-            <p style="color: #ef6c00; line-height: 1.6;">
-                Configurez les paramètres d'entraînement pour optimiser la détection du TDAH
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Configuration des features
-        col_config1, col_config2 = st.columns(2)
-        
-        with col_config1:
-            test_size = st.selectbox(
-                "🔀 Taille du jeu de test",
-                [0.2, 0.25, 0.3],
-                index=0,
-                help="Proportion des données réservées pour les tests"
-            )
-            
-            cv_folds = st.selectbox(
-                "🔄 Validation croisée",
-                [3, 5, 10],
-                index=1,
-                help="Nombre de plis pour la validation croisée"
-            )
-        
-        with col_config2:
-            scaling_method = st.selectbox(
-                "⚖️ Normalisation",
-                ["StandardScaler", "MinMaxScaler", "RobustScaler"],
-                help="Méthode de normalisation des données"
-            )
-            
-            handle_imbalance = st.checkbox(
-                "⚖️ Équilibrer les classes",
-                value=True,
-                help="Utiliser SMOTE pour équilibrer les classes TDAH/Non-TDAH"
-            )
-
-        # Bouton de préparation
-        if st.button("🔬 Préparer les données", type="primary", use_container_width=True):
-            with st.spinner("Préparation des données en cours..."):
-                # Préparation des données avec les paramètres choisis
-                ml_data = prepare_ml_data_advanced(df, test_size, scaling_method, handle_imbalance)
-                
-                if ml_data:
-                    st.session_state.ml_data_prepared = ml_data
-                    st.session_state.ml_config = {
-                        'test_size': test_size,
-                        'cv_folds': cv_folds,
-                        'scaling_method': scaling_method,
-                        'handle_imbalance': handle_imbalance
-                    }
-                    
-                    # Affichage des résultats de préparation
-                    st.markdown("""
-                    <div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
-                               border-radius: 10px; padding: 20px; margin: 15px 0;
-                               border-left: 4px solid #4caf50;">
-                        <h4 style="color: #2e7d32; margin-top: 0;">✅ Données préparées avec succès !</h4>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Statistiques de préparation
-                    prep_col1, prep_col2, prep_col3 = st.columns(3)
-                    
-                    with prep_col1:
-                        st.metric("🎯 Features sélectionnées", len(ml_data['feature_names']))
-                    with prep_col2:
-                        st.metric("📚 Échantillons train", len(ml_data['X_train']))
-                    with prep_col3:
-                        st.metric("🧪 Échantillons test", len(ml_data['X_test']))
-
-    with ml_tabs[1]:  # Entraînement des modèles
-        st.subheader("🤖 Entraînement des Modèles ML")
-        
-        if 'ml_data_prepared' not in st.session_state:
-            st.warning("⚠️ Veuillez d'abord préparer les données dans l'onglet précédent")
-            return
-
-        # Sélection des modèles à entraîner
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #fff3e0, #ffe0b2);
-                   border-radius: 12px; padding: 20px; margin: 20px 0;
-                   border-left: 4px solid #ff9800;">
-            <h3 style="color: #ef6c00; margin-top: 0;">🎯 Sélection des Algorithmes</h3>
-            <p style="color: #f57c00;">Choisissez les modèles à entraîner pour la détection du TDAH</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Options de modèles
-        model_col1, model_col2 = st.columns(2)
-        
-        with model_col1:
-            train_rf = st.checkbox("🌳 Random Forest", value=True)
-            train_lr = st.checkbox("📈 Régression Logistique", value=True)
-            train_svm = st.checkbox("🎯 SVM", value=False)
-        
-        with model_col2:
-            train_xgb = st.checkbox("🚀 XGBoost", value=True)
-            train_nb = st.checkbox("📊 Naive Bayes", value=False)
-            train_knn = st.checkbox("👥 K-NN", value=False)
-
-        # Configuration avancée
-        with st.expander("⚙️ Configuration avancée"):
-            optimize_hyperparams = st.checkbox("🔧 Optimisation d'hyperparamètres", value=True)
-            use_ensemble = st.checkbox("🎼 Modèle d'ensemble", value=True)
-            
-        # Bouton d'entraînement
-        if st.button("🚀 Lancer l'entraînement", type="primary", use_container_width=True):
-            
-            # Liste des modèles sélectionnés
-            selected_models = []
-            if train_rf: selected_models.append('RandomForest')
-            if train_lr: selected_models.append('LogisticRegression')
-            if train_svm: selected_models.append('SVM')
-            if train_xgb: selected_models.append('XGBoost')
-            if train_nb: selected_models.append('NaiveBayes')
-            if train_knn: selected_models.append('KNN')
-            
-            if not selected_models:
-                st.error("❌ Veuillez sélectionner au moins un modèle")
-                return
-            
-            with st.spinner("🤖 Entraînement en cours... Cela peut prendre quelques minutes"):
-                # Entraînement avec la nouvelle fonction corrigée
-                ml_results = train_corrected_models(
-                    st.session_state.ml_data_prepared,
-                    selected_models,
-                    st.session_state.ml_config,
-                    optimize_hyperparams
-                )
-                
-                if ml_results:
-                    st.session_state.ml_results = ml_results
-                    st.success("✅ Entraînement terminé avec succès !")
-                    
-                    # Affichage immédiat des résultats
-                    display_training_results()
-
-    with ml_tabs[2]:  # Évaluation des performances
-        st.subheader("📊 Évaluation des Performances")
-        
-        if 'ml_results' not in st.session_state:
-            st.warning("⚠️ Veuillez d'abord entraîner les modèles")
-            return
-        
-        results = st.session_state.ml_results
-        
-        # Tableau de comparaison des modèles
-        st.markdown("### 🏆 Comparaison des Modèles")
-        
-        results_data = []
-        for model_name, metrics in results['models'].items():
-            results_data.append({
-                'Modèle': model_name,
-                'Accuracy': f"{metrics['accuracy']:.3f}",
-                'Precision': f"{metrics['precision']:.3f}",
-                'Recall': f"{metrics['recall']:.3f}",
-                'F1-Score': f"{metrics['f1']:.3f}",
-                'AUC-ROC': f"{metrics['auc']:.3f}"
-            })
-        
-        results_df = pd.DataFrame(results_data)
-        
-        # Styling du tableau avec couleurs TDAH
-        st.dataframe(
-            results_df,
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Graphique de comparaison avec palette TDAH
-        fig_comparison = create_performance_comparison_chart(results['models'])
-        st.plotly_chart(fig_comparison, use_container_width=True)
-        
-        # Meilleur modèle
-        best_model = max(results['models'].keys(), 
-                        key=lambda x: results['models'][x]['auc'])
-        
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #ff5722, #ff9800);
-                   color: white; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;">
-            <h3 style="margin: 0;">🏆 Meilleur Modèle : {best_model}</h3>
-            <p style="margin: 10px 0 0 0; opacity: 0.9;">
-                AUC-ROC: {results['models'][best_model]['auc']:.3f}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with ml_tabs[3]:  # Métriques avancées
-        st.subheader("📈 Métriques Avancées")
-        
-        if 'ml_results' not in st.session_state:
-            st.warning("⚠️ Veuillez d'abord entraîner les modèles")
-            return
-        
-        # Sélection du modèle à analyser
-        model_names = list(st.session_state.ml_results['models'].keys())
-        selected_model = st.selectbox("Choisir un modèle à analyser", model_names)
-        
-        if selected_model:
-            model_metrics = st.session_state.ml_results['models'][selected_model]
-            
-            # Matrice de confusion
-            st.markdown("#### 🎯 Matrice de Confusion")
-            fig_cm = create_confusion_matrix_plot(model_metrics.get('confusion_matrix'))
-            st.plotly_chart(fig_cm, use_container_width=True)
-            
-            # Courbe ROC
-            st.markdown("#### 📈 Courbe ROC")
-            fig_roc = create_roc_curve_plot(model_metrics.get('roc_data'))
-            st.plotly_chart(fig_roc, use_container_width=True)
-            
-            # Feature importance si disponible
-            if 'feature_importance' in model_metrics:
-                st.markdown("#### 🔍 Importance des Variables")
-                fig_importance = create_feature_importance_plot(
-                    model_metrics['feature_importance'],
-                    st.session_state.ml_data_prepared['feature_names']
-                )
-                st.plotly_chart(fig_importance, use_container_width=True)
-
-    with ml_tabs[4]:  # Analyse prédictive
-        st.subheader("🎯 Analyse Prédictive en Temps Réel")
-        
-        if 'ml_results' not in st.session_state:
-            st.warning("⚠️ Veuillez d'abord entraîner les modèles")
-            return
-        
-        # Interface de prédiction
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #ffcc02, #fff3e0);
-                   border-radius: 12px; padding: 20px; margin: 20px 0;
-                   border-left: 4px solid #ff5722;">
-            <h3 style="color: #d84315; margin-top: 0;">🔮 Test de Prédiction</h3>
-            <p style="color: #ef6c00;">Entrez des valeurs pour tester la prédiction du modèle</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Formulaire de test
-        with st.form("prediction_test"):
-            pred_col1, pred_col2, pred_col3 = st.columns(3)
-            
-            with pred_col1:
-                age = st.slider("Âge", 18, 80, 30)
-                asrs_total = st.slider("Score ASRS Total", 0, 72, 30)
-            
-            with pred_col2:
-                quality_life = st.slider("Qualité de vie (1-10)", 1, 10, 5)
-                stress_level = st.slider("Niveau de stress (1-5)", 1, 5, 3)
-            
-            with pred_col3:
-                education_level = st.selectbox("Niveau d'éducation", 
-                                             ["Bac", "Bac+2", "Bac+3", "Bac+5", "Doctorat"])
-                gender = st.selectbox("Genre", ["M", "F"])
-            
-            if st.form_submit_button("🔮 Prédire", type="primary"):
-                # Préparation des données de test
-                test_data = prepare_single_prediction(
-                    age, asrs_total, quality_life, stress_level, education_level, gender
-                )
-                
-                # Prédiction avec tous les modèles
-                predictions = make_ensemble_prediction(test_data)
-                
-                # Affichage des résultats
-                display_prediction_results(predictions)
-
-def analyze_ml_with_lazypredict(df):
+def analyze_ml_models_standard(data_dict):
     """
-    Analyse ML complète avec LazyPredict et validation robuste
+    Analyse ML avec modèles standards - SOLUTION DE SECOURS
     """
     try:
-        # Préparation des données avec validation
-        if 'diagnosis' not in df.columns:
-            st.error("❌ Colonne 'diagnosis' manquante")
-            return None
-        
-        # Sélection des features numériques
-        excluded_vars = ['subject_id', 'source_file', 'generation_date', 'version']
-        numeric_features = [col for col in df.select_dtypes(include=[np.number]).columns 
-                           if col not in excluded_vars + ['diagnosis']]
-        
-        if len(numeric_features) == 0:
-            st.error("❌ Aucune feature numérique disponible")
-            return None
-        
-        X = df[numeric_features].copy()
-        y = df['diagnosis'].copy()
-        
-        # Nettoyage et ajout de bruit réaliste pour éviter l'overfitting parfait
-        X = X.fillna(X.median())
+        X = data_dict['X']
+        y = data_dict['y']
         
         # Division train/test stratifiée
         X_train, X_test, y_train, y_test = train_test_split(
@@ -2929,37 +2551,74 @@ def analyze_ml_with_lazypredict(df):
         )
         
         # Normalisation appropriée
-        from sklearn.preprocessing import StandardScaler
         scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
         
-        # LazyPredict pour comparaison exhaustive
-        st.info("🔄 Analyse avec LazyPredict en cours...")
-        lazy_clf = LazyClassifier(
-            verbose=0, 
-            ignore_warnings=True, 
-            custom_metric=None,
-            predictions=True
-        )
+        # Modèles avec paramètres CORRECTS pour éviter l'overfitting
+        models = {
+            'Random Forest (Corrigé)': RandomForestClassifier(
+                n_estimators=50,        # Réduit pour éviter overfitting
+                max_depth=5,           # Profondeur limitée
+                min_samples_split=10,  # Plus strict
+                min_samples_leaf=5,    # Plus strict
+                random_state=42
+            ),
+            'Logistic Regression': LogisticRegression(
+                C=1.0,
+                random_state=42,
+                max_iter=1000
+            ),
+            'SVM': SVC(
+                C=1.0,
+                probability=True,  # ESSENTIEL pour ROC
+                random_state=42
+            )
+        }
         
-        models_df, predictions = lazy_clf.fit(
-            X_train_scaled, X_test_scaled, y_train, y_test
-        )
+        results = {}
+        
+        # Entraînement et évaluation avec validation croisée
+        for name, model in models.items():
+            try:
+                # Validation croisée pour détecter l'overfitting
+                cv_scores = cross_val_score(model, X_train_scaled, y_train, cv=5, scoring='roc_auc')
+                
+                # Entraînement final
+                model.fit(X_train_scaled, y_train)
+                
+                # Prédictions
+                y_pred = model.predict(X_test_scaled)
+                y_pred_proba = model.predict_proba(X_test_scaled)[:, 1] if hasattr(model, 'predict_proba') else model.decision_function(X_test_scaled)
+                
+                # Métriques complètes
+                results[name] = {
+                    'cv_mean': cv_scores.mean(),
+                    'cv_std': cv_scores.std(),
+                    'accuracy': accuracy_score(y_test, y_pred),
+                    'precision': precision_score(y_test, y_pred, average='weighted'),
+                    'recall': recall_score(y_test, y_pred, average='weighted'),
+                    'f1': f1_score(y_test, y_pred, average='weighted'),
+                    'y_test': y_test,
+                    'y_pred_proba': y_pred_proba,
+                    'model': model
+                }
+                
+            except Exception as e:
+                st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
+                continue
         
         return {
-            'models_comparison': models_df,
-            'predictions': predictions,
+            'results': results,
             'X_train': X_train_scaled,
             'X_test': X_test_scaled,
             'y_train': y_train,
             'y_test': y_test,
-            'feature_names': numeric_features,
             'scaler': scaler
         }
         
     except Exception as e:
-        st.error(f"❌ Erreur dans l'analyse ML : {str(e)}")
+        st.error(f"❌ Erreur dans analyze_ml_models_standard: {str(e)}")
         return None
 
 def show_enhanced_ml_comparison():
@@ -3453,6 +3112,296 @@ def display_training_results():
     with col3:
         st.metric("🤖 Modèles entraînés", len(results['models']))
 
+
+def safe_model_prediction(model, X_data):
+    """Prédiction sécurisée avec gestion d'erreur"""
+    try:
+        if hasattr(model, 'predict'):
+            predictions = model.predict(X_data)
+            probabilities = None
+
+            if hasattr(model, 'predict_proba'):
+                probabilities = model.predict_proba(X_data)
+
+            return predictions, probabilities
+        else:
+            st.error("❌ Modèle non valide pour la prédiction")
+            return None, None
+
+    except Exception as e:
+        st.error(f"❌ Erreur de prédiction : {str(e)}")
+        return None, None
+
+
+@st.cache_resource(show_spinner="Entraînement des modèles...")
+def train_optimized_models(df):
+    """Pipeline ML optimisée avec sélection automatique de modèle"""
+    try:
+        # Préparation des données
+        X = df.drop('diagnosis', axis=1)
+        y = df['diagnosis']
+
+        # Division des données
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y,
+            test_size=0.2,
+            stratify=y,
+            random_state=42
+        )
+
+        # Phase 1: Sélection de modèle avec LazyPredict
+        lazy_clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=None)
+        models, predictions = lazy_clf.fit(X_train, X_test, y_train, y_test)
+
+        # Sélection des top 3 modèles
+        top_models = models.head(3).index.tolist()
+
+        # Configuration GridSearch pour les hyperparamètres
+        param_grids = {
+            'RandomForestClassifier': {
+                'n_estimators': [100, 200],
+                'max_depth': [None, 10, 20],
+                'min_samples_split': [2, 5]
+            },
+            'LogisticRegression': {
+                'C': [0.1, 1, 10],
+                'solver': ['lbfgs', 'liblinear']
+            },
+            'XGBClassifier': {
+                'n_estimators': [100, 200],
+                'learning_rate': [0.01, 0.1],
+                'max_depth': [3, 6]
+            }
+        }
+
+        # Entraînement des meilleurs modèles avec GridSearch
+        best_models = {}
+        for model_name in top_models:
+            try:
+                model_class = globals()[model_name]
+                grid_search = GridSearchCV(
+                    estimator=model_class(),
+                    param_grid=param_grids.get(model_name, {}),
+                    cv=3,
+                    n_jobs=-1,
+                    scoring='roc_auc'
+                )
+                grid_search.fit(X_train, y_train)
+
+                best_models[model_name] = {
+                    'model': grid_search.best_estimator_,
+                    'params': grid_search.best_params_,
+                    'score': grid_search.best_score_
+                }
+
+            except Exception as e:
+                st.warning(f"Erreur sur {model_name}: {str(e)}")
+                continue
+
+        # Validation finale
+        results = {}
+        for name, data in best_models.items():
+            model = data['model']
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+            y_proba = model.predict_proba(X_test)[:,1] if hasattr(model, 'predict_proba') else None
+
+            # Métriques avec protection division par zéro
+            metrics = {
+                'accuracy': accuracy_score(y_test, y_pred),
+                'precision': precision_score(y_test, y_pred, zero_division=0),
+                'recall': recall_score(y_test, y_pred, zero_division=0),
+                'f1': f1_score(y_test, y_pred, zero_division=0),
+                'auc': roc_auc_score(y_test, y_proba) if y_proba is not None and len(np.unique(y_test)) > 1 else 0.5,
+                'best_params': data['params']
+            }
+
+            results[name] = metrics
+
+        # Sélection du meilleur modèle
+        best_model_name = max(results.keys(), key=lambda x: results[x]['auc'])
+
+        return {
+            'best_model': best_models[best_model_name]['model'],
+            'all_results': results,
+            'lazy_report': models
+        }
+
+    except Exception as e:
+        st.error(f"Erreur d'entraînement : {str(e)}")
+        return None
+
+
+def show_enhanced_ml_analysis():
+    """
+    Interface principale d'analyse ML - VERSION CORRIGÉE
+    """
+    st.title("🤖 Analyse ML TDAH - Version Corrigée")
+    
+    # Initialisation session state
+    if 'ml_results' not in st.session_state:
+        st.session_state.ml_results = None
+    
+    # Vérification des données
+    if 'df_processed' not in st.session_state or st.session_state.df_processed is None:
+        st.error("❌ Aucun dataset chargé. Veuillez d'abord charger les données.")
+        return
+    
+    df = st.session_state.df_processed
+    
+    # Préparation des données
+    with st.spinner("🔄 Préparation des données..."):
+        data_dict = prepare_data_for_ml(df)
+    
+    if data_dict is None:
+        return
+    
+    # Onglets d'analyse
+    tab1, tab2, tab3 = st.tabs(["📊 Analyse Standard", "🚀 LazyPredict", "📈 Courbes ROC"])
+    
+    with tab1:
+        st.markdown("### 📊 Analyse avec Modèles Standards")
+        
+        if st.button("🚀 Lancer Analyse Standard", type="primary"):
+            with st.spinner("🔄 Entraînement des modèles..."):
+                ml_results = analyze_ml_models_standard(data_dict)
+            
+            if ml_results and ml_results['results']:
+                results = ml_results['results']
+                
+                # Tableau des résultats
+                results_df = pd.DataFrame({
+                    name: {
+                        'CV Mean': f"{data['cv_mean']:.3f}",
+                        'CV Std': f"{data['cv_std']:.3f}",
+                        'Accuracy': f"{data['accuracy']:.3f}",
+                        'Precision': f"{data['precision']:.3f}",
+                        'Recall': f"{data['recall']:.3f}",
+                        'F1-Score': f"{data['f1']:.3f}"
+                    }
+                    for name, data in results.items()
+                }).T
+                
+                st.dataframe(results_df, use_container_width=True)
+                
+                # Détection des performances suspectes
+                warnings_list = detect_suspicious_performance(results)
+                if warnings_list:
+                    st.warning("⚠️ Performances suspectes détectées :")
+                    for warning in warnings_list:
+                        st.write(f"• {warning}")
+                
+                # Sauvegarde
+                st.session_state.ml_results = ml_results
+                st.success("✅ Analyse terminée avec succès!")
+    
+    with tab2:
+        st.markdown("### 🚀 Analyse LazyPredict")
+        
+        if st.button("🚀 Lancer LazyPredict", type="primary"):
+            with st.spinner("🔄 Analyse LazyPredict en cours..."):
+                lazy_results = try_lazypredict_analysis(data_dict)
+            
+            if lazy_results.get('success', False):
+                st.success("✅ Analyse LazyPredict réussie!")
+                st.dataframe(lazy_results['models_df'].head(15), use_container_width=True)
+                
+                # Graphique comparatif
+                top_models = lazy_results['models_df'].head(10)
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=top_models.index,
+                    y=top_models['Accuracy'],
+                    name='Accuracy',
+                    marker_color='#FF6B35'
+                ))
+                fig.update_layout(
+                    title="Top 10 Modèles - LazyPredict",
+                    xaxis_title="Modèles",
+                    yaxis_title="Accuracy"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.error(f"❌ Échec LazyPredict: {lazy_results.get('error', 'Erreur inconnue')}")
+    
+    with tab3:
+        st.markdown("### 📈 Courbes ROC")
+        
+        if st.session_state.ml_results:
+            results = st.session_state.ml_results['results']
+            
+            if results:
+                # Sélection du modèle
+                model_names = list(results.keys())
+                selected_model = st.selectbox("Choisir un modèle pour la courbe ROC:", model_names)
+                
+                if selected_model and selected_model in results:
+                    model_data = results[selected_model]
+                    
+                    # Création de la courbe ROC
+                    fig, auc_score = create_roc_curve_plot(
+                        model_data['y_test'], 
+                        model_data['y_pred_proba'], 
+                        selected_model
+                    )
+                    
+                    if fig:
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Métriques détaillées
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("AUC Score", f"{auc_score:.3f}")
+                        with col2:
+                            st.metric("Accuracy", f"{model_data['accuracy']:.3f}")
+                        with col3:
+                            st.metric("F1-Score", f"{model_data['f1']:.3f}")
+        else:
+            st.info("👆 Veuillez d'abord lancer l'analyse standard pour voir les courbes ROC.")
+
+# Fonction utilitaire pour préparer les données
+def prepare_data_for_ml(df):
+    """
+    Prépare les données pour l'analyse ML
+    """
+    try:
+        if df is None or df.empty:
+            st.error("❌ Dataset vide")
+            return None
+            
+        if 'diagnosis' not in df.columns:
+            st.error("❌ Colonne 'diagnosis' manquante")
+            return None
+        
+        # Features numériques
+        excluded_vars = ['subject_id', 'source_file', 'generation_date', 'version']
+        numeric_features = [col for col in df.select_dtypes(include=[np.number]).columns 
+                           if col not in excluded_vars + ['diagnosis']]
+        
+        if len(numeric_features) == 0:
+            st.error("❌ Aucune feature numérique")
+            return None
+        
+        X = df[numeric_features].fillna(df[numeric_features].median())
+        y = df['diagnosis']
+        
+        return {'X': X, 'y': y, 'feature_names': numeric_features}
+        
+    except Exception as e:
+        st.error(f"❌ Erreur préparation: {str(e)}")
+        return None
+
+def detect_suspicious_performance(results):
+    """
+    Détecte les performances suspectes (overfitting)
+    """
+    warnings = []
+    for model_name, metrics in results.items():
+        if metrics.get('cv_mean', 0) > 0.99:
+            warnings.append(f"⚠️ {model_name}: AUC suspicieusement élevée ({metrics['cv_mean']:.3f})")
+        if metrics.get('accuracy', 0) > 0.99:
+            warnings.append(f"⚠️ {model_name}: Accuracy parfaite ({metrics['accuracy']:.3f})")
+    return warnings
 
 
 def show_enhanced_ai_prediction():
