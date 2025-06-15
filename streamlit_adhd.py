@@ -3423,12 +3423,12 @@ def show_enhanced_ml_analysis():
         df_ml = load_enhanced_dataset()  # Remplacer par votre fonction de chargement
         
         # Préparation spécifique TDAH
-        if 'TDAH' not in df_ml.columns:
-            st.error("❌ Colonne 'TDAH' manquante dans le dataset")
+        if 'diagnosis' not in df.columns:
+            st.error("❌ Colonne 'diagnosis' manquante …")
             return
-            
-        X = df_ml.drop(columns=['diagnosis'])
-        y = df_ml['diagnosis']
+        
+        X = df.drop(columns=['diagnosis'])
+        y = df['diagnosis']
         
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
         
