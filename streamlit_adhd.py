@@ -2794,10 +2794,10 @@ def show_enhanced_ml_analysis():
                 X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
                 models_results = run_manual_40_models_fixed(X_train, X_test, y_train, y_test)
                         
-                        if models_results is not None:
-                            st.session_state.models_results = models_results
-                            st.success(f"✅ {len(models_results)} modèles comparés manuellement!")
-                            display_manual_results(models_results)
+                if models_results is not None:
+                    st.session_state.models_results = models_results
+                    st.success(f"✅ {len(models_results)} modèles comparés manuellement!")
+                    display_manual_results(models_results)
 
 
     with ml_tabs[1]:
