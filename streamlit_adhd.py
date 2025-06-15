@@ -2794,33 +2794,6 @@ def display_simple_results(results):
             
             st.markdown("---")
 
-def run_lazypredict_analysis(X_train, X_test, y_train, y_test):
-    """Lance LazyPredict avec gestion d'erreur robuste"""
-    try:
-        from lazypredict.Supervised import LazyClassifier
-        import pandas as pd
-        
-        # Configuration LazyPredict
-        lazy_clf = LazyClassifier(
-            verbose=0,
-            ignore_warnings=True,
-            custom_metric=None,
-            predictions=False,
-            random_state=42
-        )
-        
-        # Entraînement des modèles
-        models_df, predictions = lazy_clf.fit(X_train, X_test, y_train, y_test)
-        
-        return models_df
-        
-    except ImportError as e:
-        st.error(f"❌ LazyPredict non installé : {e}")
-        st.code("pip install lazypredict scikit-learn==1.0.2", language="bash")
-        return None
-    except Exception as e:
-        st.error(f"❌ Erreur LazyPredict : {str(e)}")
-        return None
 
 def run_manual_40_models(X_train, X_test, y_train, y_test):
     """Alternative manuelle avec 40 modèles ML"""
