@@ -2780,40 +2780,42 @@ def get_saved_models_list():
         return []
 
 def create_model_instance_corrected(model_name):
-    """Crée une nouvelle instance du modèle basée sur son nom - VERSION CORRIGÉE"""
+    """Crée une nouvelle instance du modèle basée sur son nom - VERSION SÉCURISÉE"""
     try:
         from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
         from sklearn.linear_model import LogisticRegression
         from sklearn.svm import SVC
         from sklearn.neighbors import KNeighborsClassifier
         
-        # Mapping corrigé avec gestion d'erreur
+        # Mapping corrigé et étendu
         model_mapping = {
-            'RandomForestClassifier': lambda: RandomForestClassifier(random_state=42),
-            'RandomForest_50': lambda: RandomForestClassifier(n_estimators=50, random_state=42),
-            'RandomForest_200': lambda: RandomForestClassifier(n_estimators=200, random_state=42),
-            'LogisticRegression': lambda: LogisticRegression(random_state=42, max_iter=1000),
-            'LogReg_L1': lambda: LogisticRegression(penalty='l1', solver='liblinear', random_state=42),
-            'LogReg_L2': lambda: LogisticRegression(penalty='l2', random_state=42, max_iter=1000),
-            'GradientBoostingClassifier': lambda: GradientBoostingClassifier(random_state=42),
-            'SVC': lambda: SVC(probability=True, random_state=42),
-            'SVC_Linear': lambda: SVC(kernel='linear', probability=True, random_state=42),
-            'KNeighborsClassifier': lambda: KNeighborsClassifier(),
-            'KNN_3': lambda: KNeighborsClassifier(n_neighbors=3),
-            'KNN_7': lambda: KNeighborsClassifier(n_neighbors=7)
+            'RandomForestClassifier': RandomForestClassifier(random_state=42),
+            'RandomForest': RandomForestClassifier(random_state=42),
+            'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000),
+            'LogReg_L1': LogisticRegression(penalty='l1', solver='liblinear', random_state=42),
+            'LogReg_L2': LogisticRegression(penalty='l2', random_state=42, max_iter=1000),
+            'GradientBoostingClassifier': GradientBoostingClassifier(random_state=42),
+            'GradientBoosting': GradientBoostingClassifier(random_state=42),
+            'SVC': SVC(probability=True, random_state=42),
+            'KNeighborsClassifier': KNeighborsClassifier()
         }
         
+        # Recherche exacte
         if model_name in model_mapping:
-            return model_mapping[model_name]()
-        else:
-            # Fallback par défaut
-            st.warning(f"⚠️ Modèle {model_name} non reconnu, utilisation de RandomForest par défaut")
-            return RandomForestClassifier(random_state=42)
+            return model_mapping[model_name]
+        
+        # Recherche par contenu
+        for key, model in model_mapping.items():
+            if key in model_name or model_name in key:
+                return model
+        
+        # Fallback sûr
+        print(f"⚠️ Modèle {model_name} non reconnu, utilisation de LogisticRegression par défaut")
+        return LogisticRegression(random_state=42, max_iter=1000)
             
     except Exception as e:
-        st.error(f"❌ Erreur création modèle {model_name}: {str(e)}")
-        return RandomForestClassifier(random_state=42)  # Fallback sûr
-
+        print(f"❌ Erreur création modèle {model_name}: {str(e)}")
+        return LogisticRegression(random_state=42, max_iter=1000)  # Fallback très sûr
 
 def load_saved_model(filename):
     """Charge un modèle sauvegardé avec Joblib"""
