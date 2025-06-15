@@ -2778,8 +2778,8 @@ def load_saved_model(filename):
         st.error(f"❌ Erreur de chargement : {str(e)}")
         return None
 
-def get_top_models(models_results, n=3):
-    """Version corrigée qui récupère les instances de modèles"""
+def get_top_models_corrected(models_results, n=3):
+    """Version corrigée qui récupère les instances de modèles correctement"""
     try:
         # Conversion sécurisée en DataFrame
         if isinstance(models_results, dict):
@@ -2803,32 +2803,24 @@ def get_top_models(models_results, n=3):
         # Tri par performance
         df_sorted = df_results.sort_values(auc_column, ascending=False)
         
-        # Sélection des n meilleurs modèles avec leurs instances
+        # Sélection des n meilleurs modèles avec création d'instances
         top_models = {}
         
-        # Récupération des instances depuis session state
-        model_instances = st.session_state.get('model_instances', {})
-        
         for i, (model_name, row) in enumerate(df_sorted.head(n).iterrows()):
-            # Récupération de l'instance du modèle
-            if model_name in model_instances:
-                model_instance = model_instances[model_name]
-            else:
-                # Fallback : créer une nouvelle instance
-                model_instance = create_model_instance_corrected(model_name)
+            # CORRECTION: Toujours créer une nouvelle instance du modèle
+            model_instance = create_model_instance_corrected(model_name)
             
             top_models[model_name] = {
                 'auc': float(row.get(auc_column, 0)),
                 'accuracy': float(row.get('Accuracy', 0)),
-                'model': model_instance  # Instance correcte du modèle
+                'model': model_instance  # Instance garantie
             }
         
         return top_models
         
     except Exception as e:
-        st.error(f"❌ Erreur dans get_top_models : {str(e)}")
+        print(f"❌ Erreur dans get_top_models : {str(e)}")
         return {}
-
 
 def display_optimization_results(optimized_results):
     """Affiche les résultats d'optimisation des modèles"""
