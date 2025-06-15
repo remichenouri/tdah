@@ -3314,6 +3314,26 @@ def show_enhanced_ml_analysis():
             transform: translateY(-5px);
             box-shadow: 0 8px 25px rgba(255, 107, 53, 0.25);
         }
+        :root {
+          --primary: #d84315 !important;
+          --secondary: #ff5722 !important;
+          --accent: #ff9800 !important;
+        }
+        [data-testid="stSidebar"] {
+          width: 60px !important;
+          transition: width 0.3s ease !important;
+        }
+        [data-testid="stSidebar"]:hover {
+          width: 240px !important;
+          overflow-y: auto !important;
+        }
+        .info-card-modern {
+          background: white !important;
+          border-left: 4px solid var(--secondary) !important;
+          border-radius: 15px !important;
+          padding: 25px !important;
+          box-shadow: 0 4px 15px rgba(255,87,34,0.08) !important;
+        }
 
         .metric-grid-tdah {
             display: grid;
