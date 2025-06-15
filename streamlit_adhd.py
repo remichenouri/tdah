@@ -3259,177 +3259,778 @@ def display_optimization_results(optimized_results):
 
 
 def show_enhanced_ml_analysis():
-    """Version corrigée avec gestion complète du session state"""
+    """Version améliorée de l'analyse ML avec format du streamlit autisme adapté au TDAH"""
     
-    # En-tête
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    import numpy as np
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.tree import DecisionTreeClassifier
+    from sklearn.svm import SVC
+    from sklearn.naive_bayes import GaussianNB
+    from sklearn.preprocessing import StandardScaler, OneHotEncoder
+    from sklearn.compose import ColumnTransformer
+    from sklearn.pipeline import Pipeline
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+    from sklearn.metrics import roc_auc_score, confusion_matrix, classification_report, roc_curve
+    from sklearn.model_selection import cross_val_score, train_test_split
+    
+    # Styles CSS harmonisés avec les couleurs TDAH
     st.markdown("""
-    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
-                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
-        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;">
-            🧠 Analyse ML Avancée - CORRIGÉE
+    <style>
+        /* Variables couleurs TDAH */
+        :root {
+            --tdah-primary: #FF6B35 !important;
+            --tdah-secondary: #F7931E !important;
+            --tdah-accent: #FFD23F !important;
+            --tdah-dark: #2C3E50 !important;
+            --tdah-light: #ECF0F1 !important;
+        }
+
+        .tdah-header {
+            background: linear-gradient(90deg, var(--tdah-primary), var(--tdah-secondary));
+            padding: 40px 25px;
+            border-radius: 20px;
+            margin-bottom: 35px;
+            text-align: center;
+        }
+
+        .info-card-tdah {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 15px 0;
+            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.15);
+            border-left: 4px solid var(--tdah-primary);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .info-card-tdah:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(255, 107, 53, 0.25);
+        }
+
+        .metric-grid-tdah {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .metric-card-tdah {
+            background: linear-gradient(135deg, #fff5f0, #ffe8db);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid #ffcab3;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card-tdah:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);
+        }
+
+        .section-title-tdah {
+            color: var(--tdah-dark);
+            font-size: 1.8rem;
+            border-bottom: 3px solid var(--tdah-primary);
+            padding-bottom: 10px;
+            margin: 30px 0 20px 0;
+        }
+
+        .preprocessing-header-tdah {
+            background: linear-gradient(135deg, var(--tdah-primary), var(--tdah-secondary));
+            padding: 30px 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .explanation-box-tdah {
+            background: linear-gradient(135deg, #fff8f0, #ffecdb);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid var(--tdah-accent);
+            margin: 15px 0;
+        }
+
+        .model-card-tdah {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 10px 0;
+            border: 2px solid #ffe0cc;
+            transition: all 0.3s ease;
+        }
+
+        .model-card-tdah.winner {
+            border-color: var(--tdah-primary);
+            background: linear-gradient(135deg, #fff5f0, #ffe8db);
+            box-shadow: 0 6px 20px rgba(255, 107, 53, 0.2);
+        }
+
+        .performance-metric {
+            display: inline-block;
+            background: var(--tdah-accent);
+            color: #8B4513;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin: 2px;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # En-tête principal stylisé
+    st.markdown("""
+    <div class="tdah-header">
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
+                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
+            🧠 Dépistage TDAH par Intelligence Artificielle
         </h1>
+        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
+                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
+            Analyse prédictive avancée pour l'identification précoce du TDAH
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # Chargement du dataset
-    df = load_enhanced_dataset()
-    if df is None or len(df) == 0:
-        st.error("Impossible de charger le dataset")
+    # Message d'introduction vulgarisé
+    st.markdown("""
+    <div class="explanation-box-tdah">
+        <h3 style="color: #D35400; margin-top: 0; display: flex; align-items: center;">
+            <span style="margin-right: 10px;">🎯</span>
+            Qu'est-ce que cette analyse ?
+        </h3>
+        <p style="color: #2c3e50; margin-bottom: 0; line-height: 1.6; font-size: 1.1rem;">
+            Cette section utilise l'<strong>intelligence artificielle</strong> pour analyser les réponses aux questionnaires 
+            et identifier les profils à risque de TDAH. L'objectif est de <strong>faciliter le dépistage précoce</strong> 
+            et d'orienter vers une évaluation professionnelle quand c'est nécessaire.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Chargement et préparation des données
+    try:
+        # Garder votre logique de chargement existante
+        df_ml = load_tdah_data()  # Remplacer par votre fonction de chargement
+        
+        # Préparation spécifique TDAH
+        if 'TDAH' not in df_ml.columns:
+            st.error("❌ Colonne 'TDAH' manquante dans le dataset")
+            return
+            
+        X = df_ml.drop(columns=['TDAH'])
+        y = df_ml['TDAH'].map({'Yes': 1, 'No': 0})
+        
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+        
+        # Préprocesseur
+        numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
+        categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
+
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ('num', StandardScaler(), numerical_cols),
+                ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_cols)
+            ],
+            remainder='passthrough'
+        )
+        
+    except Exception as e:
+        st.error(f"Erreur lors du chargement des données: {str(e)}")
         return
 
-    # Onglets ML corrigés
+    # Système d'onglets amélioré
     ml_tabs = st.tabs([
-        "🔬 Comparaison 40+ Modèles",
-        "🏆 Top 3 Optimisés", 
-        "📊 Visualisations",
-        "💾 Sauvegarde",
-        "📈 Métriques"
+        "🔧 Préparation des Données",
+        "⚡ Comparaison Rapide",
+        "🎯 Analyse Régression Logistique",
+        "🔍 Optimisation Dépistage",
+        "📊 Métriques Avancées"
     ])
 
+    # ONGLET 1: Préparation des Données
     with ml_tabs[0]:
-        st.subheader("🔬 Comparaison de 40+ Modèles ML")
-        
-        # Affichage de l'état des variables
-        if 'models_results' in st.session_state:
-            st.success("✅ Résultats de modèles disponibles")
-        if all(key in st.session_state for key in ['X_train', 'X_test', 'y_train', 'y_test']):
-            st.success("✅ Données d'entraînement disponibles")
-        
-        if st.button("🚀 Lancer la Comparaison Massive", type="primary"):
-            with st.spinner("Entraînement en cours..."):
-                try:
-                    # Préparation des données AVANT tout autre traitement
-                    X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
-                    
-                    # Vérification que les données sont valides
-                    if X_train is None or len(X_train) == 0:
-                        st.error("❌ Erreur dans la préparation des données")
-                        return
-                    
-                    # Stockage immédiat dans session state
-                    st.session_state.X_train = X_train
-                    st.session_state.X_test = X_test
-                    st.session_state.y_train = y_train
-                    st.session_state.y_test = y_test
-                    
-                    st.info(f"✅ Données préparées : {len(X_train)} échantillons d'entraînement")
-                    
-                    # Lancement de l'entraînement des modèles
-                    models_results = run_manual_40_models_fixed(X_train, X_test, y_train, y_test)
-                    
-                    if models_results is not None and len(models_results) > 0:
-                        st.session_state.models_results = models_results
-                        st.success(f"✅ {len(models_results)} modèles comparés avec succès!")
-                        display_manual_results(models_results)
-                    else:
-                        st.error("❌ Aucun modèle n'a pu être entraîné")
-                        
-                except Exception as e:
-                    st.error(f"❌ Erreur lors de l'entraînement : {str(e)}")
-                    # Nettoyage en cas d'erreur
-                    for key in ['X_train', 'X_test', 'y_train', 'y_test', 'models_results']:
-                        if key in st.session_state:
-                            del st.session_state[key]
+        st.markdown("""
+        <div class="preprocessing-header-tdah">
+            <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;
+                       text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
+                🔧 Pipeline de Préparation des Données
+            </h2>
+            <p style="color: rgba(255,255,255,0.95); font-size: 1.1rem;
+                      margin: 0 auto; line-height: 1.5;">
+                Transformation des réponses en données analysables par l'IA
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
+        # Explications vulgarisées
+        st.markdown("""
+        <div class="info-card-tdah">
+            <h3 style="color: #D35400; margin-top: 0;">
+                🤔 Pourquoi préparer les données ?
+            </h3>
+            <p style="line-height: 1.6; color: #2c3e50;">
+                Les ordinateurs ne comprennent que les chiffres ! Il faut donc transformer 
+                les réponses "Oui/Non" en nombres (1/0), standardiser les âges, 
+                et organiser toutes les informations pour que l'IA puisse les analyser efficacement.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col1, col2 = st.columns([1, 1], gap="large")
+        
+        with col1:
+            st.markdown("""
+            <div class="info-card-tdah">
+                <h3 class="section-title-tdah">📊 Structure du Dataset TDAH</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Métriques du dataset
+            total_samples = len(df_ml)
+            tdah_positive = (y == 1).sum()
+            
+            st.markdown(f"""
+            <div class="metric-grid-tdah">
+                <div class="metric-card-tdah">
+                    <h4 style="color: #D35400; margin: 0 0 10px 0;">📊 Échantillons</h4>
+                    <div style="font-size: 2rem; font-weight: bold; color: #2c3e50;">
+                        {total_samples:,}
+                    </div>
+                    <p style="color: #7f8c8d; margin: 5px 0 0 0; font-size: 0.9rem;">
+                        Total des participants
+                    </p>
+                </div>
+                <div class="metric-card-tdah">
+                    <h4 style="color: #E74C3C; margin: 0 0 10px 0;">🎯 Cas TDAH</h4>
+                    <div style="font-size: 2rem; font-weight: bold; color: #2c3e50;">
+                        {tdah_positive:,}
+                    </div>
+                    <p style="color: #7f8c8d; margin: 5px 0 0 0; font-size: 0.9rem;">
+                        ({tdah_positive/total_samples:.1%} du total)
+                    </p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with col2:
+            st.markdown("""
+            <div class="info-card-tdah">
+                <h3 class="section-title-tdah">🔄 Transformations Appliquées</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Liste des transformations avec style
+            st.markdown("""
+            <div style="padding: 15px;">
+                <div style="display: flex; align-items: center; margin: 10px 0; padding: 10px; 
+                            background: #fff5f0; border-radius: 8px;">
+                    <span style="font-size: 1.5rem; margin-right: 10px;">🔢</span>
+                    <div>
+                        <strong>Encodage binaire</strong><br>
+                        <small style="color: #7f8c8d;">Oui/Non → 1/0</small>
+                    </div>
+                </div>
+                
+                <div style="display: flex; align-items: center; margin: 10px 0; padding: 10px; 
+                            background: #fff5f0; border-radius: 8px;">
+                    <span style="font-size: 1.5rem; margin-right: 10px;">📐</span>
+                    <div>
+                        <strong>Standardisation</strong><br>
+                        <small style="color: #7f8c8d;">Normalisation des valeurs numériques</small>
+                    </div>
+                </div>
+                
+                <div style="display: flex; align-items: center; margin: 10px 0; padding: 10px; 
+                            background: #fff5f0; border-radius: 8px;">
+                    <span style="font-size: 1.5rem; margin-right: 10px;">🧹</span>
+                    <div>
+                        <strong>Nettoyage</strong><br>
+                        <small style="color: #7f8c8d;">Suppression des valeurs aberrantes</small>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # ONGLET 2: Comparaison Rapide
     with ml_tabs[1]:
-        st.subheader("🏆 Optimisation des Meilleurs Modèles")
+        st.markdown("""
+        <div class="preprocessing-header-tdah">
+            <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;">
+                ⚡ Comparaison Rapide des Modèles
+            </h2>
+            <p style="color: rgba(255,255,255,0.95); font-size: 1.1rem;">
+                Quel algorithme détecte le mieux le TDAH ?
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Explication vulgarisée des modèles
+        st.markdown("""
+        <div class="explanation-box-tdah">
+            <h3 style="color: #D35400; margin-top: 0;">
+                🤖 Les différents "cerveaux" artificiels
+            </h3>
+            <p style="color: #2c3e50; line-height: 1.6;">
+                Chaque algorithme d'IA a sa propre façon d'"apprendre" à reconnaître le TDAH. 
+                Certains sont plus rapides, d'autres plus précis. Nous les testons tous pour 
+                trouver le meilleur !
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Définition des modèles à comparer
+        models = {
+            'Régression Logistique': LogisticRegression(random_state=42, max_iter=1000),
+            'Random Forest': RandomForestClassifier(random_state=42, n_estimators=100),
+            'Arbre de Décision': DecisionTreeClassifier(random_state=42),
+            'SVM': SVC(random_state=42, probability=True),
+            'Naive Bayes': GaussianNB()
+        }
+
+        # Entraînement et évaluation
+        results = {}
         
-        # Vérification préalable complète
-        models_available = 'models_results' in st.session_state and st.session_state.models_results is not None
-        data_available = all(key in st.session_state for key in ['X_train', 'X_test', 'y_train', 'y_test'])
-        instances_available = 'model_instances' in st.session_state
-        
-        if not models_available:
-            st.warning("⚠️ Aucun résultat de modèle disponible")
-            st.info("👆 Lancez d'abord la comparaison dans l'onglet précédent")
-            return
-        
-        if not data_available:
-            st.error("❌ Données d'entraînement manquantes")
-            st.info("🔄 Relancez la comparaison des modèles")
-            return
-        
-        if not instances_available:
-            st.warning("⚠️ Instances de modèles manquantes, recréation en cours...")
-        
+        with st.spinner("🔄 Entraînement des modèles en cours..."):
+            for name, model in models.items():
+                try:
+                    pipeline = Pipeline([
+                        ('preprocessor', preprocessor),
+                        ('classifier', model)
+                    ])
+                    
+                    # Validation croisée
+                    cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5)
+                    
+                    # Entraînement et test
+                    pipeline.fit(X_train, y_train)
+                    y_pred = pipeline.predict(X_test)
+                    y_pred_proba = pipeline.predict_proba(X_test)[:, 1]
+                    
+                    results[name] = {
+                        'accuracy': accuracy_score(y_test, y_pred),
+                        'precision': precision_score(y_test, y_pred, zero_division=0),
+                        'recall': recall_score(y_test, y_pred, zero_division=0),
+                        'f1': f1_score(y_test, y_pred, zero_division=0),
+                        'auc': roc_auc_score(y_test, y_pred_proba),
+                        'cv_mean': cv_scores.mean(),
+                        'cv_std': cv_scores.std()
+                    }
+                except Exception as e:
+                    st.warning(f"Erreur avec {name}: {str(e)}")
+
+        # Affichage des résultats
+        if results:
+            st.markdown("""
+            <div class="info-card-tdah">
+                <h3 class="section-title-tdah">🏆 Classement des Modèles</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Tri des modèles par F1-score (priorité au dépistage)
+            sorted_models = sorted(results.items(), key=lambda x: x[1]['f1'], reverse=True)
+            
+            for i, (name, metrics) in enumerate(sorted_models):
+                rank_icon = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}️⃣"
+                is_winner = i == 0
+                
+                st.markdown(f"""
+                <div class="model-card-tdah {'winner' if is_winner else ''}">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="color: {'#D35400' if is_winner else '#2C3E50'}; margin: 0; display: flex; align-items: center;">
+                            <span style="margin-right: 10px; font-size: 1.5rem;">{rank_icon}</span>
+                            {name}
+                            {'<span style="margin-left: 10px; background: #FF6B35; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">CHAMPION</span>' if is_winner else ''}
+                        </h4>
+                        <div style="font-size: 1.1rem; font-weight: bold; color: {'#D35400' if is_winner else '#7F8C8D'};">
+                            Score F1: {metrics['f1']:.3f}
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+                        <span class="performance-metric">Précision: {metrics['precision']:.3f}</span>
+                        <span class="performance-metric">Rappel: {metrics['recall']:.3f}</span>
+                        <span class="performance-metric">AUC: {metrics['auc']:.3f}</span>
+                        <span class="performance-metric">CV: {metrics['cv_mean']:.3f}±{metrics['cv_std']:.3f}</span>
+                    </div>
+                    
+                    {'<p style="color: #27AE60; font-weight: bold; margin: 0;"><i>🎯 Optimal pour le dépistage TDAH - Excellent équilibre précision/rappel</i></p>' if is_winner else ''}
+                </div>
+                """, unsafe_allow_html=True)
+
+    # ONGLET 3: Analyse Régression Logistique
+    with ml_tabs[2]:
+        st.markdown("""
+        <div class="preprocessing-header-tdah">
+            <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;">
+                🎯 Analyse Approfondie - Régression Logistique
+            </h2>
+            <p style="color: rgba(255,255,255,0.95); font-size: 1.1rem;">
+                Plongée dans les détails du meilleur modèle
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Explication de la Régression Logistique
+        st.markdown("""
+        <div class="explanation-box-tdah">
+            <h3 style="color: #D35400; margin-top: 0;">
+                📊 Qu'est-ce que la Régression Logistique ?
+            </h3>
+            <p style="color: #2c3e50; line-height: 1.6;">
+                La régression logistique est comme un <strong>"calculateur de probabilités"</strong> très sophistiqué. 
+                Elle analyse chaque réponse au questionnaire et calcule mathématiquement la probabilité 
+                qu'une personne ait un TDAH. C'est simple, rapide, et très efficace pour le dépistage médical !
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Entraînement du modèle champion
         try:
-            models_results = st.session_state.models_results
+            logistic_pipeline = Pipeline([
+                ('preprocessor', preprocessor),
+                ('classifier', LogisticRegression(random_state=42, max_iter=1000))
+            ])
             
-            st.markdown("### 🎯 Sélection des 3 meilleurs modèles")
-            st.info(f"📊 {len(models_results)} modèles disponibles")
+            logistic_pipeline.fit(X_train, y_train)
+            y_pred_lr = logistic_pipeline.predict(X_test)
+            y_pred_proba_lr = logistic_pipeline.predict_proba(X_test)[:, 1]
             
-            # Sélection des meilleurs modèles avec gestion d'erreur
-            best_models = get_top_models_corrected(models_results, n=3)
+            # Métriques détaillées
+            col1, col2 = st.columns(2)
             
-            if not best_models:
-                st.error("❌ Impossible de sélectionner les meilleurs modèles")
-                return
+            with col1:
+                st.markdown("""
+                <div class="info-card-tdah">
+                    <h3 style="color: #D35400;">📊 Performances Détaillées</h3>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                accuracy = accuracy_score(y_test, y_pred_lr)
+                precision = precision_score(y_test, y_pred_lr, zero_division=0)
+                recall = recall_score(y_test, y_pred_lr, zero_division=0)
+                f1 = f1_score(y_test, y_pred_lr, zero_division=0)
+                
+                st.metric("🎯 Précision", f"{precision:.1%}", "Fiabilité des détections")
+                st.metric("🔍 Sensibilité", f"{recall:.1%}", "Capacité à détecter les vrais cas")
+                st.metric("⚖️ Score F1", f"{f1:.1%}", "Équilibre global")
+                st.metric("✅ Exactitude", f"{accuracy:.1%}", "Taux de bonnes prédictions")
+                
+            with col2:
+                # Matrice de confusion stylisée
+                cm = confusion_matrix(y_test, y_pred_lr)
+                
+                fig, ax = plt.subplots(figsize=(8, 6))
+                sns.heatmap(cm, annot=True, fmt='d', cmap='Oranges',
+                           xticklabels=['Non-TDAH', 'TDAH'], 
+                           yticklabels=['Non-TDAH', 'TDAH'],
+                           ax=ax)
+                ax.set_title('Matrice de Confusion', fontsize=16, color='#D35400')
+                ax.set_xlabel('Prédictions', fontsize=12)
+                ax.set_ylabel('Réalité', fontsize=12)
+                
+                st.pyplot(fig)
+                
+                # Interprétation de la matrice
+                tn, fp, fn, tp = cm.ravel()
+                st.markdown(f"""
+                <div style="background: #fff5f0; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                    <h4 style="color: #D35400; margin-top: 0;">🔍 Interprétation</h4>
+                    <ul style="color: #2c3e50; line-height: 1.6;">
+                        <li><strong>Vrais positifs:</strong> {tp} cas TDAH correctement détectés</li>
+                        <li><strong>Faux négatifs:</strong> {fn} cas TDAH manqués</li>
+                        <li><strong>Faux positifs:</strong> {fp} fausses alertes</li>
+                        <li><strong>Vrais négatifs:</strong> {tn} cas non-TDAH bien identifiés</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # Courbes ROC et Precision-Recall
+            col1, col2 = st.columns(2)
             
-            # Affichage des modèles sélectionnés
-            st.markdown("**Modèles sélectionnés pour l'optimisation :**")
-            for name, metrics in best_models.items():
-                has_model = 'model' in metrics and metrics['model'] is not None
-                model_status = "✅" if has_model else "❌"
-                st.write(f"• **{name}** {model_status} - AUC: {metrics['auc']:.3f}, Accuracy: {metrics['accuracy']:.3f}")
+            with col1:
+                # Courbe ROC
+                fpr, tpr, _ = roc_curve(y_test, y_pred_proba_lr)
+                auc_score = roc_auc_score(y_test, y_pred_proba_lr)
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines', name=f'ROC (AUC = {auc_score:.3f})',
+                                       line=dict(color='#FF6B35', width=3)))
+                fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Hasard',
+                                       line=dict(color='gray', width=1, dash='dash')))
+                fig.update_layout(
+                    title='Courbe ROC - Capacité de Discrimination',
+                    xaxis_title='Taux de Faux Positifs',
+                    yaxis_title='Taux de Vrais Positifs',
+                    showlegend=True
+                )
+                st.plotly_chart(fig, use_container_width=True)
+                
+            with col2:
+                # Histogramme des probabilités
+                probabilities_tdah = y_pred_proba_lr[y_test == 1]
+                probabilities_no_tdah = y_pred_proba_lr[y_test == 0]
+                
+                fig = go.Figure()
+                fig.add_trace(go.Histogram(x=probabilities_no_tdah, name='Non-TDAH', 
+                                         opacity=0.7, marker_color='#3498db'))
+                fig.add_trace(go.Histogram(x=probabilities_tdah, name='TDAH', 
+                                         opacity=0.7, marker_color='#FF6B35'))
+                fig.update_layout(
+                    title='Distribution des Probabilités Prédites',
+                    xaxis_title='Probabilité TDAH',
+                    yaxis_title='Nombre de cas',
+                    barmode='overlay'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+        except Exception as e:
+            st.error(f"Erreur lors de l'analyse détaillée: {str(e)}")
+
+    # ONGLET 4: Optimisation Dépistage
+    with ml_tabs[3]:
+        st.markdown("""
+        <div class="preprocessing-header-tdah">
+            <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;">
+                🔍 Optimisation pour le Dépistage
+            </h2>
+            <p style="color: rgba(255,255,255,0.95); font-size: 1.1rem;">
+                Ajuster le modèle pour une détection optimale du TDAH
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Explications sur le seuil de décision
+        st.markdown("""
+        <div class="explanation-box-tdah">
+            <h3 style="color: #D35400; margin-top: 0;">
+                ⚖️ Comment ajuster la "sensibilité" du détecteur ?
+            </h3>
+            <p style="color: #2c3e50; line-height: 1.6;">
+                En dépistage médical, il vaut mieux <strong>"pécher par excès de prudence"</strong>. 
+                Nous préférons identifier plus de cas suspects (quitte à avoir quelques faux positifs) 
+                plutôt que de manquer des vrais cas de TDAH. C'est pourquoi nous optimisons la <strong>sensibilité</strong>.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Interface interactive pour le seuil
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.markdown("### 🎛️ Réglage du Seuil")
             
-            if st.button("🔧 Optimiser le Top 3", type="primary"):
-                with st.spinner("🔄 Optimisation en cours..."):
-                    try:
-                        # Récupération sécurisée des données
-                        X_train = st.session_state.X_train
-                        X_test = st.session_state.X_test
-                        y_train = st.session_state.y_train
-                        y_test = st.session_state.y_test
-                        
-                        # Vérification finale
-                        if any(var is None for var in [X_train, X_test, y_train, y_test]):
-                            st.error("❌ Variables d'entraînement corrompues")
-                            return
-                        
-                        # Lancement de l'optimisation corrigée
-                        optimized_results = optimize_selected_models(
-                            best_models, X_train, X_test, y_train, y_test
-                        )
-                        
-                        if optimized_results and len(optimized_results) > 0:
-                            st.session_state.optimized_models = optimized_results
-                            st.success(f"✅ Optimisation réussie ! {len(optimized_results)} modèles optimisés")
-                            display_optimization_results(optimized_results)
-                        else:
-                            st.error("❌ L'optimisation n'a produit aucun résultat")
-                            
-                    except Exception as e:
-                        st.error(f"❌ Erreur lors de l'optimisation : {str(e)}")
-                        st.info("💡 Essayez de relancer la comparaison des modèles")
+            threshold = st.slider(
+                "Seuil de décision",
+                min_value=0.1,
+                max_value=0.9,
+                value=0.5,
+                step=0.05,
+                help="Plus le seuil est bas, plus le modèle sera sensible (détectera plus de cas)"
+            )
+            
+            # Calcul des métriques avec le nouveau seuil
+            y_pred_threshold = (y_pred_proba_lr >= threshold).astype(int)
+            
+            precision_thresh = precision_score(y_test, y_pred_threshold, zero_division=0)
+            recall_thresh = recall_score(y_test, y_pred_threshold, zero_division=0)
+            f1_thresh = f1_score(y_test, y_pred_threshold, zero_division=0)
+            
+            st.metric("🎯 Précision", f"{precision_thresh:.1%}")
+            st.metric("🔍 Sensibilité", f"{recall_thresh:.1%}")
+            st.metric("⚖️ Score F1", f"{f1_thresh:.1%}")
+            
+            # Recommandation automatique
+            if recall_thresh >= 0.85:
+                st.success("✅ Excellent pour le dépistage !")
+            elif recall_thresh >= 0.70:
+                st.warning("⚠️ Bon équilibre")
+            else:
+                st.error("❌ Risque de manquer des cas")
+        
+        with col2:
+            # Visualisation impact du seuil
+            thresholds = np.arange(0.1, 0.91, 0.05)
+            precisions = []
+            recalls = []
+            f1s = []
+            
+            for t in thresholds:
+                y_pred_t = (y_pred_proba_lr >= t).astype(int)
+                precisions.append(precision_score(y_test, y_pred_t, zero_division=0))
+                recalls.append(recall_score(y_test, y_pred_t, zero_division=0))
+                f1s.append(f1_score(y_test, y_pred_t, zero_division=0))
+            
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=thresholds, y=precisions, mode='lines+markers', 
+                                   name='Précision', line=dict(color='#3498db')))
+            fig.add_trace(go.Scatter(x=thresholds, y=recalls, mode='lines+markers', 
+                                   name='Sensibilité', line=dict(color='#FF6B35')))
+            fig.add_trace(go.Scatter(x=thresholds, y=f1s, mode='lines+markers', 
+                                   name='F1-Score', line=dict(color='#2ecc71')))
+            
+            # Ligne verticale pour le seuil actuel
+            fig.add_vline(x=threshold, line_dash="dash", line_color="red", 
+                         annotation_text=f"Seuil = {threshold}")
+            
+            fig.update_layout(
+                title='Impact du Seuil sur les Performances',
+                xaxis_title='Seuil de Décision',
+                yaxis_title='Score',
+                yaxis=dict(range=[0, 1])
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+    # ONGLET 5: Métriques Avancées
+    with ml_tabs[4]:
+        st.markdown("""
+        <div class="preprocessing-header-tdah">
+            <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;">
+                📊 Métriques de Performance Détaillées
+            </h2>
+            <p style="color: rgba(255,255,255,0.95); font-size: 1.1rem;">
+                Comprendre les performances en détail
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Explications des métriques
+        st.markdown("""
+        <div class="explanation-box-tdah">
+            <h3 style="color: #D35400; margin-top: 0;">
+                📏 Comment mesurer la qualité d'un détecteur ?
+            </h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                <div style="background: #fff5f0; padding: 15px; border-radius: 8px;">
+                    <h4 style="color: #E67E22; margin: 0 0 10px 0;">🎯 Précision</h4>
+                    <p style="margin: 0; font-size: 0.9rem; color: #2c3e50;">
+                        Parmi tous les cas détectés comme "TDAH", combien le sont vraiment ?
+                    </p>
+                </div>
+                <div style="background: #fff5f0; padding: 15px; border-radius: 8px;">
+                    <h4 style="color: #E67E22; margin: 0 0 10px 0;">🔍 Sensibilité</h4>
+                    <p style="margin: 0; font-size: 0.9rem; color: #2c3e50;">
+                        Parmi tous les vrais cas de TDAH, combien sont détectés ?
+                    </p>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Métriques avancées avec validation croisée
+        try:
+            # Validation croisée stratifiée
+            from sklearn.model_selection import StratifiedKFold
+            
+            skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+            cv_results = {
+                'accuracy': [],
+                'precision': [],
+                'recall': [],
+                'f1': [],
+                'auc': []
+            }
+            
+            for train_idx, val_idx in skf.split(X_train, y_train):
+                X_cv_train, X_cv_val = X_train.iloc[train_idx], X_train.iloc[val_idx]
+                y_cv_train, y_cv_val = y_train.iloc[train_idx], y_train.iloc[val_idx]
+                
+                cv_pipeline = Pipeline([
+                    ('preprocessor', preprocessor),
+                    ('classifier', LogisticRegression(random_state=42, max_iter=1000))
+                ])
+                
+                cv_pipeline.fit(X_cv_train, y_cv_train)
+                y_cv_pred = cv_pipeline.predict(X_cv_val)
+                y_cv_proba = cv_pipeline.predict_proba(X_cv_val)[:, 1]
+                
+                cv_results['accuracy'].append(accuracy_score(y_cv_val, y_cv_pred))
+                cv_results['precision'].append(precision_score(y_cv_val, y_cv_pred, zero_division=0))
+                cv_results['recall'].append(recall_score(y_cv_val, y_cv_pred, zero_division=0))
+                cv_results['f1'].append(f1_score(y_cv_val, y_cv_pred, zero_division=0))
+                cv_results['auc'].append(roc_auc_score(y_cv_val, y_cv_proba))
+            
+            # Affichage des résultats de validation croisée
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("### 📊 Stabilité du Modèle (Validation Croisée)")
+                
+                for metric, scores in cv_results.items():
+                    mean_score = np.mean(scores)
+                    std_score = np.std(scores)
+                    
+                    st.metric(
+                        metric.capitalize(), 
+                        f"{mean_score:.3f} ± {std_score:.3f}",
+                        f"Intervalle: {mean_score-std_score:.3f} - {mean_score+std_score:.3f}"
+                    )
+            
+            with col2:
+                # Graphique de stabilité
+                metrics_names = list(cv_results.keys())
+                fig = go.Figure()
+                
+                for i, (metric, scores) in enumerate(cv_results.items()):
+                    fig.add_trace(go.Box(
+                        y=scores,
+                        name=metric.capitalize(),
+                        marker_color=['#FF6B35', '#F7931E', '#FFD23F', '#2ecc71', '#3498db'][i]
+                    ))
+                
+                fig.update_layout(
+                    title='Distribution des Performances (5-Fold CV)',
+                    yaxis_title='Score',
+                    yaxis=dict(range=[0, 1])
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+            # Rapport de classification détaillé
+            st.markdown("### 📋 Rapport de Classification Complet")
+            
+            report = classification_report(y_test, y_pred_lr, output_dict=True)
+            report_df = pd.DataFrame(report).transpose()
+            
+            # Mise en forme du rapport
+            styled_report = report_df.style.format({
+                'precision': '{:.3f}',
+                'recall': '{:.3f}',
+                'f1-score': '{:.3f}',
+                'support': '{:.0f}'
+            }).background_gradient(cmap='Oranges', subset=['precision', 'recall', 'f1-score'])
+            
+            st.dataframe(styled_report, use_container_width=True)
             
         except Exception as e:
-            st.error(f"❌ Erreur dans la sélection des modèles : {str(e)}")
+            st.error(f"Erreur lors du calcul des métriques avancées: {str(e)}")
 
-    # Autres onglets avec vérifications similaires
-    with ml_tabs[2]:
-        st.subheader("📊 Visualisations Avancées")
-        
-        if 'optimized_models' in st.session_state and st.session_state.optimized_models:
-            create_advanced_visualizations(st.session_state.optimized_models)
-        else:
-            st.warning("⚠️ Optimisez d'abord les modèles pour voir les visualisations")
+    # Avertissement médical stylisé
+    st.markdown("""
+    <div style="margin: 40px 0 30px 0; padding: 25px; border-radius: 15px;
+               border-left: 4px solid #e74c3c; 
+               background: linear-gradient(135deg, #fff5f5, #ffebee);
+               box-shadow: 0 4px 12px rgba(231, 76, 60, 0.1);">
+        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+            <span style="font-size: 2rem; margin-right: 15px;">⚠️</span>
+            <h3 style="color: #c0392b; margin: 0;">Avertissement Important</h3>
+        </div>
+        <p style="font-size: 1.1rem; color: #2c3e50; text-align: justify; margin: 0; line-height: 1.6;">
+            Cet outil d'IA est une <strong>aide au dépistage</strong> et ne remplace en aucun cas 
+            l'évaluation d'un professionnel de santé qualifié. En cas de suspicion de TDAH, 
+            consultez un médecin, psychiatre ou psychologue spécialisé.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with ml_tabs[3]:
-        st.subheader("💾 Sauvegarde des Modèles")
-        
-        if 'optimized_models' in st.session_state and st.session_state.optimized_models:
-            if st.button("💾 Sauvegarder tous les modèles"):
-                save_all_models(st.session_state.optimized_models)
-        else:
-            st.info("ℹ️ Aucun modèle optimisé à sauvegarder")
-
-    with ml_tabs[4]:
-        st.subheader("📈 Métriques Détaillées")
-        
-        if 'optimized_models' in st.session_state and st.session_state.optimized_models:
-            display_detailed_metrics(st.session_state.optimized_models)
-        else:
-            st.info("ℹ️ Optimisez d'abord les modèles pour voir les métriques")
 
 
 def show_enhanced_ai_prediction():
