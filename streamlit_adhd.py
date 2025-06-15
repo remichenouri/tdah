@@ -2932,48 +2932,6 @@ def run_manual_40_models(X_train, X_test, y_train, y_test):
         st.error(f"❌ Erreur dans l'entraînement manuel : {str(e)}")
         return None
 
-def display_lazypredict_results(models_df):
-    """Affiche les résultats LazyPredict avec style"""
-    
-    st.markdown("### 📊 Résultats des 40+ Modèles LazyPredict")
-    
-    # Formatage du tableau
-    styled_df = models_df.style.format({
-        'Accuracy': '{:.4f}',
-        'Balanced Accuracy': '{:.4f}',
-        'ROC AUC': '{:.4f}',
-        'F1 Score': '{:.4f}',
-        'Time Taken': '{:.4f}'
-    }).background_gradient(subset=['ROC AUC'], cmap='RdYlGn')
-    
-    st.dataframe(styled_df, use_container_width=True)
-    
-    # Métriques principales
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        best_model = models_df.index[0]
-        st.metric("Meilleur modèle", best_model)
-    
-    with col2:
-        best_auc = models_df.iloc[0]['ROC AUC']
-        st.metric("Meilleur AUC", f"{best_auc:.4f}")
-    
-    with col3:
-        avg_time = models_df['Time Taken'].mean()
-        st.metric("Temps moyen", f"{avg_time:.2f}s")
-    
-    with col4:
-        total_models = len(models_df)
-        st.metric("Modèles testés", total_models)
-    
-    # Graphique de comparaison
-    create_performance_chart(models_df)
-
-
-
-
-
 def show_enhanced_ml_analysis():
     """Interface d'analyse ML avec LazyPredict - 40+ modèles"""
     
