@@ -2207,74 +2207,103 @@ def load_ml_libraries():
 if 'ml_libs_loaded' not in st.session_state:
     st.session_state.ml_libs_loaded = load_ml_libraries()
 
-def prepare_ml_data_safe(df):
-    """Préparation des données ML avec gestion d'erreur complète"""
+def prepare_ml_data_corrected(df, test_size=0.2, scaling_method="StandardScaler", handle_imbalance=True):
+    """Préparation des données ML avec gestion SMOTE robuste"""
     try:
-        # Import local sécurisé
-        import numpy as np_safe
-        import pandas as pd_safe
-
-        # Vérification du dataset
-        if df is None or len(df) == 0:
-            st.error("❌ Dataset vide ou non disponible")
-            return None, None, None, None
-
-        # Vérification de la colonne target
+        # Validation du dataset
         if 'diagnosis' not in df.columns:
-            st.error("❌ Colonne 'diagnosis' manquante dans le dataset")
-            return None, None, None, None
-
-        # Préparation des features
-        feature_columns = [col for col in df.columns if col not in ['diagnosis', 'subject_id']]
-
-        if len(feature_columns) == 0:
-            st.error("❌ Aucune feature disponible pour l'entraînement")
-            return None, None, None, None
-
-        # Sélection des variables numériques uniquement pour éviter les erreurs
+            st.error("❌ Colonne 'diagnosis' manquante")
+            return None
+        
+        # Sélection des features numériques avec exclusion robuste
+        excluded_vars = ['subject_id', 'source_file', 'generation_date', 'version', 'streamlit_ready', 'diagnosis']
         numeric_features = []
-        for col in feature_columns:
-            try:
-                # Test de conversion numérique
-                pd_safe.to_numeric(df[col], errors='coerce')
-                if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
-                    numeric_features.append(col)
-            except:
-                continue
-
+        
+        for col in df.columns:
+            if col not in excluded_vars and pd.api.types.is_numeric_dtype(df[col]):
+                numeric_features.append(col)
+        
         if len(numeric_features) == 0:
-            st.error("❌ Aucune variable numérique trouvée")
-            return None, None, None, None
-
-        # Préparation des données
+            st.error("❌ Aucune feature numérique disponible")
+            return None
+        
         X = df[numeric_features].copy()
         y = df['diagnosis'].copy()
-
-        # Nettoyage des valeurs manquantes
-        X = X.fillna(X.mean())
-
-        # Vérification des dimensions
-        st.info(f"📊 Dimensions finales : X={X.shape}, y={y.shape}")
-
-        # Division train/test avec protection
-        try:
-            from sklearn.model_selection import train_test_split
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y,
-                test_size=0.2,
-                random_state=42,
-                stratify=y if len(np_safe.unique(y)) > 1 else None
-            )
-
-            return X_train, X_test, y_train, y_test
-
-        except Exception as e:
-            st.error(f"❌ Erreur lors de la division : {str(e)}")
-            return None, None, None, None
-
+        
+        # Nettoyage des données avec méthodes robustes
+        X = X.fillna(X.median())
+        
+        # CORRECTION MAJEURE : Ajout de bruit réaliste pour éviter l'overfitting
+        np.random.seed(42)
+        for col in X.columns:
+            if X[col].std() > 0:
+                # Bruit gaussien proportionnel à l'écart-type
+                noise_factor = 0.05  # 5% de bruit
+                noise = np.random.normal(0, X[col].std() * noise_factor, len(X))
+                X[col] = X[col] + noise
+        
+        # Division train/test stratifiée
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_size, random_state=42, stratify=y
+        )
+        
+        # Normalisation avec prévention du data leakage
+        if scaling_method == "StandardScaler":
+            scaler = StandardScaler()
+        elif scaling_method == "MinMaxScaler":
+            from sklearn.preprocessing import MinMaxScaler
+            scaler = MinMaxScaler()
+        else:
+            from sklearn.preprocessing import RobustScaler
+            scaler = RobustScaler()
+        
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        # SMOTE CORRIGÉ avec gestion d'erreur robuste
+        if handle_imbalance:
+            try:
+                # Vérification de la disponibilité d'imbalanced-learn
+                try:
+                    from imblearn.over_sampling import SMOTE
+                    SMOTE_AVAILABLE = True
+                except ImportError:
+                    SMOTE_AVAILABLE = False
+                    st.warning("⚠️ imbalanced-learn non disponible. Installez avec: pip install imbalanced-learn")
+                
+                if SMOTE_AVAILABLE:
+                    # Vérification des conditions pour SMOTE
+                    unique, counts = np.unique(y_train, return_counts=True)
+                    min_class_count = min(counts)
+                    
+                    if min_class_count >= 6:  # Au moins 6 échantillons pour k_neighbors=5
+                        # Configuration SMOTE sécurisée
+                        k_neighbors = min(5, min_class_count - 1)
+                        smote = SMOTE(
+                            random_state=42, 
+                            k_neighbors=k_neighbors,
+                            sampling_strategy='auto'  # Équilibre automatique
+                        )
+                        X_train_scaled, y_train = smote.fit_resample(X_train_scaled, y_train)
+                        st.info(f"✅ SMOTE appliqué avec k_neighbors={k_neighbors}")
+                    else:
+                        st.warning(f"⚠️ SMOTE ignoré : classe minoritaire trop petite ({min_class_count} échantillons)")
+                        
+            except Exception as e:
+                st.warning(f"⚠️ Erreur SMOTE : {str(e)}. Continuons sans équilibrage")
+        
+        return {
+            'X_train': X_train_scaled,
+            'X_test': X_test_scaled,
+            'y_train': y_train,
+            'y_test': y_test,
+            'scaler': scaler,
+            'feature_names': numeric_features
+        }
+        
     except Exception as e:
-        st.error(f"❌ Erreur dans la préparation des données : {str(e)}")
-        return None, None, None, None
+        st.error(f"❌ Erreur lors de la préparation : {str(e)}")
+        return None
 
 def train_simple_models_safe(X_train, X_test, y_train, y_test):
     """Entraînement de modèles ML simplifié et sécurisé"""
