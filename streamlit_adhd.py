@@ -865,8 +865,10 @@ def load_enhanced_dataset():
 
         # Chargement du dataset
         df = pd_local.read_csv(download_url)
+        df.rename(columns={'diagnosis': 'TDAH'}, inplace=True)
         return df
 
+    
     except Exception as e:
         st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
         st.info("Utilisation de données simulées à la place")
