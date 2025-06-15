@@ -2382,52 +2382,266 @@ def train_optimized_models(df):
     except Exception as e:
         st.error(f"Erreur d'entraînement : {str(e)}")
         return None
-
-
-def show_enhanced_ml_analysis():
-    """Interface d'analyse ML enrichie avec LazyPredict et optimisation automatique"""
-    from lazypredict.Supervised import LazyClassifier
-    import joblib
-    from sklearn.model_selection import GridSearchCV
-    # Import des bibliothèques nécessaires
+def compare_models_manually(X_train, X_test, y_train, y_test):
+    """Comparaison manuelle de modèles ML sans LazyPredict"""
     try:
-        from lazypredict.Supervised import LazyClassifier
-        import joblib
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
-        from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
         from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
         from sklearn.linear_model import LogisticRegression
         from sklearn.svm import SVC
-        from sklearn.neural_network import MLPClassifier
-        from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
-        import pandas as pd
-        import numpy as np
+        from sklearn.naive_bayes import GaussianNB
+        from sklearn.neighbors import KNeighborsClassifier
+        from sklearn.tree import DecisionTreeClassifier
+        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+        import time
+        
+        # Définition des modèles à tester
+        models = {
+            'RandomForest': RandomForestClassifier(n_estimators=100, random_state=42),
+            'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000),
+            'GradientBoosting': GradientBoostingClassifier(random_state=42),
+            'SVM': SVC(probability=True, random_state=42),
+            'GaussianNB': GaussianNB(),
+            'KNeighbors': KNeighborsClassifier(),
+            'DecisionTree': DecisionTreeClassifier(random_state=42)
+        }
+        
+        results = {}
+        
+        for name, model in models.items():
+            try:
+                start_time = time.time()
+                
+                # Entraînement
+                model.fit(X_train, y_train)
+                
+                # Prédictions
+                y_pred = model.predict(X_test)
+                y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
+                
+                # Calcul des métriques
+                accuracy = accuracy_score(y_test, y_pred)
+                precision = precision_score(y_test, y_pred, zero_division=0)
+                recall = recall_score(y_test, y_pred, zero_division=0)
+                f1 = f1_score(y_test, y_pred, zero_division=0)
+                
+                # AUC seulement si les probabilités sont disponibles
+                auc = roc_auc_score(y_test, y_proba) if y_proba is not None else 0.5
+                
+                time_taken = time.time() - start_time
+                
+                results[name] = {
+                    'Accuracy': accuracy,
+                    'Precision': precision,
+                    'Recall': recall,
+                    'F1_Score': f1,
+                    'ROC_AUC': auc,
+                    'Time_Taken': time_taken,
+                    'model': model
+                }
+                
+            except Exception as e:
+                st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
+                continue
+        
+        return results
+        
+    except ImportError as e:
+        st.error(f"❌ Erreur d'import : {e}")
+        return None
+
+def display_models_comparison(models_results):
+    """Affiche les résultats de comparaison des modèles"""
+    
+    # Conversion en DataFrame pour affichage
+    df_results = pd.DataFrame(models_results).T
+    df_results = df_results.drop('model', axis=1)  # Enlever la colonne modèle pour l'affichage
+    
+    # Tri par AUC puis Accuracy
+    df_results = df_results.sort_values(['ROC_AUC', 'Accuracy'], ascending=False)
+    
+    # Formatage des colonnes numériques
+    for col in ['Accuracy', 'Precision', 'Recall', 'F1_Score', 'ROC_AUC']:
+        df_results[col] = df_results[col].round(4)
+    
+    df_results['Time_Taken'] = df_results['Time_Taken'].round(2)
+    
+    st.markdown("### 📊 Résultats de tous les modèles")
+    st.dataframe(df_results, use_container_width=True)
+    
+    # Graphique de comparaison
+    create_comparison_chart(df_results)
+
+def create_comparison_chart(df_results):
+    """Crée un graphique de comparaison des modèles"""
+    
+    fig = go.Figure()
+    
+    # Graphique en barres pour les métriques principales
+    metrics = ['Accuracy', 'Precision', 'Recall', 'F1_Score', 'ROC_AUC']
+    
+    for metric in metrics:
+        fig.add_trace(go.Bar(
+            name=metric,
+            x=df_results.index,
+            y=df_results[metric],
+            text=[f"{v:.3f}" for v in df_results[metric]],
+            textposition='auto'
+        ))
+    
+    fig.update_layout(
+        title="Comparaison des Performances des Modèles",
+        xaxis_title="Modèles",
+        yaxis_title="Score",
+        barmode='group',
+        height=500,
+        showlegend=True
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
+    """Optimise les hyperparamètres des meilleurs modèles"""
+    
+    try:
+        from sklearn.model_selection import GridSearchCV
+        
+        # Grilles de paramètres simplifiées
+        param_grids = {
+            'RandomForest': {
+                'n_estimators': [50, 100, 200],
+                'max_depth': [5, 10, None],
+                'min_samples_split': [2, 5]
+            },
+            'LogisticRegression': {
+                'C': [0.1, 1, 10],
+                'solver': ['lbfgs', 'liblinear']
+            },
+            'GradientBoosting': {
+                'n_estimators': [50, 100],
+                'learning_rate': [0.01, 0.1],
+                'max_depth': [3, 5]
+            }
+        }
+        
+        optimized_results = {}
+        
+        for model_name in best_models.keys():
+            try:
+                if model_name in param_grids:
+                    # Récupération du modèle de base
+                    base_model = best_models[model_name]['model']
+                    
+                    # GridSearchCV
+                    grid_search = GridSearchCV(
+                        estimator=type(base_model)(),
+                        param_grid=param_grids[model_name],
+                        cv=3,
+                        scoring='roc_auc',
+                        n_jobs=-1
+                    )
+                    
+                    # Entraînement
+                    grid_search.fit(X_train, y_train)
+                    
+                    # Prédictions avec le meilleur modèle
+                    y_pred = grid_search.predict(X_test)
+                    y_proba = grid_search.predict_proba(X_test)[:, 1]
+                    
+                    # Métriques finales
+                    optimized_results[model_name] = {
+                        'best_model': grid_search.best_estimator_,
+                        'best_params': grid_search.best_params_,
+                        'best_score': grid_search.best_score_,
+                        'test_accuracy': accuracy_score(y_test, y_pred),
+                        'test_auc': roc_auc_score(y_test, y_proba)
+                    }
+                    
+            except Exception as e:
+                st.warning(f"⚠️ Erreur optimisation {model_name}: {str(e)}")
+                continue
+        
+        return optimized_results
+        
+    except ImportError as e:
+        st.error(f"❌ Erreur d'import pour l'optimisation : {e}")
+        return None
+def save_models_securely(models_data):
+    """Sauvegarde sécurisée des modèles avec gestion d'erreur"""
+    
+    try:
+        import joblib
         import os
         from datetime import datetime
-    except ImportError as e:
-        st.error(f"❌ Bibliothèques manquantes : {e}")
-        st.code("pip install lazypredict joblib", language="bash")
-        return
+        
+        # Création du dossier de cache
+        os.makedirs("model_cache", exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        for model_name, model_data in models_data.items():
+            try:
+                filename = f"model_cache/model_{model_name}_{timestamp}.joblib"
+                
+                # Données à sauvegarder
+                save_data = {
+                    'model': model_data.get('best_model') or model_data.get('model'),
+                    'params': model_data.get('best_params', {}),
+                    'metrics': {
+                        'accuracy': model_data.get('test_accuracy', 0),
+                        'auc': model_data.get('test_auc', 0)
+                    },
+                    'timestamp': timestamp
+                }
+                
+                joblib.dump(save_data, filename)
+                st.success(f"✅ {model_name} sauvegardé")
+                
+            except Exception as e:
+                st.warning(f"⚠️ Erreur sauvegarde {model_name}: {str(e)}")
+                continue
+                
+    except ImportError:
+        st.warning("⚠️ Joblib non disponible, sauvegarde désactivée")
+        
+        # Alternative : sauvegarde des paramètres seulement
+        try:
+            import json
+            
+            params_data = {}
+            for name, data in models_data.items():
+                params_data[name] = {
+                    'params': data.get('best_params', {}),
+                    'metrics': {
+                        'accuracy': float(data.get('test_accuracy', 0)),
+                        'auc': float(data.get('test_auc', 0))
+                    }
+                }
+            
+            with open(f"model_cache/params_{timestamp}.json", 'w') as f:
+                json.dump(params_data, f, indent=2)
+                
+            st.info("💾 Paramètres sauvegardés en JSON")
+            
+        except Exception as e:
+            st.error(f"❌ Erreur sauvegarde alternative : {str(e)}")
 
+
+def show_enhanced_ml_analysis():
+    """Interface d'analyse ML corrigée avec gestion d'erreur robuste"""
+    
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
         <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
                    text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            🧠 Analyse ML Avancée avec LazyPredict
+            🧠 Analyse ML Avancée
         </h1>
         <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
                   max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Comparaison automatique, optimisation et visualisation de +40 modèles ML
+            Comparaison automatique et optimisation de modèles ML
         </p>
     </div>
     """, unsafe_allow_html=True)
-
-    joblib.dump(optimized_model, "model_cache/best_model.joblib")
-
-# Chargement rapide
-    loaded_model = joblib.load("model_cache/best_model.joblib")
 
     # Chargement du dataset
     df = load_enhanced_dataset()
@@ -2437,125 +2651,67 @@ def show_enhanced_ml_analysis():
 
     # Onglets pour l'analyse ML
     ml_tabs = st.tabs([
-        "🔬 LazyPredict - Comparaison Massive",
-        "🏆 Top 5 Modèles Optimisés", 
-        "📊 Visualisations Avancées",
-        "💾 Sauvegarde & Chargement",
-        "📈 Métriques Détaillées"
+        "🔬 Comparaison de Modèles",
+        "🏆 Modèles Optimisés", 
+        "📊 Visualisations",
+        "💾 Sauvegarde",
+        "📈 Métriques"
     ])
 
     with ml_tabs[0]:
-        st.subheader("🔬 LazyPredict - Comparaison de +40 Modèles")
+        st.subheader("🔬 Comparaison Automatique de Modèles")
         
-        # Préparation des données
-        if st.button("🚀 Lancer LazyPredict (40+ modèles)", type="primary"):
-            with st.spinner("Comparaison en cours... Cela peut prendre 5-10 minutes"):
+        if st.button("🚀 Lancer la Comparaison de Modèles", type="primary"):
+            with st.spinner("Comparaison en cours..."):
                 
                 # Préparation des données
                 X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
                 
                 if X_train is not None:
                     try:
-                        # LazyPredict Classification
-                        lazy_clf = LazyClassifier(
-                            verbose=0, 
-                            ignore_warnings=True, 
-                            custom_metric=None,
-                            predictions=True
-                        )
+                        # Alternative à LazyPredict - Comparaison manuelle
+                        models_results = compare_models_manually(X_train, X_test, y_train, y_test)
                         
-                        models_results, predictions = lazy_clf.fit(
-                            X_train, X_test, y_train, y_test
-                        )
-                        
-                        # Sauvegarde des résultats LazyPredict
-                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        results_path = f"model_cache/lazy_results_{timestamp}.joblib"
-                        os.makedirs("model_cache", exist_ok=True)
-                        
-                        joblib.dump({
-                            'models_results': models_results,
-                            'predictions': predictions,
-                            'X_train': X_train,
-                            'X_test': X_test,
-                            'y_train': y_train,
-                            'y_test': y_test,
-                            'timestamp': timestamp
-                        }, results_path)
-                        
-                        st.session_state.lazy_results = {
-                            'models_results': models_results,
-                            'predictions': predictions,
-                            'data': (X_train, X_test, y_train, y_test),
-                            'saved_path': results_path
-                        }
-                        
-                        st.success(f"✅ {len(models_results)} modèles comparés et sauvegardés!")
+                        if models_results is not None:
+                            st.session_state.models_results = models_results
+                            st.success(f"✅ {len(models_results)} modèles comparés avec succès!")
+                            
+                            # Affichage des résultats
+                            display_models_comparison(models_results)
                         
                     except Exception as e:
-                        st.error(f"❌ Erreur LazyPredict : {str(e)}")
-                        return
-        
-        # Affichage des résultats LazyPredict
-        if 'lazy_results' in st.session_state:
-            models_results = st.session_state.lazy_results['models_results']
-            
-            st.markdown("### 📊 Résultats de tous les modèles")
-            
-            # Tri par AUC-ROC puis Accuracy
-            models_sorted = models_results.sort_values(['ROC AUC', 'Accuracy'], ascending=False)
-            
-            # Affichage avec formatage des couleurs
-            def color_performance(val):
-                if val >= 0.9:
-                    return 'background-color: #c8e6c9'  # Vert
-                elif val >= 0.8:
-                    return 'background-color: #fff3e0'  # Orange clair
-                elif val >= 0.7:
-                    return 'background-color: #ffecb3'  # Jaune
-                else:
-                    return 'background-color: #ffcdd2'  # Rouge clair
-            
-            # Application du style
-            styled_df = models_sorted.style.applymap(
-                color_performance, 
-                subset=['Accuracy', 'Balanced Accuracy', 'ROC AUC', 'F1 Score']
-            )
-            
-            st.dataframe(styled_df, use_container_width=True)
-            
-            # Graphique de comparaison
-            fig_comparison = create_models_comparison_chart(models_sorted.head(15))
-            st.plotly_chart(fig_comparison, use_container_width=True)
+                        st.error(f"❌ Erreur lors de la comparaison : {str(e)}")
+                        st.info("💡 Utilisez la version simplifiée ci-dessous")
+                        
+                        # Fallback vers analyse simplifiée
+                        simple_results = simple_ml_analysis(X_train, X_test, y_train, y_test)
+                        if simple_results:
+                            st.session_state.simple_results = simple_results
+                            display_simple_results(simple_results)
 
     with ml_tabs[1]:
-        st.subheader("🏆 Top 5 Modèles - Optimisation Avancée")
+        st.subheader("🏆 Optimisation des Meilleurs Modèles")
         
-        if 'lazy_results' in st.session_state:
-            models_results = st.session_state.lazy_results['models_results']
-            X_train, X_test, y_train, y_test = st.session_state.lazy_results['data']
+        if 'models_results' in st.session_state:
+            models_results = st.session_state.models_results
             
-            # Sélection des 5 meilleurs modèles
-            top_5_models = models_results.head(5).index.tolist()
+            # Sélection des 3 meilleurs modèles
+            st.markdown("### 🎯 Top 3 modèles sélectionnés")
             
-            st.markdown(f"### 🎯 Top 5 modèles sélectionnés")
-            for i, model_name in enumerate(top_5_models, 1):
-                score = models_results.loc[model_name, 'ROC AUC']
-                st.markdown(f"**{i}. {model_name}** - AUC: {score:.4f}")
+            best_models = get_top_models(models_results, n=3)
+            for i, (model_name, metrics) in enumerate(best_models.items(), 1):
+                st.markdown(f"**{i}. {model_name}** - AUC: {metrics.get('auc', 0):.4f}")
             
-            if st.button("🔧 Optimiser le Top 5", type="primary"):
+            if st.button("🔧 Optimiser le Top 3", type="primary"):
                 with st.spinner("Optimisation en cours..."):
-                    optimized_results = optimize_top_models(
-                        top_5_models, X_train, X_test, y_train, y_test
-                    )
+                    optimized_results = optimize_selected_models(best_models, X_train, X_test, y_train, y_test)
                     
                     if optimized_results:
                         st.session_state.optimized_models = optimized_results
                         st.success("✅ Optimisation terminée!")
-        
-        # Affichage des résultats optimisés
-        if 'optimized_models' in st.session_state:
-            display_optimized_results(st.session_state.optimized_models)
+                        display_optimization_results(optimized_results)
+        else:
+            st.warning("Veuillez d'abord exécuter la comparaison de modèles")
 
     with ml_tabs[2]:
         st.subheader("📊 Visualisations Avancées")
