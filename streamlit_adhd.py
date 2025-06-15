@@ -1017,30 +1017,6 @@ def perform_statistical_tests(df):
 
     return results
 
-def create_famd_analysis(df):
-    """Crée une analyse FAMD (Factor Analysis of Mixed Data) simplifiée"""
-    try:
-        # Sélection des variables pour FAMD
-        numeric_vars = ['age', 'asrs_total', 'quality_of_life', 'stress_level']
-        categorical_vars = ['gender', 'education', 'marital_status']
-
-        # Préparation des données
-        df_famd = df[numeric_vars + categorical_vars + ['diagnosis']].dropna()
-
-        # Encodage des variables catégorielles pour visualisation
-        df_encoded = df_famd.copy()
-        for var in categorical_vars:
-            df_encoded[var] = pd.Categorical(df_encoded[var]).codes
-
-        # Analyse de corrélation
-        correlation_matrix = df_encoded[numeric_vars + categorical_vars].corr()
-
-        return df_encoded, correlation_matrix
-
-    except Exception as e:
-        st.error(f"Erreur dans l'analyse FAMD: {str(e)}")
-        return None, None
-
 def show_home_page():
     """Page d'accueil pour le TDAH avec design moderne"""
 
