@@ -2254,43 +2254,24 @@ def create_comparison_chart(df_results):
     st.plotly_chart(fig, use_container_width=True)
 
 def display_manual_results(models_results):
-    """Affiche les résultats de la comparaison manuelle des modèles"""
+    """Affiche les résultats avec noms de colonnes corrigés"""
     
-    # Formatage du tableau avec style
-    st.markdown("### 📊 Résultats des 35+ Modèles (Comparaison Manuelle)")
+    st.markdown("### 📊 Résultats des 40+ Modèles")
     
-    # Formatage des colonnes numériques
+    # Vérifier les colonnes disponibles pour debug
+    st.write("Colonnes disponibles :", models_results.columns.tolist())
+    
+    # Formatage avec les bons noms de colonnes
     styled_df = models_results.style.format({
         'Accuracy': '{:.4f}',
         'Balanced Accuracy': '{:.4f}',
-        'ROC AUC': '{:.4f}',
+        'ROC AUC': '{:.4f}',  # AVEC ESPACE
         'F1 Score': '{:.4f}',
         'Time Taken': '{:.2f}s'
     }).background_gradient(subset=['ROC AUC'], cmap='RdYlGn')
     
     st.dataframe(styled_df, use_container_width=True)
-    
-    # Métriques principales
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        best_model = models_results.index[0]
-        st.metric("Meilleur modèle", best_model)
-    
-    with col2:
-        best_auc = models_results.iloc[0]['ROC AUC']
-        st.metric("Meilleur AUC", f"{best_auc:.4f}")
-    
-    with col3:
-        avg_time = models_results['Time Taken'].mean()
-        st.metric("Temps moyen", f"{avg_time:.2f}s")
-    
-    with col4:
-        total_models = len(models_results)
-        st.metric("Modèles testés", total_models)
-    
-    # Graphique de comparaison
-    create_performance_chart_manual(models_results)
+
 
 def create_performance_chart_manual(df_results):
     """Crée un graphique de comparaison pour les résultats manuels"""
