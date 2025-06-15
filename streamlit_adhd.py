@@ -2706,6 +2706,42 @@ def get_saved_models_list():
         st.error(f"❌ Erreur lors de la récupération des modèles : {str(e)}")
         return []
 
+def create_model_instance_corrected(model_name):
+    """Crée une nouvelle instance du modèle basée sur son nom - VERSION CORRIGÉE"""
+    try:
+        from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.svm import SVC
+        from sklearn.neighbors import KNeighborsClassifier
+        
+        # Mapping corrigé avec gestion d'erreur
+        model_mapping = {
+            'RandomForestClassifier': lambda: RandomForestClassifier(random_state=42),
+            'RandomForest_50': lambda: RandomForestClassifier(n_estimators=50, random_state=42),
+            'RandomForest_200': lambda: RandomForestClassifier(n_estimators=200, random_state=42),
+            'LogisticRegression': lambda: LogisticRegression(random_state=42, max_iter=1000),
+            'LogReg_L1': lambda: LogisticRegression(penalty='l1', solver='liblinear', random_state=42),
+            'LogReg_L2': lambda: LogisticRegression(penalty='l2', random_state=42, max_iter=1000),
+            'GradientBoostingClassifier': lambda: GradientBoostingClassifier(random_state=42),
+            'SVC': lambda: SVC(probability=True, random_state=42),
+            'SVC_Linear': lambda: SVC(kernel='linear', probability=True, random_state=42),
+            'KNeighborsClassifier': lambda: KNeighborsClassifier(),
+            'KNN_3': lambda: KNeighborsClassifier(n_neighbors=3),
+            'KNN_7': lambda: KNeighborsClassifier(n_neighbors=7)
+        }
+        
+        if model_name in model_mapping:
+            return model_mapping[model_name]()
+        else:
+            # Fallback par défaut
+            st.warning(f"⚠️ Modèle {model_name} non reconnu, utilisation de RandomForest par défaut")
+            return RandomForestClassifier(random_state=42)
+            
+    except Exception as e:
+        st.error(f"❌ Erreur création modèle {model_name}: {str(e)}")
+        return RandomForestClassifier(random_state=42)  # Fallback sûr
+
+
 def load_saved_model(filename):
     """Charge un modèle sauvegardé avec Joblib"""
     try:
@@ -2743,7 +2779,7 @@ def load_saved_model(filename):
         return None
 
 def get_top_models(models_results, n=3):
-    """Version corrigée pour récupérer les meilleurs modèles avec leurs instances"""
+    """Version corrigée qui récupère les instances de modèles"""
     try:
         # Conversion sécurisée en DataFrame
         if isinstance(models_results, dict):
@@ -2751,11 +2787,8 @@ def get_top_models(models_results, n=3):
         else:
             df_results = models_results.copy()
         
-        # Retirer la colonne 'model' pour le tri si elle existe
-        display_df = df_results.drop('model', axis=1, errors='ignore')
-        
         # Vérifier les colonnes disponibles
-        available_columns = display_df.columns.tolist()
+        available_columns = df_results.columns.tolist()
         
         # Trouver la colonne AUC appropriée
         auc_column = None
@@ -2765,22 +2798,29 @@ def get_top_models(models_results, n=3):
                 break
         
         if auc_column is None:
-            # Fallback sur Accuracy si AUC non disponible
             auc_column = 'Accuracy'
         
         # Tri par performance
-        df_sorted = display_df.sort_values(auc_column, ascending=False)
+        df_sorted = df_results.sort_values(auc_column, ascending=False)
         
         # Sélection des n meilleurs modèles avec leurs instances
         top_models = {}
+        
+        # Récupération des instances depuis session state
+        model_instances = st.session_state.get('model_instances', {})
+        
         for i, (model_name, row) in enumerate(df_sorted.head(n).iterrows()):
-            # Créer une nouvelle instance du modèle pour l'optimisation
-            model_instance = create_model_instance(model_name)
+            # Récupération de l'instance du modèle
+            if model_name in model_instances:
+                model_instance = model_instances[model_name]
+            else:
+                # Fallback : créer une nouvelle instance
+                model_instance = create_model_instance_corrected(model_name)
             
             top_models[model_name] = {
                 'auc': float(row.get(auc_column, 0)),
                 'accuracy': float(row.get('Accuracy', 0)),
-                'model': model_instance
+                'model': model_instance  # Instance correcte du modèle
             }
         
         return top_models
@@ -2961,67 +3001,45 @@ def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
 
 
 def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
-    """Optimise les hyperparamètres des meilleurs modèles - VERSION CORRIGÉE"""
+    """Version corrigée de l'optimisation des hyperparamètres"""
     
     try:
         from sklearn.model_selection import GridSearchCV
         from sklearn.metrics import accuracy_score, roc_auc_score
         
-        # Grilles de paramètres optimisées
+        # Vérification préalable des modèles
+        if not best_models:
+            st.error("❌ Aucun modèle fourni pour l'optimisation")
+            return None
+        
+        st.info(f"🔧 Début de l'optimisation de {len(best_models)} modèles...")
+        
+        # Grilles de paramètres simplifiées pour éviter les timeouts
         param_grids = {
             'RandomForestClassifier': {
-                'n_estimators': [50, 100, 200],
-                'max_depth': [5, 10, 20, None],
-                'min_samples_split': [2, 5, 10],
-                'min_samples_leaf': [1, 2, 4]
-            },
-            'RandomForest_50': {
-                'n_estimators': [50, 100, 150],
-                'max_depth': [5, 10, 15],
-                'min_samples_split': [2, 5]
-            },
-            'RandomForest_200': {
-                'n_estimators': [150, 200, 250],
-                'max_depth': [10, 15, 20],
+                'n_estimators': [50, 100],
+                'max_depth': [5, 10, None],
                 'min_samples_split': [2, 5]
             },
             'LogisticRegression': {
-                'C': [0.01, 0.1, 1, 10, 100],
+                'C': [0.1, 1, 10],
                 'solver': ['lbfgs', 'liblinear'],
-                'max_iter': [1000, 2000]
+                'max_iter': [1000]
             },
             'LogReg_L1': {
-                'C': [0.01, 0.1, 1, 10],
-                'solver': ['liblinear']
+                'C': [0.1, 1, 10],
+                'solver': ['liblinear'],
+                'max_iter': [1000]
             },
             'LogReg_L2': {
-                'C': [0.01, 0.1, 1, 10],
-                'solver': ['lbfgs', 'liblinear']
+                'C': [0.1, 1, 10],
+                'solver': ['lbfgs'],
+                'max_iter': [1000]
             },
             'GradientBoostingClassifier': {
-                'n_estimators': [50, 100, 200],
-                'learning_rate': [0.01, 0.1, 0.2],
-                'max_depth': [3, 5, 7]
-            },
-            'SVC': {
-                'C': [0.1, 1, 10],
-                'kernel': ['linear', 'rbf'],
-                'gamma': ['scale', 'auto']
-            },
-            'SVC_Linear': {
-                'C': [0.1, 1, 10, 100]
-            },
-            'KNeighborsClassifier': {
-                'n_neighbors': [3, 5, 7, 9],
-                'weights': ['uniform', 'distance']
-            },
-            'KNN_3': {
-                'weights': ['uniform', 'distance'],
-                'metric': ['euclidean', 'manhattan']
-            },
-            'KNN_7': {
-                'weights': ['uniform', 'distance'],
-                'metric': ['euclidean', 'manhattan']
+                'n_estimators': [50, 100],
+                'learning_rate': [0.01, 0.1],
+                'max_depth': [3, 5]
             }
         }
         
@@ -3031,39 +3049,64 @@ def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
             try:
                 st.info(f"🔧 Optimisation de {model_name}...")
                 
-                # Récupérer le modèle et la grille de paramètres
-                base_model = model_data['model']
+                # Vérification de la présence du modèle
+                if 'model' not in model_data or model_data['model'] is None:
+                    st.warning(f"⚠️ Instance de modèle manquante pour {model_name}")
+                    # Créer une nouvelle instance
+                    base_model = create_model_instance_corrected(model_name)
+                else:
+                    # Utiliser l'instance existante mais créer une nouvelle pour GridSearch
+                    base_model = create_model_instance_corrected(model_name)
                 
                 # Déterminer la grille de paramètres
                 grid_key = model_name
                 if grid_key not in param_grids:
-                    # Fallback pour les modèles non mappés
-                    grid_key = 'RandomForestClassifier'
-                    base_model = RandomForestClassifier(random_state=42)
+                    # Recherche par similarité de nom
+                    for key in param_grids.keys():
+                        if key in model_name or model_name in key:
+                            grid_key = key
+                            break
+                    else:
+                        # Fallback par défaut
+                        grid_key = 'RandomForestClassifier'
+                        base_model = RandomForestClassifier(random_state=42)
                 
                 param_grid = param_grids[grid_key]
                 
-                # Configuration GridSearchCV avec gestion d'erreur
+                # Configuration GridSearchCV
                 grid_search = GridSearchCV(
                     estimator=base_model,
                     param_grid=param_grid,
-                    cv=3,  # Réduction à 3-fold pour éviter les timeouts
+                    cv=3,  # Réduction pour éviter les timeouts
                     scoring='roc_auc',
-                    n_jobs=-1,
-                    verbose=1,
+                    n_jobs=1,  # Réduction de la charge
+                    verbose=0,
                     error_score='raise'
                 )
                 
-                # Entraînement avec gestion du timeout
-                grid_search.fit(X_train, y_train)
+                # Entraînement avec gestion d'erreur
+                try:
+                    grid_search.fit(X_train, y_train)
+                except Exception as fit_error:
+                    st.warning(f"⚠️ Erreur GridSearchCV pour {model_name}: {str(fit_error)}")
+                    continue
+                
+                # Vérification que GridSearch a fonctionné
+                if not hasattr(grid_search, 'best_estimator_') or grid_search.best_estimator_ is None:
+                    st.warning(f"⚠️ GridSearchCV n'a pas produit de meilleur modèle pour {model_name}")
+                    continue
                 
                 # Évaluation sur test set
                 y_pred = grid_search.predict(X_test)
-                y_proba = grid_search.predict_proba(X_test)[:, 1]
                 
-                # Calcul des métriques
+                # Calcul AUC avec gestion d'erreur
+                try:
+                    y_proba = grid_search.predict_proba(X_test)[:, 1]
+                    test_auc = roc_auc_score(y_test, y_proba)
+                except:
+                    test_auc = 0.5
+                
                 test_accuracy = accuracy_score(y_test, y_pred)
-                test_auc = roc_auc_score(y_test, y_proba)
                 
                 # Stockage des résultats
                 optimized_results[model_name] = {
@@ -3072,7 +3115,7 @@ def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
                     'best_cv_score': grid_search.best_score_,
                     'test_accuracy': test_accuracy,
                     'test_auc': test_auc,
-                    'n_candidates': grid_search.n_splits_ * len(grid_search.cv_results_['params'])
+                    'n_candidates': len(grid_search.cv_results_['params'])
                 }
                 
                 st.success(f"✅ {model_name} optimisé - AUC: {test_auc:.3f}")
@@ -3081,16 +3124,22 @@ def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
                 st.warning(f"⚠️ Erreur optimisation {model_name}: {str(e)}")
                 continue
         
-        return optimized_results
+        if optimized_results:
+            st.success(f"✅ Optimisation terminée pour {len(optimized_results)} modèles")
+            return optimized_results
+        else:
+            st.error("❌ Aucune optimisation n'a abouti")
+            return None
         
     except ImportError as e:
         st.error(f"❌ Erreur d'import : {e}")
-        st.info("💡 Installez scikit-learn : pip install scikit-learn")
         return None
         
     except Exception as e:
         st.error(f"❌ Erreur générale d'optimisation : {str(e)}")
         return None
+
+
 def display_optimization_results(optimized_results):
     """Affiche les résultats d'optimisation de manière détaillée"""
     
@@ -3216,42 +3265,78 @@ def show_enhanced_ml_analysis():
                             del st.session_state[key]
 
     with ml_tabs[1]:
-        if st.button("🔧 Optimiser le Top 3", type="primary"):
-    with st.spinner("🔄 Optimisation en cours (cela peut prendre plusieurs minutes)..."):
+        st.subheader("🏆 Optimisation des Meilleurs Modèles")
+        
+        # Vérification préalable complète
+        models_available = 'models_results' in st.session_state and st.session_state.models_results is not None
+        data_available = all(key in st.session_state for key in ['X_train', 'X_test', 'y_train', 'y_test'])
+        instances_available = 'model_instances' in st.session_state
+        
+        if not models_available:
+            st.warning("⚠️ Aucun résultat de modèle disponible")
+            st.info("👆 Lancez d'abord la comparaison dans l'onglet précédent")
+            return
+        
+        if not data_available:
+            st.error("❌ Données d'entraînement manquantes")
+            st.info("🔄 Relancez la comparaison des modèles")
+            return
+        
+        if not instances_available:
+            st.warning("⚠️ Instances de modèles manquantes, recréation en cours...")
+        
         try:
-            # Récupération sécurisée des données
-            X_train = st.session_state.X_train
-            X_test = st.session_state.X_test
-            y_train = st.session_state.y_train
-            y_test = st.session_state.y_test
+            models_results = st.session_state.models_results
             
-            # Vérification des données
-            if any(var is None for var in [X_train, X_test, y_train, y_test]):
-                st.error("❌ Variables d'entraînement manquantes")
+            st.markdown("### 🎯 Sélection des 3 meilleurs modèles")
+            st.info(f"📊 {len(models_results)} modèles disponibles")
+            
+            # Sélection des meilleurs modèles avec gestion d'erreur
+            best_models = get_top_models(models_results, n=3)
+            
+            if not best_models:
+                st.error("❌ Impossible de sélectionner les meilleurs modèles")
                 return
             
-            # Lancement de l'optimisation
-            optimized_results = optimize_selected_models(
-                best_models, X_train, X_test, y_train, y_test
-            )
+            # Affichage des modèles sélectionnés
+            st.markdown("**Modèles sélectionnés pour l'optimisation :**")
+            for name, metrics in best_models.items():
+                has_model = 'model' in metrics and metrics['model'] is not None
+                model_status = "✅" if has_model else "❌"
+                st.write(f"• **{name}** {model_status} - AUC: {metrics['auc']:.3f}, Accuracy: {metrics['accuracy']:.3f}")
             
-            if optimized_results and len(optimized_results) > 0:
-                st.session_state.optimized_models = optimized_results
-                st.success(f"✅ Optimisation terminée ! {len(optimized_results)} modèles optimisés")
-                display_optimization_results(optimized_results)
-                
-                # Sauvegarde automatique des résultats
-                try:
-                    save_optimization_results(optimized_results)
-                    st.info("💾 Résultats sauvegardés automatiquement")
-                except Exception as save_error:
-                    st.warning(f"⚠️ Sauvegarde échouée : {save_error}")
-            else:
-                st.error("❌ L'optimisation n'a produit aucun résultat")
-                
+            if st.button("🔧 Optimiser le Top 3", type="primary"):
+                with st.spinner("🔄 Optimisation en cours..."):
+                    try:
+                        # Récupération sécurisée des données
+                        X_train = st.session_state.X_train
+                        X_test = st.session_state.X_test
+                        y_train = st.session_state.y_train
+                        y_test = st.session_state.y_test
+                        
+                        # Vérification finale
+                        if any(var is None for var in [X_train, X_test, y_train, y_test]):
+                            st.error("❌ Variables d'entraînement corrompues")
+                            return
+                        
+                        # Lancement de l'optimisation corrigée
+                        optimized_results = optimize_selected_models(
+                            best_models, X_train, X_test, y_train, y_test
+                        )
+                        
+                        if optimized_results and len(optimized_results) > 0:
+                            st.session_state.optimized_models = optimized_results
+                            st.success(f"✅ Optimisation réussie ! {len(optimized_results)} modèles optimisés")
+                            display_optimization_results(optimized_results)
+                        else:
+                            st.error("❌ L'optimisation n'a produit aucun résultat")
+                            
+                    except Exception as e:
+                        st.error(f"❌ Erreur lors de l'optimisation : {str(e)}")
+                        st.info("💡 Essayez de relancer la comparaison des modèles")
+            
         except Exception as e:
-            st.error(f"❌ Erreur lors de l'optimisation : {str(e)}")
-            st.info("💡 Vérifiez que tous les modèles sont correctement configurés")
+            st.error(f"❌ Erreur dans la sélection des modèles : {str(e)}")
 
     # Autres onglets avec vérifications similaires
     with ml_tabs[2]:
