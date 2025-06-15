@@ -10,8 +10,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
-import streamlit as st
+from lazypredict.Supervised import LazyClassifier
+from sklearn.model_selection import train_test_split
+import pandas as pd
+import numpy as np
 import uuid
 import hashlib
 import time
