@@ -4967,44 +4967,40 @@ def show_about():
     """)
 
 def main():
-    """Fonction principale de l'application"""
+    """Fonction principale corrigée"""
     try:
-        # Configuration initiale
-        initialize_session_state()
+        # Configuration initiale sécurisée
+        initialize_session_state_safe()
+        
+        # Vérification des imports
+        if not safe_import_libraries():
+            return
+            
         set_custom_theme()
 
         # Menu de navigation dans la sidebar
         with st.sidebar:
             tool_choice = show_navigation_menu()
 
-        # Navigation vers les pages
-        if tool_choice == "🏠 Accueil":
-            show_home_page()
-
-        elif tool_choice == "🔍 Exploration":
-            show_enhanced_data_exploration()
-
-        elif tool_choice == "🧠 Analyse ML":
-            show_enhanced_ml_analysis()
-
-        elif tool_choice == "🤖 Prédiction par IA":
-            show_enhanced_ai_prediction()
-
-        elif tool_choice == "📚 Documentation":
-            show_enhanced_documentation()
-
-        elif tool_choice == "🔒 Panneau RGPD & Conformité IA":
-            show_rgpd_panel()
-
-        elif tool_choice == "ℹ️ À propos":
-            show_about()
-
+        # Navigation vers les pages avec gestion d'erreur
+        page_functions = {
+            "🏠 Accueil": show_home_page,
+            "🔍 Exploration": show_enhanced_data_exploration,
+            "🧠 Analyse ML": show_enhanced_ml_analysis,
+            "🤖 Prédiction par IA": show_enhanced_ai_prediction,
+            "📚 Documentation": show_enhanced_documentation,
+            "🔒 Panneau RGPD & Conformité IA": show_rgpd_panel,
+            "ℹ️ À propos": show_about
+        }
+        
+        if tool_choice in page_functions:
+            page_functions[tool_choice]()
         else:
             st.error(f"Page non trouvée : {tool_choice}")
 
     except Exception as e:
         st.error(f"Erreur dans l'application : {str(e)}")
-        st.error("Veuillez recharger la page ou contacter le support.")
+        st.error("Veuillez recharger la page ou vérifier votre code.")
 
 # Point d'entrée de l'application
 if __name__ == "__main__":
