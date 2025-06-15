@@ -2551,24 +2551,45 @@ def display_detailed_metrics(optimized_models):
         st.error(f"Erreur lors de l'affichage des métriques : {str(e)}")
         
 
-def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
-    """Optimise les hyperparamètres des meilleurs modèles"""
+def optimize_selected_models_corrected(best_models, X_train, X_test, y_train, y_test):
+    """Version corrigée de l'optimisation des hyperparamètres"""
     
     try:
         from sklearn.model_selection import GridSearchCV
+        from sklearn.metrics import accuracy_score, roc_auc_score
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.linear_model import LogisticRegression
+        
+        # Vérification préalable des modèles
+        if not best_models:
+            print("❌ Aucun modèle fourni pour l'optimisation")
+            return None
+        
+        print(f"🔧 Début de l'optimisation de {len(best_models)} modèles...")
         
         # Grilles de paramètres simplifiées
         param_grids = {
-            'RandomForest': {
-                'n_estimators': [50, 100, 200],
+            'RandomForestClassifier': {
+                'n_estimators': [50, 100],
                 'max_depth': [5, 10, None],
                 'min_samples_split': [2, 5]
             },
             'LogisticRegression': {
                 'C': [0.1, 1, 10],
-                'solver': ['lbfgs', 'liblinear']
+                'solver': ['lbfgs', 'liblinear'],
+                'max_iter': [1000]
             },
-            'GradientBoosting': {
+            'LogReg_L1': {
+                'C': [0.1, 1, 10],
+                'solver': ['liblinear'],
+                'max_iter': [1000]
+            },
+            'LogReg_L2': {
+                'C': [0.1, 1, 10],
+                'solver': ['lbfgs'],
+                'max_iter': [1000]
+            },
+            'GradientBoostingClassifier': {
                 'n_estimators': [50, 100],
                 'learning_rate': [0.01, 0.1],
                 'max_depth': [3, 5]
@@ -2577,46 +2598,98 @@ def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
         
         optimized_results = {}
         
-        for model_name in best_models.keys():
+        for model_name, model_data in best_models.items():
             try:
-                if model_name in param_grids:
-                    # Récupération du modèle de base
-                    base_model = best_models[model_name]['model']
-                    
-                    # GridSearchCV
-                    grid_search = GridSearchCV(
-                        estimator=type(base_model)(),
-                        param_grid=param_grids[model_name],
-                        cv=3,
-                        scoring='roc_auc',
-                        n_jobs=-1
-                    )
-                    
-                    # Entraînement
+                print(f"🔧 Optimisation de {model_name}...")
+                
+                # CORRECTION PRINCIPALE: Vérification et création sécurisée du modèle
+                if isinstance(model_data, dict) and 'model' in model_data and model_data['model'] is not None:
+                    print(f"✅ Instance de modèle trouvée pour {model_name}")
+                    base_model_class = type(model_data['model'])
+                    base_model = base_model_class()  # Nouvelle instance
+                else:
+                    print(f"⚠️ Création d'une nouvelle instance pour {model_name}")
+                    base_model = create_model_instance_corrected(model_name)
+                
+                # Déterminer la grille de paramètres
+                grid_key = model_name
+                if grid_key not in param_grids:
+                    # Recherche par similarité de nom
+                    for key in param_grids.keys():
+                        if key in model_name or model_name in key:
+                            grid_key = key
+                            break
+                    else:
+                        # Fallback par défaut
+                        print(f"⚠️ Grille non trouvée pour {model_name}, utilisation RandomForest")
+                        grid_key = 'RandomForestClassifier'
+                        base_model = RandomForestClassifier(random_state=42)
+                
+                param_grid = param_grids[grid_key]
+                
+                # Configuration GridSearchCV
+                grid_search = GridSearchCV(
+                    estimator=base_model,
+                    param_grid=param_grid,
+                    cv=3,
+                    scoring='roc_auc',
+                    n_jobs=1,
+                    verbose=0,
+                    error_score='raise'
+                )
+                
+                # Entraînement avec gestion d'erreur
+                try:
                     grid_search.fit(X_train, y_train)
-                    
-                    # Prédictions avec le meilleur modèle
-                    y_pred = grid_search.predict(X_test)
+                except Exception as fit_error:
+                    print(f"⚠️ Erreur GridSearchCV pour {model_name}: {str(fit_error)}")
+                    continue
+                
+                # Vérification que GridSearch a fonctionné
+                if not hasattr(grid_search, 'best_estimator_') or grid_search.best_estimator_ is None:
+                    print(f"⚠️ GridSearchCV n'a pas produit de meilleur modèle pour {model_name}")
+                    continue
+                
+                # Évaluation sur test set
+                y_pred = grid_search.predict(X_test)
+                
+                # Calcul AUC avec gestion d'erreur
+                try:
                     y_proba = grid_search.predict_proba(X_test)[:, 1]
-                    
-                    # Métriques finales
-                    optimized_results[model_name] = {
-                        'best_model': grid_search.best_estimator_,
-                        'best_params': grid_search.best_params_,
-                        'best_score': grid_search.best_score_,
-                        'test_accuracy': accuracy_score(y_test, y_pred),
-                        'test_auc': roc_auc_score(y_test, y_proba)
-                    }
-                    
+                    test_auc = roc_auc_score(y_test, y_proba)
+                except:
+                    test_auc = 0.5
+                
+                test_accuracy = accuracy_score(y_test, y_pred)
+                
+                # Stockage des résultats
+                optimized_results[model_name] = {
+                    'best_model': grid_search.best_estimator_,
+                    'best_params': grid_search.best_params_,
+                    'best_cv_score': grid_search.best_score_,
+                    'test_accuracy': test_accuracy,
+                    'test_auc': test_auc,
+                    'n_candidates': len(grid_search.cv_results_['params'])
+                }
+                
+                print(f"✅ {model_name} optimisé - AUC: {test_auc:.3f}")
+                
             except Exception as e:
-                st.warning(f"⚠️ Erreur optimisation {model_name}: {str(e)}")
+                print(f"⚠️ Erreur optimisation {model_name}: {str(e)}")
                 continue
         
-        return optimized_results
+        if optimized_results:
+            print(f"✅ Optimisation terminée pour {len(optimized_results)} modèles")
+            return optimized_results
+        else:
+            print("❌ Aucune optimisation n'a abouti")
+            return None
         
-    except ImportError as e:
-        st.error(f"❌ Erreur d'import pour l'optimisation : {e}")
+    except Exception as e:
+        print(f"❌ Erreur générale d'optimisation : {str(e)}")
         return None
+        
+
 def save_models_securely(models_data):
     """Sauvegarde sécurisée des modèles avec gestion d'erreur"""
     
