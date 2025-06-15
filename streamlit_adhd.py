@@ -2794,6 +2794,209 @@ def display_simple_results(results):
             
             st.markdown("---")
 
+def run_lazypredict_analysis(X_train, X_test, y_train, y_test):
+    """Lance LazyPredict avec gestion d'erreur robuste"""
+    try:
+        from lazypredict.Supervised import LazyClassifier
+        import pandas as pd
+        
+        # Configuration LazyPredict
+        lazy_clf = LazyClassifier(
+            verbose=0,
+            ignore_warnings=True,
+            custom_metric=None,
+            predictions=False,
+            random_state=42
+        )
+        
+        # Entraînement des modèles
+        models_df, predictions = lazy_clf.fit(X_train, X_test, y_train, y_test)
+        
+        return models_df
+        
+    except ImportError as e:
+        st.error(f"❌ LazyPredict non installé : {e}")
+        st.code("pip install lazypredict scikit-learn==1.0.2", language="bash")
+        return None
+    except Exception as e:
+        st.error(f"❌ Erreur LazyPredict : {str(e)}")
+        return None
+
+def run_manual_40_models(X_train, X_test, y_train, y_test):
+    """Alternative manuelle avec 40 modèles ML"""
+    try:
+        from sklearn.ensemble import (
+            RandomForestClassifier, GradientBoostingClassifier, 
+            ExtraTreesClassifier, AdaBoostClassifier, BaggingClassifier
+        )
+        from sklearn.linear_model import (
+            LogisticRegression, LogisticRegressionCV, RidgeClassifier,
+            RidgeClassifierCV, SGDClassifier, PassiveAggressiveClassifier,
+            Perceptron
+        )
+        from sklearn.svm import SVC, NuSVC, LinearSVC
+        from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB
+        from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
+        from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
+        from sklearn.discriminant_analysis import (
+            LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+        )
+        from sklearn.neural_network import MLPClassifier
+        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+        import time
+        
+        # Dictionnaire des 40 modèles
+        models_dict = {
+            # Ensemble Methods
+            'RandomForestClassifier': RandomForestClassifier(n_estimators=100, random_state=42),
+            'GradientBoostingClassifier': GradientBoostingClassifier(random_state=42),
+            'ExtraTreesClassifier': ExtraTreesClassifier(n_estimators=100, random_state=42),
+            'AdaBoostClassifier': AdaBoostClassifier(random_state=42),
+            'BaggingClassifier': BaggingClassifier(random_state=42),
+            
+            # Linear Models
+            'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000),
+            'LogisticRegressionCV': LogisticRegressionCV(random_state=42, max_iter=1000),
+            'RidgeClassifier': RidgeClassifier(random_state=42),
+            'RidgeClassifierCV': RidgeClassifierCV(),
+            'SGDClassifier': SGDClassifier(random_state=42),
+            'PassiveAggressiveClassifier': PassiveAggressiveClassifier(random_state=42),
+            'Perceptron': Perceptron(random_state=42),
+            
+            # Support Vector Machines
+            'SVC': SVC(probability=True, random_state=42),
+            'NuSVC': NuSVC(probability=True, random_state=42),
+            'LinearSVC': LinearSVC(random_state=42),
+            
+            # Naive Bayes
+            'GaussianNB': GaussianNB(),
+            'BernoulliNB': BernoulliNB(),
+            'MultinomialNB': MultinomialNB(),
+            
+            # Neighbors
+            'KNeighborsClassifier': KNeighborsClassifier(),
+            'NearestCentroid': NearestCentroid(),
+            
+            # Trees
+            'DecisionTreeClassifier': DecisionTreeClassifier(random_state=42),
+            'ExtraTreeClassifier': ExtraTreeClassifier(random_state=42),
+            
+            # Discriminant Analysis
+            'LinearDiscriminantAnalysis': LinearDiscriminantAnalysis(),
+            'QuadraticDiscriminantAnalysis': QuadraticDiscriminantAnalysis(),
+            
+            # Neural Networks
+            'MLPClassifier': MLPClassifier(random_state=42, max_iter=500),
+            
+            # Variations avec paramètres différents
+            'RandomForest_50': RandomForestClassifier(n_estimators=50, random_state=42),
+            'RandomForest_200': RandomForestClassifier(n_estimators=200, random_state=42),
+            'SVC_Linear': SVC(kernel='linear', probability=True, random_state=42),
+            'SVC_Poly': SVC(kernel='poly', degree=3, probability=True, random_state=42),
+            'KNN_3': KNeighborsClassifier(n_neighbors=3),
+            'KNN_7': KNeighborsClassifier(n_neighbors=7),
+            'KNN_15': KNeighborsClassifier(n_neighbors=15),
+            'DecisionTree_Max5': DecisionTreeClassifier(max_depth=5, random_state=42),
+            'DecisionTree_Max10': DecisionTreeClassifier(max_depth=10, random_state=42),
+            'LogReg_L1': LogisticRegression(penalty='l1', solver='liblinear', random_state=42),
+            'LogReg_L2': LogisticRegression(penalty='l2', random_state=42),
+            'SGD_Hinge': SGDClassifier(loss='hinge', random_state=42),
+            'SGD_Log': SGDClassifier(loss='log_loss', random_state=42),
+            'AdaBoost_50': AdaBoostClassifier(n_estimators=50, random_state=42),
+            'AdaBoost_200': AdaBoostClassifier(n_estimators=200, random_state=42)
+        }
+        
+        results = {}
+        
+        # Entraînement de chaque modèle
+        for name, model in models_dict.items():
+            try:
+                start_time = time.time()
+                
+                # Entraînement
+                model.fit(X_train, y_train)
+                
+                # Prédictions
+                y_pred = model.predict(X_test)
+                
+                # Probabilités si disponibles
+                if hasattr(model, 'predict_proba'):
+                    try:
+                        y_proba = model.predict_proba(X_test)[:, 1]
+                        auc = roc_auc_score(y_test, y_proba)
+                    except:
+                        auc = 0.5
+                else:
+                    auc = 0.5
+                
+                # Calcul des métriques
+                accuracy = accuracy_score(y_test, y_pred)
+                precision = precision_score(y_test, y_pred, zero_division=0)
+                recall = recall_score(y_test, y_pred, zero_division=0)
+                f1 = f1_score(y_test, y_pred, zero_division=0)
+                
+                time_taken = time.time() - start_time
+                
+                results[name] = {
+                    'Accuracy': accuracy,
+                    'Balanced Accuracy': precision,  # Approximation
+                    'ROC AUC': auc,
+                    'F1 Score': f1,
+                    'Time Taken': time_taken
+                }
+                
+            except Exception as e:
+                st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
+                continue
+        
+        # Conversion en DataFrame
+        results_df = pd.DataFrame(results).T
+        results_df = results_df.sort_values(['ROC AUC', 'Accuracy'], ascending=False)
+        
+        return results_df
+        
+    except Exception as e:
+        st.error(f"❌ Erreur dans l'entraînement manuel : {str(e)}")
+        return None
+
+def display_lazypredict_results(models_df):
+    """Affiche les résultats LazyPredict avec style"""
+    
+    st.markdown("### 📊 Résultats des 40+ Modèles LazyPredict")
+    
+    # Formatage du tableau
+    styled_df = models_df.style.format({
+        'Accuracy': '{:.4f}',
+        'Balanced Accuracy': '{:.4f}',
+        'ROC AUC': '{:.4f}',
+        'F1 Score': '{:.4f}',
+        'Time Taken': '{:.4f}'
+    }).background_gradient(subset=['ROC AUC'], cmap='RdYlGn')
+    
+    st.dataframe(styled_df, use_container_width=True)
+    
+    # Métriques principales
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        best_model = models_df.index[0]
+        st.metric("Meilleur modèle", best_model)
+    
+    with col2:
+        best_auc = models_df.iloc[0]['ROC AUC']
+        st.metric("Meilleur AUC", f"{best_auc:.4f}")
+    
+    with col3:
+        avg_time = models_df['Time Taken'].mean()
+        st.metric("Temps moyen", f"{avg_time:.2f}s")
+    
+    with col4:
+        total_models = len(models_df)
+        st.metric("Modèles testés", total_models)
+    
+    # Graphique de comparaison
+    create_performance_chart(models_df)
+
 
 
 
