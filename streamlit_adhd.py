@@ -396,7 +396,7 @@ def check_rgpd_consent():
         st.warning("⚠️ Veuillez donner votre consentement RGPD avant de continuer")
         if st.button("🔒 Aller au panneau RGPD"):
             st.session_state.tool_choice = "🔒 Panneau RGPD & Conformité IA"
-            st.experimental_rerun()
+            st.rerun()
         return False
 
     consent = st.session_state.rgpd_consent
