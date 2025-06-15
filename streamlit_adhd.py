@@ -1676,7 +1676,7 @@ def show_enhanced_data_exploration():
         st.subheader("📊 Vue d'ensemble du dataset")
 
         # Métriques principales
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
 
         with col1:
             st.metric("Participants", f"{len(df):,}")
