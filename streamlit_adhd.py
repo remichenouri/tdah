@@ -3420,7 +3420,7 @@ def show_enhanced_ml_analysis():
     # Chargement et préparation des données
     try:
         # Garder votre logique de chargement existante
-        df_ml = load_tdah_data()  # Remplacer par votre fonction de chargement
+        df_ml = load_enhanced_dataset()  # Remplacer par votre fonction de chargement
         
         # Préparation spécifique TDAH
         if 'TDAH' not in df_ml.columns:
