@@ -181,6 +181,137 @@ ASRS_OPTIONS = {
     4: "Très souvent"
 }
 
+import streamlit as st
+import pandas as pd
+
+def load_and_persist_dataset():
+    """
+    Fonction robuste pour charger et persister le dataset
+    """
+    # Initialisation sécurisée du session state
+    if 'df_processed' not in st.session_state:
+        st.session_state.df_processed = None
+    if 'dataset_loaded' not in st.session_state:
+        st.session_state.dataset_loaded = False
+    
+    # Interface de chargement
+    st.markdown("### 📂 Chargement des Données")
+    
+    # Option 1: Upload de fichier
+    uploaded_file = st.file_uploader(
+        "Choisir un fichier CSV/Excel", 
+        type=['csv', 'xlsx', 'xls'],
+        key="file_uploader_persistent"
+    )
+    
+    if uploaded_file is not None:
+        try:
+            # Lecture du fichier selon son type
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+            
+            # Validation des données
+            if 'diagnosis' not in df.columns:
+                st.error("❌ La colonne 'diagnosis' est requise dans le dataset")
+                return False
+            
+            # Sauvegarde persistante dans session state
+            st.session_state.df_processed = df.copy()
+            st.session_state.dataset_loaded = True
+            st.session_state.file_name = uploaded_file.name
+            
+            st.success(f"✅ Dataset chargé avec succès: {uploaded_file.name}")
+            st.info(f"📊 Forme du dataset: {df.shape[0]} lignes, {df.shape[1]} colonnes")
+            
+            return True
+            
+        except Exception as e:
+            st.error(f"❌ Erreur lors du chargement: {str(e)}")
+            return False
+    
+    # Option 2: Dataset de démonstration
+    if st.button("🎯 Charger Dataset de Démonstration"):
+        df_demo = create_demo_dataset()
+        st.session_state.df_processed = df_demo
+        st.session_state.dataset_loaded = True
+        st.session_state.file_name = "Dataset de démonstration"
+        st.success("✅ Dataset de démonstration chargé")
+        st.rerun()
+    
+    return st.session_state.dataset_loaded
+
+def check_and_restore_dataset():
+    """
+    Vérifie la présence des données et propose des solutions de récupération
+    """
+    # Vérification de l'état du dataset
+    if 'df_processed' not in st.session_state or st.session_state.df_processed is None:
+        st.warning("⚠️ Aucun dataset détecté dans la session")
+        
+        # Tentative de récupération depuis le cache
+        if 'cached_dataset' in st.session_state:
+            st.session_state.df_processed = st.session_state.cached_dataset
+            st.success("✅ Dataset restauré depuis le cache")
+            return True
+        
+        # Interface de rechargement
+        st.error("❌ Aucun dataset chargé. Veuillez charger des données.")
+        
+        with st.expander("🔄 Options de Récupération", expanded=True):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("📂 Recharger un fichier", type="primary"):
+                    st.session_state.show_upload = True
+                    st.rerun()
+            
+            with col2:
+                if st.button("🎯 Dataset de démonstration"):
+                    df_demo = create_demo_dataset()
+                    st.session_state.df_processed = df_demo
+                    st.session_state.dataset_loaded = True
+                    st.success("✅ Dataset de démonstration chargé")
+                    st.rerun()
+        
+        return False
+    
+    # Dataset présent, affichage des informations
+    df = st.session_state.df_processed
+    st.success(f"✅ Dataset actif: {df.shape[0]} lignes, {df.shape[1]} colonnes")
+    
+    # Sauvegarde de sécurité
+    st.session_state.cached_dataset = df.copy()
+    
+    return True
+
+def setup_session_persistence():
+    """
+    Configure la persistance robuste des sessions
+    """
+    # Initialisation de toutes les variables de session nécessaires
+    session_vars = {
+        'df_processed': None,
+        'dataset_loaded': False,
+        'ml_results': None,
+        'cached_dataset': None,
+        'file_name': None,
+        'show_upload': False
+    }
+    
+    for var, default_value in session_vars.items():
+        if var not in st.session_state:
+            st.session_state[var] = default_value
+    
+    # Debugging des variables de session
+    if st.sidebar.checkbox("🔍 Debug Session State"):
+        st.sidebar.json({
+            k: str(type(v)) if v is not None else "None" 
+            for k, v in st.session_state.items()
+        })
+
+setup_session_persistence()
 def show_rgpd_panel():
     """Affiche le panneau RGPD & Conformité IA"""
     st.markdown("""
