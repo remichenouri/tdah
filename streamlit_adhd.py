@@ -2795,8 +2795,8 @@ def display_simple_results(results):
             st.markdown("---")
 
 
-def run_manual_40_models(X_train, X_test, y_train, y_test):
-    """Alternative manuelle avec 40 modèles ML"""
+def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
+    """Alternative manuelle avec modèles fonctionnels (sans NuSVC problématique)"""
     try:
         from sklearn.ensemble import (
             RandomForestClassifier, GradientBoostingClassifier, 
@@ -2807,8 +2807,8 @@ def run_manual_40_models(X_train, X_test, y_train, y_test):
             RidgeClassifierCV, SGDClassifier, PassiveAggressiveClassifier,
             Perceptron
         )
-        from sklearn.svm import SVC, NuSVC, LinearSVC
-        from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB
+        from sklearn.svm import SVC, LinearSVC  # NuSVC SUPPRIMÉ
+        from sklearn.naive_bayes import GaussianNB, BernoulliNB
         from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
         from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
         from sklearn.discriminant_analysis import (
@@ -2818,7 +2818,7 @@ def run_manual_40_models(X_train, X_test, y_train, y_test):
         from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
         import time
         
-        # Dictionnaire des 40 modèles
+        # Dictionnaire des modèles SANS NuSVC
         models_dict = {
             # Ensemble Methods
             'RandomForestClassifier': RandomForestClassifier(n_estimators=100, random_state=42),
@@ -2836,15 +2836,13 @@ def run_manual_40_models(X_train, X_test, y_train, y_test):
             'PassiveAggressiveClassifier': PassiveAggressiveClassifier(random_state=42),
             'Perceptron': Perceptron(random_state=42),
             
-            # Support Vector Machines
+            # Support Vector Machines (SANS NuSVC)
             'SVC': SVC(probability=True, random_state=42),
-            'NuSVC': NuSVC(probability=True, random_state=42),
             'LinearSVC': LinearSVC(random_state=42),
             
             # Naive Bayes
             'GaussianNB': GaussianNB(),
             'BernoulliNB': BernoulliNB(),
-            'MultinomialNB': MultinomialNB(),
             
             # Neighbors
             'KNeighborsClassifier': KNeighborsClassifier(),
@@ -2878,7 +2876,7 @@ def run_manual_40_models(X_train, X_test, y_train, y_test):
             'AdaBoost_50': AdaBoostClassifier(n_estimators=50, random_state=42),
             'AdaBoost_200': AdaBoostClassifier(n_estimators=200, random_state=42)
         }
-        
+
         results = {}
         
         # Entraînement de chaque modèle
