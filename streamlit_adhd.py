@@ -2871,88 +2871,27 @@ def display_simple_results(results):
             st.markdown("---")
 
 def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
-    """Alternative manuelle avec modèles fonctionnels (sans NuSVC problématique)"""
+    """Version corrigée qui stocke les instances de modèles"""
     try:
         from sklearn.ensemble import (
             RandomForestClassifier, GradientBoostingClassifier, 
-            ExtraTreesClassifier, AdaBoostClassifier, BaggingClassifier
+            ExtraTreesClassifier, AdaBoostClassifier
         )
-        from sklearn.linear_model import (
-            LogisticRegression, LogisticRegressionCV, RidgeClassifier,
-            RidgeClassifierCV, SGDClassifier, PassiveAggressiveClassifier,
-            Perceptron
-        )
-        from sklearn.svm import SVC, LinearSVC  # NuSVC SUPPRIMÉ
-        from sklearn.naive_bayes import GaussianNB, BernoulliNB
-        from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
-        from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
-        from sklearn.discriminant_analysis import (
-            LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
-        )
-        from sklearn.neural_network import MLPClassifier
+        from sklearn.linear_model import LogisticRegression
         from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
         import time
         
-        # Dictionnaire des modèles SANS NuSVC
+        # Dictionnaire des modèles avec instances
         models_dict = {
-            # Ensemble Methods
             'RandomForestClassifier': RandomForestClassifier(n_estimators=100, random_state=42),
-            'GradientBoostingClassifier': GradientBoostingClassifier(random_state=42),
-            'ExtraTreesClassifier': ExtraTreesClassifier(n_estimators=100, random_state=42),
-            'AdaBoostClassifier': AdaBoostClassifier(random_state=42),
-            'BaggingClassifier': BaggingClassifier(random_state=42),
-            
-            # Linear Models
             'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000),
-            'LogisticRegressionCV': LogisticRegressionCV(random_state=42, max_iter=1000),
-            'RidgeClassifier': RidgeClassifier(random_state=42),
-            'RidgeClassifierCV': RidgeClassifierCV(),
-            'SGDClassifier': SGDClassifier(random_state=42),
-            'PassiveAggressiveClassifier': PassiveAggressiveClassifier(random_state=42),
-            'Perceptron': Perceptron(random_state=42),
-            
-            # Support Vector Machines (SANS NuSVC)
-            'SVC': SVC(probability=True, random_state=42),
-            'LinearSVC': LinearSVC(random_state=42),
-            
-            # Naive Bayes
-            'GaussianNB': GaussianNB(),
-            'BernoulliNB': BernoulliNB(),
-            
-            # Neighbors
-            'KNeighborsClassifier': KNeighborsClassifier(),
-            'NearestCentroid': NearestCentroid(),
-            
-            # Trees
-            'DecisionTreeClassifier': DecisionTreeClassifier(random_state=42),
-            'ExtraTreeClassifier': ExtraTreeClassifier(random_state=42),
-            
-            # Discriminant Analysis
-            'LinearDiscriminantAnalysis': LinearDiscriminantAnalysis(),
-            'QuadraticDiscriminantAnalysis': QuadraticDiscriminantAnalysis(),
-            
-            # Neural Networks
-            'MLPClassifier': MLPClassifier(random_state=42, max_iter=500),
-            
-            # Variations avec paramètres différents
-            'RandomForest_50': RandomForestClassifier(n_estimators=50, random_state=42),
-            'RandomForest_200': RandomForestClassifier(n_estimators=200, random_state=42),
-            'SVC_Linear': SVC(kernel='linear', probability=True, random_state=42),
-            'SVC_Poly': SVC(kernel='poly', degree=3, probability=True, random_state=42),
-            'KNN_3': KNeighborsClassifier(n_neighbors=3),
-            'KNN_7': KNeighborsClassifier(n_neighbors=7),
-            'KNN_15': KNeighborsClassifier(n_neighbors=15),
-            'DecisionTree_Max5': DecisionTreeClassifier(max_depth=5, random_state=42),
-            'DecisionTree_Max10': DecisionTreeClassifier(max_depth=10, random_state=42),
+            'GradientBoostingClassifier': GradientBoostingClassifier(random_state=42),
             'LogReg_L1': LogisticRegression(penalty='l1', solver='liblinear', random_state=42),
-            'LogReg_L2': LogisticRegression(penalty='l2', random_state=42),
-            'SGD_Hinge': SGDClassifier(loss='hinge', random_state=42),
-            'SGD_Log': SGDClassifier(loss='log_loss', random_state=42),
-            'AdaBoost_50': AdaBoostClassifier(n_estimators=50, random_state=42),
-            'AdaBoost_200': AdaBoostClassifier(n_estimators=200, random_state=42)
+            'LogReg_L2': LogisticRegression(penalty='l2', random_state=42, max_iter=1000)
         }
-
+        
         results = {}
+        model_instances = {}  # Stockage séparé des instances
         
         for name, model in models_dict.items():
             try:
@@ -2974,7 +2913,7 @@ def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
                 else:
                     auc = 0.5
                 
-                # Calcul des métriques - ATTENTION aux noms de colonnes
+                # Calcul des métriques
                 accuracy = accuracy_score(y_test, y_pred)
                 precision = precision_score(y_test, y_pred, zero_division=0)
                 recall = recall_score(y_test, y_pred, zero_division=0)
@@ -2982,22 +2921,34 @@ def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
                 
                 time_taken = time.time() - start_time
                 
-                # Utiliser des noms cohérents pour les colonnes
+                # Stockage des résultats AVEC l'instance du modèle
                 results[name] = {
                     'Accuracy': float(accuracy),
-                    'Balanced Accuracy': float(accuracy),  # Ou calculer la balanced accuracy réelle
-                    'ROC AUC': float(auc),  # AVEC ESPACE, pas underscore
+                    'Balanced Accuracy': float(accuracy),
+                    'ROC AUC': float(auc),
                     'F1 Score': float(f1),
-                    'Time Taken': float(time_taken)
+                    'Time Taken': float(time_taken),
+                    'model_instance': model  # CRUCIAL : stocker l'instance
                 }
+                
+                # Stockage séparé pour l'optimisation
+                model_instances[name] = model
                 
             except Exception as e:
                 st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
                 continue
         
         if results:
-            # Créer le DataFrame avec les bons noms de colonnes
-            results_df = pd.DataFrame(results).T
+            # Stocker les instances dans session state pour l'optimisation
+            st.session_state.model_instances = model_instances
+            
+            # Créer le DataFrame sans les instances pour l'affichage
+            display_results = {}
+            for name, data in results.items():
+                display_data = {k: v for k, v in data.items() if k != 'model_instance'}
+                display_results[name] = display_data
+            
+            results_df = pd.DataFrame(display_results).T
             results_df_sorted = results_df.sort_values(['ROC AUC', 'Accuracy'], ascending=False)
             return results_df_sorted
         else:
