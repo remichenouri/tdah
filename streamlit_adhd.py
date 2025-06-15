@@ -865,7 +865,6 @@ def load_enhanced_dataset():
 
         # Chargement du dataset
         df = pd_local.read_csv(download_url)
-        df.rename(columns={'diagnosis': 'TDAH'}, inplace=True)
         return df
 
     except Exception as e:
