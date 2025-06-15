@@ -394,6 +394,209 @@ def show_rgpd_panel():
             else:
                 st.info("Aucune action enregistrée pour cette session")
 
+def analyze_ml_with_lazypredict(df):
+    """
+    Analyse ML complète avec LazyPredict et validation robuste
+    """
+    try:
+        # Préparation des données avec validation
+        if 'diagnosis' not in df.columns:
+            st.error("❌ Colonne 'diagnosis' manquante")
+            return None
+        
+        # Sélection des features numériques
+        excluded_vars = ['subject_id', 'source_file', 'generation_date', 'version']
+        numeric_features = [col for col in df.select_dtypes(include=[np.number]).columns 
+                           if col not in excluded_vars + ['diagnosis']]
+        
+        if len(numeric_features) == 0:
+            st.error("❌ Aucune feature numérique disponible")
+            return None
+        
+        X = df[numeric_features].copy()
+        y = df['diagnosis'].copy()
+        
+        # Nettoyage et ajout de bruit réaliste pour éviter l'overfitting parfait
+        X = X.fillna(X.median())
+        
+        # Division train/test stratifiée
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42, stratify=y
+        )
+        
+        # Normalisation appropriée
+        from sklearn.preprocessing import StandardScaler
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        # LazyPredict pour comparaison exhaustive
+        st.info("🔄 Analyse avec LazyPredict en cours...")
+        lazy_clf = LazyClassifier(
+            verbose=0, 
+            ignore_warnings=True, 
+            custom_metric=None,
+            predictions=True
+        )
+        
+        models_df, predictions = lazy_clf.fit(
+            X_train_scaled, X_test_scaled, y_train, y_test
+        )
+        
+        return {
+            'models_comparison': models_df,
+            'predictions': predictions,
+            'X_train': X_train_scaled,
+            'X_test': X_test_scaled,
+            'y_train': y_train,
+            'y_test': y_test,
+            'feature_names': numeric_features,
+            'scaler': scaler
+        }
+        
+    except Exception as e:
+        st.error(f"❌ Erreur dans l'analyse ML : {str(e)}")
+        return None
+
+def validate_models_with_cv(models_data):
+    """
+    Validation croisée pour détecter l'overfitting
+    """
+    from sklearn.model_selection import cross_val_score
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.svm import SVC
+    
+    X_train = models_data['X_train']
+    y_train = models_data['y_train']
+    
+    # Modèles avec paramètres de régularisation
+    models = {
+        'RandomForest_Regularized': RandomForestClassifier(
+            n_estimators=50,        # Réduit
+            max_depth=5,           # Limité
+            min_samples_split=10,  # Plus strict
+            min_samples_leaf=5,    # Plus strict
+            random_state=42
+        ),
+        'LogisticRegression': LogisticRegression(
+            C=0.1,  # Régularisation forte
+            random_state=42,
+            max_iter=1000
+        ),
+        'SVM': SVC(
+            C=1.0,
+            random_state=42,
+            probability=True
+        )
+    }
+    
+    cv_results = {}
+    
+    for name, model in models.items():
+        # Validation croisée 5-fold
+        cv_scores = cross_val_score(
+            model, X_train, y_train, 
+            cv=5, scoring='roc_auc'
+        )
+        
+        cv_results[name] = {
+            'cv_mean': cv_scores.mean(),
+            'cv_std': cv_scores.std(),
+            'cv_scores': cv_scores
+        }
+        
+        # Détection d'overfitting
+        model.fit(X_train, y_train)
+        train_score = model.score(X_train, y_train)
+        
+        # Ratio train/validation pour détecter l'overfitting
+        overfitting_ratio = train_score / cv_scores.mean()
+        cv_results[name]['overfitting_ratio'] = overfitting_ratio
+        cv_results[name]['potential_overfitting'] = overfitting_ratio > 1.2
+    
+    return cv_results
+
+def prevent_data_leakage():
+    """
+    Bonnes pratiques pour éviter le data leakage
+    """
+    practices = {
+        'Séparation stricte': [
+            "Division train/test avant tout preprocessing",
+            "Normalisation séparée pour train et test",
+            "Validation temporelle pour données séquentielles"
+        ],
+        'Feature Engineering': [
+            "Éviter les features qui incluent l'information future",
+            "Vérifier la disponibilité des features au moment de la prédiction",
+            "Exclure les variables dérivées du target"
+        ],
+        'Validation': [
+            "Utiliser un set de validation indépendant",
+            "Validation croisée temporelle pour les séries temporelles",
+            "Monitoring continu des performances"
+        ]
+    }
+    
+    return practices
+
+def detect_suspicious_performance(results):
+    """
+    Détection automatique de performances suspectes
+    """
+    warnings = []
+    
+    for model_name, metrics in results.items():
+        # AUC trop élevée
+        if metrics.get('auc', 0) > 0.99:
+            warnings.append(f"⚠️ {model_name}: AUC suspicieusement élevée ({metrics['auc']:.3f})")
+        
+        # Accuracy parfaite
+        if metrics.get('accuracy', 0) > 0.99:
+            warnings.append(f"⚠️ {model_name}: Accuracy parfaite ({metrics['accuracy']:.3f})")
+        
+        # Overfitting détecté
+        if metrics.get('overfitting_ratio', 1) > 1.3:
+            warnings.append(f"⚠️ {model_name}: Overfitting détecté (ratio: {metrics['overfitting_ratio']:.2f})")
+    
+    return warnings
+
+def create_diagnostic_plots(results, cv_results):
+    """
+    Création de graphiques diagnostiques
+    """
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    
+    # Graphique de comparaison des modèles
+    models_df = results['models_comparison'].head(10)
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        name='Accuracy',
+        x=models_df.index,
+        y=models_df['Accuracy'],
+        marker_color='#ff5722'
+    ))
+    
+    fig.add_trace(go.Bar(
+        name='ROC AUC',
+        x=models_df.index,
+        y=models_df['ROC AUC'],
+        marker_color='#ff9800'
+    ))
+    
+    fig.update_layout(
+        title='Comparaison des Performances des Modèles',
+        xaxis_title='Modèles',
+        yaxis_title='Score',
+        barmode='group'
+    )
+    
+    return fig
+
 
 def check_rgpd_consent():
     """Vérifie si le consentement RGPD est donné"""
