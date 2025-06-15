@@ -2386,7 +2386,9 @@ def train_optimized_models(df):
 
 def show_enhanced_ml_analysis():
     """Interface d'analyse ML enrichie avec LazyPredict et optimisation automatique"""
-    
+    from lazypredict.Supervised import LazyClassifier
+    import joblib
+    from sklearn.model_selection import GridSearchCV
     # Import des bibliothèques nécessaires
     try:
         from lazypredict.Supervised import LazyClassifier
@@ -2421,6 +2423,11 @@ def show_enhanced_ml_analysis():
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+    joblib.dump(optimized_model, "model_cache/best_model.joblib")
+
+# Chargement rapide
+    loaded_model = joblib.load("model_cache/best_model.joblib")
 
     # Chargement du dataset
     df = load_enhanced_dataset()
