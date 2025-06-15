@@ -2625,6 +2625,178 @@ def save_models_securely(models_data):
         except Exception as e:
             st.error(f"❌ Erreur sauvegarde alternative : {str(e)}")
 
+def get_saved_models_list():
+    """Retourne la liste des modèles sauvegardés"""
+    try:
+        import os
+        
+        # Création du dossier s'il n'existe pas
+        if not os.path.exists("model_cache"):
+            os.makedirs("model_cache", exist_ok=True)
+            return []
+        
+        # Récupération des fichiers .joblib
+        files = [f for f in os.listdir("model_cache") if f.endswith('.joblib')]
+        
+        # Tri par date de modification (plus récents en premier)
+        files_with_time = []
+        for f in files:
+            file_path = os.path.join("model_cache", f)
+            mod_time = os.path.getmtime(file_path)
+            files_with_time.append((f, mod_time))
+        
+        # Tri par temps de modification décroissant
+        files_with_time.sort(key=lambda x: x[1], reverse=True)
+        
+        return [f[0] for f in files_with_time]
+        
+    except Exception as e:
+        st.error(f"❌ Erreur lors de la récupération des modèles : {str(e)}")
+        return []
+
+def load_saved_model(filename):
+    """Charge un modèle sauvegardé avec Joblib"""
+    try:
+        import joblib
+        import os
+        
+        # Vérification de l'existence du fichier
+        full_path = os.path.join("model_cache", filename)
+        if not os.path.exists(full_path):
+            st.error(f"❌ Fichier non trouvé : {filename}")
+            return None
+        
+        # Chargement du modèle avec Joblib
+        loaded_data = joblib.load(full_path) [17]
+        
+        # Validation des données chargées
+        if not isinstance(loaded_data, dict):
+            st.warning("⚠️ Format de données inattendu")
+            return loaded_data
+        
+        # Vérification des clés essentielles
+        required_keys = ['model', 'timestamp']
+        missing_keys = [key for key in required_keys if key not in loaded_data]
+        
+        if missing_keys:
+            st.warning(f"⚠️ Clés manquantes dans le modèle : {missing_keys}")
+        
+        return loaded_data
+        
+    except ImportError:
+        st.error("❌ Joblib non disponible. Installez avec : pip install joblib")
+        return None
+    except Exception as e:
+        st.error(f"❌ Erreur de chargement : {str(e)}")
+        return None
+
+def get_top_models(models_results, n=3):
+    """Sélectionne les n meilleurs modèles selon l'AUC"""
+    try:
+        # Conversion en DataFrame pour faciliter le tri
+        df_results = pd.DataFrame(models_results).T
+        
+        # Tri par ROC_AUC décroissant
+        df_sorted = df_results.sort_values('ROC_AUC', ascending=False)
+        
+        # Sélection des n premiers
+        top_models = {}
+        for i, (model_name, row) in enumerate(df_sorted.head(n).iterrows()):
+            top_models[model_name] = {
+                'auc': row.get('ROC_AUC', 0),
+                'accuracy': row.get('Accuracy', 0),
+                'model': models_results[model_name].get('model')
+            }
+        
+        return top_models
+        
+    except Exception as e:
+        st.error(f"❌ Erreur sélection top modèles : {str(e)}")
+        return {}
+
+def display_optimization_results(optimized_results):
+    """Affiche les résultats d'optimisation des modèles"""
+    st.markdown("### 🏆 Résultats de l'optimisation")
+    
+    # Tableau des résultats
+    results_data = []
+    for model_name, results in optimized_results.items():
+        results_data.append({
+            'Modèle': model_name,
+            'Meilleurs paramètres': str(results.get('best_params', 'N/A')),
+            'Score CV': f"{results.get('best_score', 0):.4f}",
+            'Accuracy Test': f"{results.get('test_accuracy', 0):.4f}",
+            'AUC Test': f"{results.get('test_auc', 0):.4f}"
+        })
+    
+    if results_data:
+        results_df = pd.DataFrame(results_data)
+        st.dataframe(results_df, use_container_width=True)
+    else:
+        st.warning("Aucun résultat d'optimisation disponible")
+
+def simple_ml_analysis(X_train, X_test, y_train, y_test):
+    """Version simplifiée de l'analyse ML"""
+    try:
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.metrics import accuracy_score, classification_report
+        
+        models = {
+            'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
+            'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000)
+        }
+        
+        results = {}
+        
+        for name, model in models.items():
+            # Entraînement
+            model.fit(X_train, y_train)
+            
+            # Prédiction
+            y_pred = model.predict(X_test)
+            
+            # Métriques
+            accuracy = accuracy_score(y_test, y_pred)
+            report = classification_report(y_test, y_pred, output_dict=True)
+            
+            results[name] = {
+                'accuracy': accuracy,
+                'precision': report['weighted avg']['precision'],
+                'recall': report['weighted avg']['recall'],
+                'f1': report['weighted avg']['f1-score'],
+                'model': model
+            }
+        
+        return results
+        
+    except Exception as e:
+        st.error(f"❌ Erreur analyse simplifiée : {str(e)}")
+        return None
+
+def display_simple_results(results):
+    """Affiche les résultats de l'analyse simplifiée"""
+    st.markdown("### 📊 Résultats de l'Analyse Simplifiée")
+    
+    for name, metrics in results.items():
+        if name != 'model':
+            st.markdown(f"**{name}:**")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Accuracy", f"{metrics['accuracy']:.3f}")
+            with col2:
+                st.metric("Precision", f"{metrics['precision']:.3f}")
+            with col3:
+                st.metric("Recall", f"{metrics['recall']:.3f}")
+            with col4:
+                st.metric("F1-Score", f"{metrics['f1']:.3f}")
+            
+            st.markdown("---")
+
+
+
+
 
 def show_enhanced_ml_analysis():
     """Interface d'analyse ML corrigée avec gestion d'erreur robuste"""
