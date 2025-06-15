@@ -2089,154 +2089,6 @@ def load_ml_libraries():
 if 'ml_libs_loaded' not in st.session_state:
     st.session_state.ml_libs_loaded = load_ml_libraries()
 
-def prepare_ml_data_safe(df):
-    """Préparation des données ML avec gestion d'erreur complète"""
-    try:
-        # Import local sécurisé
-        import numpy as np_safe
-        import pandas as pd_safe
-
-        # Vérification du dataset
-        if df is None or len(df) == 0:
-            st.error("❌ Dataset vide ou non disponible")
-            return None, None, None, None
-
-        # Vérification de la colonne target
-        if 'diagnosis' not in df.columns:
-            st.error("❌ Colonne 'diagnosis' manquante dans le dataset")
-            return None, None, None, None
-
-        # Préparation des features
-        feature_columns = [col for col in df.columns if col not in ['diagnosis', 'subject_id']]
-
-        if len(feature_columns) == 0:
-            st.error("❌ Aucune feature disponible pour l'entraînement")
-            return None, None, None, None
-
-        # Sélection des variables numériques uniquement pour éviter les erreurs
-        numeric_features = []
-        for col in feature_columns:
-            try:
-                # Test de conversion numérique
-                pd_safe.to_numeric(df[col], errors='coerce')
-                if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
-                    numeric_features.append(col)
-            except:
-                continue
-
-        if len(numeric_features) == 0:
-            st.error("❌ Aucune variable numérique trouvée")
-            return None, None, None, None
-
-        # Préparation des données
-        X = df[numeric_features].copy()
-        y = df['diagnosis'].copy()
-
-        # Nettoyage des valeurs manquantes
-        X = X.fillna(X.mean())
-
-        # Vérification des dimensions
-        st.info(f"📊 Dimensions finales : X={X.shape}, y={y.shape}")
-
-        # Division train/test avec protection
-        try:
-            from sklearn.model_selection import train_test_split
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y,
-                test_size=0.2,
-                random_state=42,
-                stratify=y if len(np_safe.unique(y)) > 1 else None
-            )
-
-            return X_train, X_test, y_train, y_test
-
-        except Exception as e:
-            st.error(f"❌ Erreur lors de la division : {str(e)}")
-            return None, None, None, None
-
-    except Exception as e:
-        st.error(f"❌ Erreur dans la préparation des données : {str(e)}")
-        return None, None, None, None
-
-def train_simple_models_safe(X_train, X_test, y_train, y_test):
-    """Entraînement de modèles ML simplifié et sécurisé"""
-    try:
-        import numpy as np_train
-
-        results = {}
-
-        # Modèles simples à entraîner
-        models_to_test = {
-            'RandomForest': {
-                'class': RandomForestClassifier,
-                'params': {'n_estimators': 100, 'random_state': 42, 'max_depth': 10}
-            },
-            'LogisticRegression': {
-                'class': LogisticRegression,
-                'params': {'random_state': 42, 'max_iter': 1000}
-            }
-        }
-
-        # Entraînement de chaque modèle
-        for model_name, model_config in models_to_test.items():
-            try:
-
-                # Initialisation du modèle
-                model = model_config['class'](**model_config['params'])
-
-                # Entraînement
-                model.fit(X_train, y_train)
-
-                # Prédictions
-                y_pred = model.predict(X_test)
-
-                # Calcul des métriques avec protection
-                try:
-                    accuracy = accuracy_score(y_test, y_pred)
-                    precision = precision_score(y_test, y_pred, zero_division=0)
-                    recall = recall_score(y_test, y_pred, zero_division=0)
-                    f1 = f1_score(y_test, y_pred, zero_division=0)
-
-                    # AUC seulement si proba disponible
-                    try:
-                        y_proba = model.predict_proba(X_test)[:, 1]
-                        auc = roc_auc_score(y_test, y_proba)
-                    except:
-                        auc = 0.5  # Valeur par défaut
-
-                    results[model_name] = {
-                        'model': model,
-                        'accuracy': accuracy,
-                        'precision': precision,
-                        'recall': recall,
-                        'f1': f1,
-                        'auc': auc
-                    }
-
-                except Exception as metric_error:
-                    st.warning(f"⚠️ Erreur métriques {model_name}: {metric_error}")
-                    continue
-
-            except Exception as model_error:
-                st.warning(f"⚠️ Erreur entraînement {model_name}: {model_error}")
-                continue
-
-        if len(results) == 0:
-            st.error("❌ Aucun modèle n'a pu être entraîné")
-            return None
-
-        # Sélection du meilleur modèle
-        best_model_name = max(results.keys(), key=lambda x: results[x]['accuracy'])
-
-        return {
-            'models': results,
-            'best_model_name': best_model_name,
-            'training_completed': True
-        }
-
-    except Exception as e:
-        st.error(f"❌ Erreur générale d'entraînement : {str(e)}")
-        return None
 
 def check_ml_dependencies():
     """Vérifie que toutes les dépendances ML sont disponibles"""
@@ -2284,104 +2136,6 @@ def safe_model_prediction(model, X_data):
         st.error(f"❌ Erreur de prédiction : {str(e)}")
         return None, None
 
-
-@st.cache_resource(show_spinner="Entraînement des modèles...")
-def train_optimized_models(df):
-    """Pipeline ML optimisée avec sélection automatique de modèle"""
-    try:
-        # Préparation des données
-        X = df.drop('diagnosis', axis=1)
-        y = df['diagnosis']
-
-        # Division des données
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y,
-            test_size=0.2,
-            stratify=y,
-            random_state=42
-        )
-
-        # Phase 1: Sélection de modèle avec LazyPredict
-        lazy_clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=None)
-        models, predictions = lazy_clf.fit(X_train, X_test, y_train, y_test)
-
-        # Sélection des top 3 modèles
-        top_models = models.head(3).index.tolist()
-
-        # Configuration GridSearch pour les hyperparamètres
-        param_grids = {
-            'RandomForestClassifier': {
-                'n_estimators': [100, 200],
-                'max_depth': [None, 10, 20],
-                'min_samples_split': [2, 5]
-            },
-            'LogisticRegression': {
-                'C': [0.1, 1, 10],
-                'solver': ['lbfgs', 'liblinear']
-            },
-            'XGBClassifier': {
-                'n_estimators': [100, 200],
-                'learning_rate': [0.01, 0.1],
-                'max_depth': [3, 6]
-            }
-        }
-
-        # Entraînement des meilleurs modèles avec GridSearch
-        best_models = {}
-        for model_name in top_models:
-            try:
-                model_class = globals()[model_name]
-                grid_search = GridSearchCV(
-                    estimator=model_class(),
-                    param_grid=param_grids.get(model_name, {}),
-                    cv=3,
-                    n_jobs=-1,
-                    scoring='roc_auc'
-                )
-                grid_search.fit(X_train, y_train)
-
-                best_models[model_name] = {
-                    'model': grid_search.best_estimator_,
-                    'params': grid_search.best_params_,
-                    'score': grid_search.best_score_
-                }
-
-            except Exception as e:
-                st.warning(f"Erreur sur {model_name}: {str(e)}")
-                continue
-
-        # Validation finale
-        results = {}
-        for name, data in best_models.items():
-            model = data['model']
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
-            y_proba = model.predict_proba(X_test)[:,1] if hasattr(model, 'predict_proba') else None
-
-            # Métriques avec protection division par zéro
-            metrics = {
-                'accuracy': accuracy_score(y_test, y_pred),
-                'precision': precision_score(y_test, y_pred, zero_division=0),
-                'recall': recall_score(y_test, y_pred, zero_division=0),
-                'f1': f1_score(y_test, y_pred, zero_division=0),
-                'auc': roc_auc_score(y_test, y_proba) if y_proba is not None and len(np.unique(y_test)) > 1 else 0.5,
-                'best_params': data['params']
-            }
-
-            results[name] = metrics
-
-        # Sélection du meilleur modèle
-        best_model_name = max(results.keys(), key=lambda x: results[x]['auc'])
-
-        return {
-            'best_model': best_models[best_model_name]['model'],
-            'all_results': results,
-            'lazy_report': models
-        }
-
-    except Exception as e:
-        st.error(f"Erreur d'entraînement : {str(e)}")
-        return None
 def compare_models_manually(X_train, X_test, y_train, y_test):
     """Comparaison manuelle de modèles ML sans LazyPredict"""
     try:
@@ -2498,6 +2252,74 @@ def create_comparison_chart(df_results):
     )
     
     st.plotly_chart(fig, use_container_width=True)
+
+def display_manual_results(models_results):
+    """Affiche les résultats de la comparaison manuelle des modèles"""
+    
+    # Formatage du tableau avec style
+    st.markdown("### 📊 Résultats des 35+ Modèles (Comparaison Manuelle)")
+    
+    # Formatage des colonnes numériques
+    styled_df = models_results.style.format({
+        'Accuracy': '{:.4f}',
+        'Balanced Accuracy': '{:.4f}',
+        'ROC AUC': '{:.4f}',
+        'F1 Score': '{:.4f}',
+        'Time Taken': '{:.2f}s'
+    }).background_gradient(subset=['ROC AUC'], cmap='RdYlGn')
+    
+    st.dataframe(styled_df, use_container_width=True)
+    
+    # Métriques principales
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        best_model = models_results.index[0]
+        st.metric("Meilleur modèle", best_model)
+    
+    with col2:
+        best_auc = models_results.iloc[0]['ROC AUC']
+        st.metric("Meilleur AUC", f"{best_auc:.4f}")
+    
+    with col3:
+        avg_time = models_results['Time Taken'].mean()
+        st.metric("Temps moyen", f"{avg_time:.2f}s")
+    
+    with col4:
+        total_models = len(models_results)
+        st.metric("Modèles testés", total_models)
+    
+    # Graphique de comparaison
+    create_performance_chart_manual(models_results)
+
+def create_performance_chart_manual(df_results):
+    """Crée un graphique de comparaison pour les résultats manuels"""
+    
+    fig = go.Figure()
+    
+    # Graphique en barres pour les métriques principales
+    metrics = ['Accuracy', 'Balanced Accuracy', 'ROC AUC', 'F1 Score']
+    
+    for metric in metrics:
+        fig.add_trace(go.Bar(
+            name=metric,
+            x=df_results.index[:10],  # Top 10 seulement pour la lisibilité
+            y=df_results[metric][:10],
+            text=[f"{v:.3f}" for v in df_results[metric][:10]],
+            textposition='auto'
+        ))
+    
+    fig.update_layout(
+        title="Comparaison des Performances - Top 10 Modèles",
+        xaxis_title="Modèles",
+        yaxis_title="Score",
+        barmode='group',
+        height=500,
+        showlegend=True
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
 
 def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
     """Optimise les hyperparamètres des meilleurs modèles"""
