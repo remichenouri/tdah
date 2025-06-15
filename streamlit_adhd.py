@@ -3423,7 +3423,7 @@ def show_enhanced_ml_analysis():
         df_ml = load_enhanced_dataset()  # Remplacer par votre fonction de chargement
         
         # Préparation spécifique TDAH
-        if 'diagnosis' not in df.columns:
+        if 'diagnosis' not in df_ml.columns:
             st.error("❌ Colonne 'diagnosis' manquante …")
             return
         
