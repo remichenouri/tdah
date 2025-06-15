@@ -2762,13 +2762,24 @@ def load_saved_model(filename):
         return None
 
 def get_top_models(models_results, n=3):
-    """Sélectionne les n meilleurs modèles selon l'AUC"""
     try:
-        # Conversion en DataFrame pour faciliter le tri
         df_results = pd.DataFrame(models_results).T
         
-        # Tri par ROC_AUC décroissant
-        df_sorted = df_results.sort_values('ROC_AUC', ascending=False)
+        # Vérifier les colonnes disponibles
+        available_columns = df_results.columns.tolist()
+        
+        # Utiliser le bon nom de colonne selon ce qui est disponible
+        if 'ROC_AUC' in available_columns:
+            sort_column = 'ROC_AUC'
+        elif 'roc_auc' in available_columns:
+            sort_column = 'roc_auc'
+        elif 'AUC' in available_columns:
+            sort_column = 'AUC'
+        else:
+            # Fallback sur accuracy si AUC n'est pas disponible
+            sort_column = 'Accuracy'
+            
+        df_sorted = df_results.sort_values(sort_column, ascending=False)
         
         # Sélection des n premiers
         top_models = {}
@@ -2950,7 +2961,6 @@ def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
 
         results = {}
         
-        # Entraînement de chaque modèle
         for name, model in models_dict.items():
             try:
                 start_time = time.time()
@@ -2971,7 +2981,7 @@ def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
                 else:
                     auc = 0.5
                 
-                # Calcul des métriques
+                # Calcul des métriques - ATTENTION aux noms de colonnes
                 accuracy = accuracy_score(y_test, y_pred)
                 precision = precision_score(y_test, y_pred, zero_division=0)
                 recall = recall_score(y_test, y_pred, zero_division=0)
@@ -2979,28 +2989,36 @@ def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
                 
                 time_taken = time.time() - start_time
                 
+                # Utiliser des noms cohérents pour les colonnes
                 results[name] = {
                     'Accuracy': accuracy,
-                    'Balanced Accuracy': precision,  # Approximation
-                    'ROC AUC': auc,
-                    'F1 Score': f1,
-                    'Time Taken': time_taken
+                    'Precision': precision,
+                    'Recall': recall,
+                    'F1_Score': f1,
+                    'ROC_AUC': auc,  # Utiliser ROC_AUC de manière cohérente
+                    'Time_Taken': time_taken,
+                    'model': model  # Garder une référence au modèle
                 }
                 
             except Exception as e:
                 st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
                 continue
         
-        # Conversion en DataFrame
-        results_df = pd.DataFrame(results).T
-        results_df = results_df.sort_values(['ROC AUC', 'Accuracy'], ascending=False)
-        
-        return results_df
+        # Conversion en DataFrame avec gestion d'erreur
+        if results:
+            results_df = pd.DataFrame(results).T
+            # Retirer la colonne 'model' pour l'affichage mais la garder séparément
+            display_df = results_df.drop('model', axis=1, errors='ignore')
+            results_df_sorted = display_df.sort_values(['ROC_AUC', 'Accuracy'], ascending=False)
+            return results_df_sorted
+        else:
+            st.error("❌ Aucun modèle n'a pu être entraîné avec succès")
+            return None
         
     except Exception as e:
-        st.error(f"❌ Erreur dans l'entraînement manuel : {str(e)}")
+        st.error(f"❌ Erreur dans l'entraînement des modèles : {str(e)}")
         return None
-
+        
 def show_enhanced_ml_analysis():
     """Interface d'analyse ML avec LazyPredict - 40+ modèles"""
     
@@ -3041,13 +3059,19 @@ def show_enhanced_ml_analysis():
                 
                 # Préparation des données
                 X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
+                
+                # Stocker dans session state pour utilisation ultérieure
+                st.session_state.X_train = X_train
+                st.session_state.X_test = X_test
+                st.session_state.y_train = y_train
+                st.session_state.y_test = y_test
+                
                 models_results = run_manual_40_models_fixed(X_train, X_test, y_train, y_test)
                         
                 if models_results is not None:
                     st.session_state.models_results = models_results
-                    st.success(f"✅ {len(models_results)} modèles comparés manuellement!")
+                    st.success(f"✅ {len(models_results)} modèles comparés!")
                     display_manual_results(models_results)
-
 
     with ml_tabs[1]:
         st.subheader("🏆 Optimisation des Meilleurs Modèles")
@@ -3059,20 +3083,29 @@ def show_enhanced_ml_analysis():
             st.markdown("### 🎯 Top 3 modèles sélectionnés")
             
             best_models = get_top_models(models_results, n=3)
-            for i, (model_name, metrics) in enumerate(best_models.items(), 1):
-                st.markdown(f"**{i}. {model_name}** - AUC: {metrics.get('auc', 0):.4f}")
             
             if st.button("🔧 Optimiser le Top 3", type="primary"):
-                with st.spinner("Optimisation en cours..."):
-                    optimized_results = optimize_selected_models(best_models, X_train, X_test, y_train, y_test)
-                    
-                    if optimized_results:
-                        st.session_state.optimized_models = optimized_results
-                        st.success("✅ Optimisation terminée!")
-                        display_optimization_results(optimized_results)
+                # Vérifier que les données d'entraînement sont disponibles
+                if all(key in st.session_state for key in ['X_train', 'X_test', 'y_train', 'y_test']):
+                    with st.spinner("Optimisation en cours..."):
+                        # Récupérer les données depuis session state
+                        X_train = st.session_state.X_train
+                        X_test = st.session_state.X_test
+                        y_train = st.session_state.y_train
+                        y_test = st.session_state.y_test
+                        
+                        optimized_results = optimize_selected_models(
+                            best_models, X_train, X_test, y_train, y_test
+                        )
+                        
+                        if optimized_results:
+                            st.session_state.optimized_models = optimized_results
+                            st.success("✅ Optimisation terminée!")
+                            display_optimization_results(optimized_results)
+                else:
+                    st.error("❌ Les données d'entraînement ne sont pas disponibles. Veuillez d'abord lancer la comparaison des modèles.")
         else:
             st.warning("Veuillez d'abord exécuter la comparaison de modèles")
-
     with ml_tabs[2]:
         st.subheader("📊 Visualisations Avancées")
         
