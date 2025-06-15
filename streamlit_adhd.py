@@ -2762,38 +2762,56 @@ def load_saved_model(filename):
         return None
 
 def get_top_models(models_results, n=3):
+    """Version corrigée avec gestion robuste des colonnes"""
     try:
-        df_results = pd.DataFrame(models_results).T
-        
-        # Vérifier les colonnes disponibles
-        available_columns = df_results.columns.tolist()
-        
-        # Utiliser le bon nom de colonne selon ce qui est disponible
-        if 'ROC_AUC' in available_columns:
-            sort_column = 'ROC_AUC'
-        elif 'roc_auc' in available_columns:
-            sort_column = 'roc_auc'
-        elif 'AUC' in available_columns:
-            sort_column = 'AUC'
+        # Conversion sécurisée en DataFrame
+        if isinstance(models_results, dict):
+            df_results = pd.DataFrame(models_results).T
         else:
-            # Fallback sur accuracy si AUC n'est pas disponible
-            sort_column = 'Accuracy'
-            
-        df_sorted = df_results.sort_values(sort_column, ascending=False)
+            df_results = models_results.copy()
         
-        # Sélection des n premiers
+        # Retirer la colonne 'model' si elle existe pour l'affichage
+        if 'model' in df_results.columns:
+            display_df = df_results.drop('model', axis=1)
+        else:
+            display_df = df_results.copy()
+        
+        # Vérifier les colonnes disponibles et trouver la colonne AUC
+        available_columns = display_df.columns.tolist()
+        print(f"Colonnes disponibles : {available_columns}")  # Debug
+        
+        # Hiérarchie de préférence pour la colonne de tri
+        sort_column = None
+        for col_name in ['ROC_AUC', 'roc_auc', 'AUC', 'auc', 'Accuracy', 'accuracy']:
+            if col_name in available_columns:
+                sort_column = col_name
+                break
+        
+        if sort_column is None:
+            st.error("❌ Aucune métrique de performance trouvée")
+            return {}
+        
+        # Tri par la colonne trouvée
+        df_sorted = display_df.sort_values(sort_column, ascending=False)
+        
+        # Sélection des n premiers modèles
         top_models = {}
         for i, (model_name, row) in enumerate(df_sorted.head(n).iterrows()):
+            # Récupération sécurisée des métriques
+            auc_value = row.get('ROC_AUC', row.get('roc_auc', row.get('AUC', 0)))
+            accuracy_value = row.get('Accuracy', row.get('accuracy', 0))
+            
             top_models[model_name] = {
-                'auc': row.get('ROC_AUC', 0),
-                'accuracy': row.get('Accuracy', 0),
-                'model': models_results[model_name].get('model')
+                'auc': float(auc_value),
+                'accuracy': float(accuracy_value),
+                'model': models_results.get(model_name, {}).get('model') if isinstance(models_results, dict) else None
             }
         
         return top_models
         
     except Exception as e:
-        st.error(f"❌ Erreur sélection top modèles : {str(e)}")
+        st.error(f"❌ Erreur dans get_top_models : {str(e)}")
+        st.info("💡 Vérifiez le format du DataFrame des résultats")
         return {}
 
 def display_optimization_results(optimized_results):
