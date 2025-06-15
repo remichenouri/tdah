@@ -2743,7 +2743,7 @@ def load_saved_model(filename):
         return None
 
 def get_top_models(models_results, n=3):
-    """Version robuste avec gestion des variations de noms"""
+    """Version corrigée pour récupérer les meilleurs modèles avec leurs instances"""
     try:
         # Conversion sécurisée en DataFrame
         if isinstance(models_results, dict):
@@ -2751,11 +2751,13 @@ def get_top_models(models_results, n=3):
         else:
             df_results = models_results.copy()
         
-        # Vérifier les colonnes disponibles
-        available_columns = df_results.columns.tolist()
-        st.write(f"Debug - Colonnes disponibles : {available_columns}")
+        # Retirer la colonne 'model' pour le tri si elle existe
+        display_df = df_results.drop('model', axis=1, errors='ignore')
         
-        # Hiérarchie de préférence pour la colonne AUC
+        # Vérifier les colonnes disponibles
+        available_columns = display_df.columns.tolist()
+        
+        # Trouver la colonne AUC appropriée
         auc_column = None
         for col_name in ['ROC AUC', 'ROC_AUC', 'roc_auc', 'AUC', 'auc']:
             if col_name in available_columns:
@@ -2763,18 +2765,22 @@ def get_top_models(models_results, n=3):
                 break
         
         if auc_column is None:
-            st.error("❌ Aucune colonne AUC trouvée")
-            return {}
+            # Fallback sur Accuracy si AUC non disponible
+            auc_column = 'Accuracy'
         
-        # Tri par la colonne AUC trouvée
-        df_sorted = df_results.sort_values(auc_column, ascending=False)
+        # Tri par performance
+        df_sorted = display_df.sort_values(auc_column, ascending=False)
         
-        # Sélection des n premiers modèles
+        # Sélection des n meilleurs modèles avec leurs instances
         top_models = {}
         for i, (model_name, row) in enumerate(df_sorted.head(n).iterrows()):
+            # Créer une nouvelle instance du modèle pour l'optimisation
+            model_instance = create_model_instance(model_name)
+            
             top_models[model_name] = {
-                'auc': float(row[auc_column]),
-                'accuracy': float(row.get('Accuracy', 0))
+                'auc': float(row.get(auc_column, 0)),
+                'accuracy': float(row.get('Accuracy', 0)),
+                'model': model_instance
             }
         
         return top_models
@@ -2782,6 +2788,7 @@ def get_top_models(models_results, n=3):
     except Exception as e:
         st.error(f"❌ Erreur dans get_top_models : {str(e)}")
         return {}
+
 
 def display_optimization_results(optimized_results):
     """Affiche les résultats d'optimisation des modèles"""
