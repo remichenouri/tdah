@@ -2799,18 +2799,18 @@ def display_simple_results(results):
 
 
 def show_enhanced_ml_analysis():
-    """Interface d'analyse ML corrigée avec gestion d'erreur robuste"""
+    """Interface d'analyse ML avec LazyPredict - 40+ modèles"""
     
     st.markdown("""
     <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
                 padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
         <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
                    text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            🧠 Analyse ML Avancée
+            🧠 Analyse ML Avancée - 40+ Modèles
         </h1>
         <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
                   max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Comparaison automatique et optimisation de modèles ML
+            Comparaison automatique avec LazyPredict et optimisation de modèles ML
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -2823,43 +2823,53 @@ def show_enhanced_ml_analysis():
 
     # Onglets pour l'analyse ML
     ml_tabs = st.tabs([
-        "🔬 Comparaison de Modèles",
-        "🏆 Modèles Optimisés", 
+        "🔬 LazyPredict - 40+ Modèles",
+        "🏆 Top 5 Optimisés", 
         "📊 Visualisations",
         "💾 Sauvegarde",
         "📈 Métriques"
     ])
 
     with ml_tabs[0]:
-        st.subheader("🔬 Comparaison Automatique de Modèles")
+        st.subheader("🔬 LazyPredict - Comparaison de 40+ Modèles ML")
         
-        if st.button("🚀 Lancer la Comparaison de Modèles", type="primary"):
-            with st.spinner("Comparaison en cours..."):
+        # Vérification des dépendances
+        st.info("💡 Installation requise : `pip install lazypredict scikit-learn==1.0.2`")
+        
+        # Option de fallback si LazyPredict n'est pas disponible
+        use_fallback = st.checkbox("Utiliser l'alternative manuelle (si LazyPredict indisponible)", value=False)
+        
+        if st.button("🚀 Lancer la Comparaison Massive", type="primary"):
+            with st.spinner("Entraînement de 40+ modèles en cours..."):
                 
                 # Préparation des données
                 X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
                 
                 if X_train is not None:
-                    try:
-                        # Alternative à LazyPredict - Comparaison manuelle
-                        models_results = compare_models_manually(X_train, X_test, y_train, y_test)
+                    if not use_fallback:
+                        try:
+                            # Tentative avec LazyPredict
+                            models_results = run_lazypredict_analysis(X_train, X_test, y_train, y_test)
+                            
+                            if models_results is not None:
+                                st.session_state.models_results = models_results
+                                st.success(f"✅ {len(models_results)} modèles comparés avec LazyPredict!")
+                                display_lazypredict_results(models_results)
+                            
+                        except Exception as e:
+                            st.warning(f"⚠️ LazyPredict indisponible : {str(e)}")
+                            st.info("💡 Basculement vers l'alternative manuelle...")
+                            use_fallback = True
+                    
+                    if use_fallback:
+                        # Alternative manuelle avec 40 modèles
+                        models_results = run_manual_40_models(X_train, X_test, y_train, y_test)
                         
                         if models_results is not None:
                             st.session_state.models_results = models_results
-                            st.success(f"✅ {len(models_results)} modèles comparés avec succès!")
-                            
-                            # Affichage des résultats
-                            display_models_comparison(models_results)
-                        
-                    except Exception as e:
-                        st.error(f"❌ Erreur lors de la comparaison : {str(e)}")
-                        st.info("💡 Utilisez la version simplifiée ci-dessous")
-                        
-                        # Fallback vers analyse simplifiée
-                        simple_results = simple_ml_analysis(X_train, X_test, y_train, y_test)
-                        if simple_results:
-                            st.session_state.simple_results = simple_results
-                            display_simple_results(simple_results)
+                            st.success(f"✅ {len(models_results)} modèles comparés manuellement!")
+                            display_manual_results(models_results)
+
 
     with ml_tabs[1]:
         st.subheader("🏆 Optimisation des Meilleurs Modèles")
