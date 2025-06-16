@@ -3544,23 +3544,6 @@ def show_enhanced_ml_analysis():
     </div>
     """, unsafe_allow_html=True)
     
-    df_ml = load_enhanced_dataset()
-    if df_ml is None or df_ml.empty:
-        st.error("❌ Dataset introuvable ou vide.")
-        return
-
-    # 2. Sélection dynamique des colonnes existantes
-    available_num = [c for c in ['age', 'stress_level', 'quality_of_life'] if c in df_ml.columns]
-    available_cat = [c for c in ['gender', 'education', 'job_status'] if c in df_ml.columns]
-
-    # 3. Préprocesseur ColumnTransformer
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ('num', StandardScaler(), available_num),
-            ('cat', OneHotEncoder(handle_unknown='ignore'), available_cat)
-        ],
-        remainder='passthrough'
-    )
     
     # Message d'introduction vulgarisé
     st.markdown("""
