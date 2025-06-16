@@ -3207,53 +3207,7 @@ def show_enhanced_ml_analysis():
             self.metrics = {}
             
             
-        def train(self, df):
-            """Entraîne le modèle Naive Bayes"""
-            X, y = df
-            
-            # Division train/test stratifiée
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.2, random_state=42, stratify=y
-            )
-            
-            # Normalisation (améliore les performances)
-            X_train_scaled = self.scaler.fit_transform(X_train)
-            X_test_scaled = self.scaler.transform(X_test)
-            
-            # Entraînement
-            self.model.fit(X_train_scaled, y_train)
-            self.is_trained = True
-            
-            # Évaluation
-            y_pred = self.model.predict(X_test_scaled)
-            y_proba = self.model.predict_proba(X_test_scaled)[:, 1]
-            
-            # Calcul des métriques
-            self.metrics = {
-                'accuracy': accuracy_score(y_test, y_pred),
-                'precision': precision_score(y_test, y_pred, zero_division=0),
-                'recall': recall_score(y_test, y_pred, zero_division=0),
-                'f1_score': f1_score(y_test, y_pred, zero_division=0),
-                'roc_auc': roc_auc_score(y_test, y_proba),
-                'n_samples': len(df),
-                'n_train': len(X_train),
-                'n_test': len(X_test),
-                'prevalence': y.mean()
-            }
-            
-            # Validation croisée
-            cv_scores = cross_val_score(
-                self.model, X_train_scaled, y_train, 
-                cv=5, scoring='roc_auc'
-            )
-            self.metrics['cv_auc_mean'] = cv_scores.mean()
-            self.metrics['cv_auc_std'] = cv_scores.std()
-            
-            # Optimisation du seuil pour dépistage (maximiser recall)
-            self._optimize_threshold_for_screening(X_test_scaled, y_test)
-            
-            return self.metrics, X_test_scaled, y_test, y_pred, y_proba
-            
+        
         def _optimize_threshold_for_screening(self, X_test, y_test):
             """Optimise le seuil pour maximiser la détection (recall)"""
             y_proba = self.model.predict_proba(X_test)[:, 1]
