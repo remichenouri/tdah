@@ -3720,7 +3720,7 @@ def show_enhanced_ml_analysis():
             """, unsafe_allow_html=True)
             
             # Tri des modèles par F1-score (priorité au dépistage)
-            sorted_models = sorted(results.items(), key=lambda x: x[1]['f1'], reverse=True)
+            sorted_models = sorted(results.items(), key=lambda x: x[1]['accuracy'], reverse=True)
             
             for i, (name, metrics) in enumerate(sorted_models):
                 rank_icon = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}️⃣"
