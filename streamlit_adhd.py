@@ -3874,14 +3874,7 @@ def show_enhanced_ml_analysis():
         with col1:
             st.markdown("### 🎛️ Réglage du Seuil")
             
-            threshold = st.slider(
-                "Seuil de décision",
-                min_value=0.1,
-                max_value=0.9,
-                value=0.5,
-                step=0.05,
-                help="Plus le seuil est bas, plus le modèle sera sensible (détectera plus de cas)"
-            )
+            threshold = st.slider("Seuil (caché)", 0.1, 0.9, 0.5, step=0.05, label_visibility="hidden")
             
             # Calcul des métriques avec le nouveau seuil
             y_pred_threshold = (y_pred_proba_lr >= threshold).astype(int)
