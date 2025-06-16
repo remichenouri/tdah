@@ -3526,7 +3526,9 @@ def show_enhanced_ml_analysis():
             Analyse prédictive avancée pour l'identification précoce du TDAH
         </p>
     </div>
-    """, unsafe_allow_html=True)def show_enhanced_ml_analysis():
+    """, unsafe_allow_html=True)
+    
+    def show_enhanced_ml_analysis():
     """
     Analyse ML restructurée avec focus sur Naive Bayes pour dépistage TDAH
     Version vulgarisée et fonctionnelle
