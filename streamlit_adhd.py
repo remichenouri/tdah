@@ -3357,34 +3357,11 @@ def train_and_evaluate(_models, X_train, y_train, X_test, y_test):
         }
     return results
 
-
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-available_num = [c for c in ['age','stress_level','quality_of_life'] if c in df_ml.columns]
-available_cat = [c for c in ['gender','education','job_status'] if c in df_ml.columns]
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', StandardScaler(), available_num),
-        ('cat', OneHotEncoder(handle_unknown='ignore'), available_cat)
-    ],
-    remainder='passthrough'
-)
-
 def show_enhanced_ml_analysis():
     """Version améliorée de l'analyse ML avec format du streamlit autisme adapté au TDAH"""
     
-    import plotly.express as px
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
-    import numpy as np
-    import pandas as pd
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.tree import DecisionTreeClassifier
-    from sklearn.svm import SVC
-    from sklearn.naive_bayes import GaussianNB
+    from sklearn.compose import ColumnTransformer
+    from sklearn.preprocessing import StandardScaler, OneHotEncoder
     from sklearn.preprocessing import StandardScaler, OneHotEncoder
     from sklearn.compose import ColumnTransformer
     from sklearn.pipeline import Pipeline
@@ -3546,7 +3523,25 @@ def show_enhanced_ml_analysis():
         </p>
     </div>
     """, unsafe_allow_html=True)
+    
+    df_ml = load_enhanced_dataset()
+    if df_ml is None or df_ml.empty:
+        st.error("❌ Dataset introuvable ou vide.")
+        return
 
+    # 2. Sélection dynamique des colonnes existantes
+    available_num = [c for c in ['age', 'stress_level', 'quality_of_life'] if c in df_ml.columns]
+    available_cat = [c for c in ['gender', 'education', 'job_status'] if c in df_ml.columns]
+
+    # 3. Préprocesseur ColumnTransformer
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', StandardScaler(), available_num),
+            ('cat', OneHotEncoder(handle_unknown='ignore'), available_cat)
+        ],
+        remainder='passthrough'
+    )
+    
     # Message d'introduction vulgarisé
     st.markdown("""
     <div class="explanation-box-tdah">
