@@ -3732,8 +3732,7 @@ def show_enhanced_ml_analysis():
                         <h4 style="color: {'#D35400' if is_winner else '#2C3E50'}; margin: 0; display: flex; align-items: center;">
                             <span style="margin-right: 10px; font-size: 1.5rem;">{rank_icon}</span>
                             {name}
-                            {'<span style="margin-left: 10px; background: #FF6B35; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">CHAMPION</span>' if is_winner else ''}
-                        </h4>
+                            {'<span style="margin-left: 10px; background: #FF6B35; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">CHAMPION</span>' if is_winner else ''}</h4>
                         <div style="font-size: 1.1rem; font-weight: bold; color: {'#D35400' if is_winner else '#7F8C8D'};">
                             Score F1: {metrics['f1']:.3f}
                         </div>
