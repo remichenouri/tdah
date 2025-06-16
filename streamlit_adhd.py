@@ -2167,7 +2167,7 @@ def compare_models_by_recall(X_train, X_test, y_train, y_test):
         
         results = {}
         
-        for name, model in models.items():
+        for name, model in _models.items():
             try:
                 # Entraînement
                 model.fit(X_train, y_train)
