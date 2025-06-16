@@ -3212,6 +3212,11 @@ def show_enhanced_ml_analysis():
             Entraîne le modèle Naive Bayes sur le DataFrame `df` et calcule les métriques de performance.
             Retourne un tuple : (metrics, X_test, y_test, y_pred, y_proba).
             """
+            gender_map    = {'M': 0, 'F': 1}
+            education_map = {'Bac': 0, 'Bac+2': 1, 'Bac+3': 2, 'Bac+5': 3, 'Doctorat': 4}
+            df['gender']    = df['gender'].map(gender_map)
+            df['education'] = df['education'].map(education_map)
+
             # 1. Séparation des caractéristiques et de la cible
             X = df.drop(columns=['diagnosis'])
             y = df['diagnosis']
