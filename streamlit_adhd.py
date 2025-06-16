@@ -3665,7 +3665,7 @@ def show_enhanced_ml_analysis():
                     </div>
                     """, unsafe_allow_html=True)
                 
-                   st.markdown("""
+                st.markdown("""
                     <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
                         <span style="font-weight: 600; color: #d84315;">Précision : 0.702</span>
                         <span style="font-weight: 600; color: #d84315;">Rappel : 0.240</span>
@@ -3674,7 +3674,7 @@ def show_enhanced_ml_analysis():
                     </div>
                     """, unsafe_allow_html=True)
 
-                    st.markdown("""
+                st.markdown("""
                     {'<p style="color: #27AE60; font-weight: bold; margin: 0;"><i>🎯 Optimal pour le dépistage TDAH - Excellent équilibre précision/rappel</i></p>' if is_winner else ''}
                 </div>
                 """, unsafe_allow_html=True)
