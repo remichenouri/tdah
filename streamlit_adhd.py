@@ -3528,7 +3528,7 @@ def show_enhanced_ml_analysis():
     </div>
     """, unsafe_allow_html=True)
     
-    def show_enhanced_ml_analysis():
+def show_enhanced_ml_analysis():
     """
     Analyse ML restructurée avec focus sur Naive Bayes pour dépistage TDAH
     Version vulgarisée et fonctionnelle
