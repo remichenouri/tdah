@@ -3357,6 +3357,25 @@ def train_and_evaluate(_models, _preprocessor, X_train, y_train, X_test, y_test)
             'cv_std': cv_scores.std()
         }
     return results
+
+@st.cache_data(ttl=86400, show_spinner=False)
+        def load_comparison_results():
+            """Charge les résultats de comparaison depuis Google Drive"""
+            try:
+                url = 'https://drive.google.com/uc?export=download&id=1tbho_ft9iqDmjD1enMS2uztHyjhkimwG'
+                local_filename = 'model_cache/comparison_results.pkl'
+                
+                # Créer le dossier si nécessaire
+                os.makedirs('model_cache', exist_ok=True)
+                
+                # Télécharger uniquement si le fichier n'existe pas
+                if not os.path.exists(local_filename):
+                    with st.spinner("Chargement des modèles pré-entraînés..."):
+                        gdown.download(url, local_filename, quiet=True, fuzzy=True)
+                
+                return joblib.load(local_filename)
+                
+                
 def show_enhanced_ml_analysis():
     """Version améliorée de l'analyse ML avec format du streamlit autisme adapté au TDAH"""
     
@@ -3691,11 +3710,7 @@ def show_enhanced_ml_analysis():
             
     # ONGLET 2: Comparaison Rapide
     with ml_tabs[1]:
-        url = 'https://drive.google.com/file/d/1tbho_ft9iqDmjD1enMS2uztHyjhkimwG/view?usp=drive_link'
-        file_id = url.split('/d/')[1].split('/')[0]
-        pkf_path = f'https://drive.google.com/uc?export=download&id={file_id}'
-        # Chargement des résultats pré-entraînés
-        comparison_results = joblib.load(pkf_path)
+                
         st.markdown("""
         <div class="preprocessing-header-tdah">
             <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;">
@@ -3707,8 +3722,16 @@ def show_enhanced_ml_analysis():
         </div>
         """, unsafe_allow_html=True)
 
-        df_results = pd.DataFrame(comparison_results)
-        df_results = df_results.sort_values(by="recall", ascending=False)
+        comparison_results = load_comparison_results()
+    
+        if comparison_results:
+            df_results = pd.DataFrame(comparison_results)
+            df_results = df_results.sort_values(by="recall", ascending=False)
+            
+            st.markdown("### ⚡ Comparaison Rapide des Modèles")
+            st.dataframe(df_results, use_container_width=True)
+        else:
+            st.error("Impossible de charger les données de comparaison")
     
         # 3. Affichage du tableau et d’un graphique
         st.markdown("### ⚡ Comparaison Rapide des Modèles (pré-entraînés)")
