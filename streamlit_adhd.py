@@ -3747,7 +3747,7 @@ def show_enhanced_ml_analysis():
                 y_test=y_test
             )
             
-        for name, model in models.items():
+        for name, model in _models.items():
             try:
                 pipeline = Pipeline([
                         ('preprocessor', preprocessor),
