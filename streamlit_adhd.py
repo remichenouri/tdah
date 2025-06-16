@@ -3412,7 +3412,26 @@ def show_enhanced_ml_analysis():
         # Chargement et entraînement du modèle
         if 'tdah_nb_model' not in st.session_state:
             with st.spinner("🔄 Entraînement du modèle Naive Bayes en cours..."):
-                df=df_ml
+                def load_enhanced_dataset():
+                    """Charge le dataset TDAH enrichi depuis Google Drive avec gestion d'erreur"""
+                    try:
+                        # Import local de pandas pour éviter les erreurs de portée
+                        import pandas as pd_local
+                        import numpy as np_local
+                
+                        # URL du dataset Google Drive
+                        url = 'https://drive.google.com/file/d/1EMiEsDyetI82vrs1FL2kyxUI-WD4v3Cs/view?usp=drive_link'
+                        file_id = url.split('/d/')[1].split('/')[0]
+                        download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+                
+                        # Chargement du dataset
+                        df = pd_local.read_csv(download_url)
+                        return df
+                
+                    except Exception as e:
+                        st.error(f"Erreur lors du chargement du dataset Google Drive: {str(e)}")
+                        st.info("Utilisation de données simulées à la place")
+                        return create_fallback_dataset()
                 # Création et entraînement du modèle
                 detector = TDAHNaiveBayesDetector()
                 metrics, X_test, y_test, y_pred, y_proba = detector.train(df)
