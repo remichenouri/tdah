@@ -3412,7 +3412,7 @@ def show_enhanced_ml_analysis():
         # Chargement et entraînement du modèle
         if 'tdah_nb_model' not in st.session_state:
             with st.spinner("🔄 Entraînement du modèle Naive Bayes en cours..."):
-                
+                df=df_ml
                 # Création et entraînement du modèle
                 detector = TDAHNaiveBayesDetector()
                 metrics, X_test, y_test, y_pred, y_proba = detector.train(df)
