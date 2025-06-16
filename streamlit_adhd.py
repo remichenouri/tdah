@@ -3008,7 +3008,7 @@ def simple_ml_analysis(X_train, X_test, y_train, y_test):
         
         results = {}
         
-        for name, model in models.items():
+        for name, model in _models.items():
             # Entraînement
             model.fit(X_train, y_train)
             
