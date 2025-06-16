@@ -3690,7 +3690,9 @@ def show_enhanced_ml_analysis():
             
     # ONGLET 2: Comparaison Rapide
     with ml_tabs[1]:
-        pkf_path = "model_cache/model_comparison_results.pkl"
+        url = 'https://drive.google.com/file/d/1tbho_ft9iqDmjD1enMS2uztHyjhkimwG/view?usp=drive_link'
+        file_id = url.split('/d/')[1].split('/')[0]
+        pkf_path = f'https://drive.google.com/uc?export=download&id={file_id}'
         # Chargement des résultats pré-entraînés
         comparison_results = joblib.load(pkf_path)
         st.markdown("""
@@ -3703,16 +3705,8 @@ def show_enhanced_ml_analysis():
             </p>
         </div>
         """, unsafe_allow_html=True)
-        def show_quick_comparison_tab(preprocessor, X_train, y_train, X_test, y_test):
-        # 1. Chargement des résultats PKL
-        results_path = "model_cache/model_comparison_results.pkl"
-        try:
-            results_dict = joblib.load(results_path)
-        except Exception as e:
-            st.error(f"Impossible de charger les résultats pré-entraînés : {e}")
-            return
 
-        df_results = pd.DataFrame(results_dict).T  # transpose si nécessaire
+        df_results = pd.DataFrame(comparison_results)
         df_results = df_results.sort_values(by="recall", ascending=False)
     
         # 3. Affichage du tableau et d’un graphique
@@ -3730,12 +3724,12 @@ def show_enhanced_ml_analysis():
     
         if results:
             # Tri des modèles par recall (sensibilité) décroissant
-            sorted_models = sorted(results.items(),
+            sorted_models = sorted(df_results.items(),
                                    key=lambda x: x[1]['recall'],
                                    reverse=True)
     
             # Affichage du classement avec mise en avant du champion
-            for i, (name, metrics) in enumerate(sorted_models):
+            for i, (name, metrics) in enumerate(df_results):
                 is_best = (i == 0)
                 icon = "🥇" if is_best else f"{i+1}️"
                 st.markdown(f"""
