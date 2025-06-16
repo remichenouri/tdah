@@ -3544,36 +3544,6 @@ def show_enhanced_ml_analysis():
     </div>
     """, unsafe_allow_html=True)
 
-    # Chargement et préparation des données
-    try:
-        # Garder votre logique de chargement existante
-        df_ml = load_enhanced_dataset()  # Remplacer par votre fonction de chargement
-        
-        # Préparation spécifique TDAH
-        if 'diagnosis' not in df_ml.columns:
-            st.error("❌ Colonne 'diagnosis' manquante …")
-            return
-        
-        X = df_ml.drop(columns=['diagnosis'])
-        y = df_ml['diagnosis']
-        
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-        
-        # Préprocesseur
-        numerical_cols = X.select_dtypes(include=['int64', 'float64']).columns.tolist()
-        categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
-
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ('num', StandardScaler(), numerical_cols),
-                ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_cols)
-            ],
-            remainder='passthrough'
-        )
-        
-    except Exception as e:
-        st.error(f"Erreur lors du chargement des données: {str(e)}")
-        return
 
     # Système d'onglets amélioré
     ml_tabs = st.tabs([
