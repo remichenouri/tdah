@@ -3713,7 +3713,7 @@ def show_enhanced_ml_analysis():
 
         # Affichage des résultats
         if results:
-            st.html("""
+            st.markdown("""
             <div class="info-card-tdah">
                 <h3 class="section-title-tdah">🏆 Classement des Modèles</h3>
             </div>
@@ -3726,7 +3726,7 @@ def show_enhanced_ml_analysis():
                 rank_icon = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}️⃣"
                 is_winner = i == 0
                 
-                st.html(f"""
+                st.markdown(f"""
                 <div class="model-card-tdah {'winner' if is_winner else ''}">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h4 style="color: {'#D35400' if is_winner else '#2C3E50'}; margin: 0; display: flex; align-items: center;">
@@ -3740,7 +3740,7 @@ def show_enhanced_ml_analysis():
                     </div>
                     """, unsafe_allow_html=True)
                 
-                st.html("""
+                st.markdown("""
                     <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
                         <span style="font-weight: 600; color: #d84315;">Précision : 0.702</span>
                         <span style="font-weight: 600; color: #d84315;">Rappel : 0.240</span>
@@ -3749,7 +3749,7 @@ def show_enhanced_ml_analysis():
                     </div>
                     """, unsafe_allow_html=True)
 
-                st.html("""
+                st.markdown("""
                 <p style="color: #27AE60; font-weight: bold; margin: 0;">
                     <i>🎯 Optimal pour le dépistage TDAH – Excellent équilibre précision/rappel</i>
                 </p>
