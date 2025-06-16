@@ -1660,9 +1660,6 @@ def show_enhanced_data_exploration():
     # Chargement du dataset
     df = load_enhanced_dataset()
 
-    if df is None or len(df) == 0:
-        st.error("Impossible de charger le dataset")
-        return
 
     # Onglets d'exploration
     tabs = st.tabs([
