@@ -3333,14 +3333,14 @@ def display_optimization_results(optimized_results):
                 st.metric(param, str(value))
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def train_and_evaluate(_models, X_train, y_train, X_test, y_test):
+def train_and_evaluate(_models, _preprocessor, X_train, y_train, X_test, y_test):
     from sklearn.metrics import recall_score, precision_score, accuracy_score, roc_auc_score
     from sklearn.model_selection import cross_val_score
 
     results = {}
     for name, model in _models.items():
         pipeline = Pipeline([
-            ('preprocessor', _preprocessor),
+            ('preprocessor', _preprocessor),  # Utiliser le paramètre
             ('classifier', model)
         ])
         cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5)
@@ -3356,7 +3356,6 @@ def train_and_evaluate(_models, X_train, y_train, X_test, y_test):
             'cv_std': cv_scores.std()
         }
     return results
-
 def show_enhanced_ml_analysis():
     """Version améliorée de l'analyse ML avec format du streamlit autisme adapté au TDAH"""
     
