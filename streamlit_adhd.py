@@ -3675,9 +3675,11 @@ def show_enhanced_ml_analysis():
                     """, unsafe_allow_html=True)
 
                 st.markdown("""
-                    {'<p style="color: #27AE60; font-weight: bold; margin: 0;"><i>🎯 Optimal pour le dépistage TDAH - Excellent équilibre précision/rappel</i></p>' if is_winner else ''}
-                </div>
+                <p style="color: #27AE60; font-weight: bold; margin: 0;">
+                    <i>🎯 Optimal pour le dépistage TDAH – Excellent équilibre précision/rappel</i>
+                </p>
                 """, unsafe_allow_html=True)
+
 
     # ONGLET 3: Analyse Régression Logistique
     with ml_tabs[2]:
