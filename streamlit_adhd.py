@@ -3148,19 +3148,7 @@ def show_enhanced_ml_analysis():
         </p>
     </div>
     """, unsafe_allow_html=True)
-    
-    
-    class TDAHNaiveBayesDetector:
-        """Détecteur TDAH optimisé avec Naive Bayes pour dépistage de masse"""
-        
-        def __init__(self):
-            self.model = GaussianNB()
-            self.scaler = StandardScaler()
-            self.feature_names = []
-            self.is_trained = False
-            self.metrics = {}
-            
-        def show_comparison_tab():
+    def show_comparison_tab():
             st.header("📈 Comparaison des modèles")
             url = 'https://drive.google.com/file/d/1RcR4zRToSAVSa6h5T6ZmONenJcRm6-bi/view?usp=drive_link'
             file_id = url.split('/d/')[1].split('/')[0]
@@ -3176,6 +3164,18 @@ def show_enhanced_ml_analysis():
                 "recall":"{:.4f}",    "f1_score":"{:.4f}",
                 "roc_auc":"{:.4f}"
             }))
+    
+    
+    class TDAHNaiveBayesDetector:
+        """Détecteur TDAH optimisé avec Naive Bayes pour dépistage de masse"""
+        
+        def __init__(self):
+            self.model = GaussianNB()
+            self.scaler = StandardScaler()
+            self.feature_names = []
+            self.is_trained = False
+            self.metrics = {}
+            
             
         def train(self, df):
             """Entraîne le modèle Naive Bayes"""
