@@ -3731,7 +3731,7 @@ def show_enhanced_ml_analysis():
                 estimators=[
                     ('rf', RandomForestClassifier(random_state=42)),
                     ('xgb', XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)),
-                    ('lgbm', LGBMClassifier(random_state=42))
+                    ('lgbm', LGBMClassifier(force_col_wise=True, random_state=42))
                 ],
                 voting='soft'
             ),
