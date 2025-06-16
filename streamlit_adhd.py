@@ -3331,6 +3331,30 @@ def display_optimization_results(optimized_results):
             with params_cols[i % 4]:
                 st.metric(param, str(value))
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def train_and_evaluate(models, X_train, y_train, X_test, y_test):
+    from sklearn.metrics import recall_score, precision_score, accuracy_score, roc_auc_score
+    from sklearn.model_selection import cross_val_score
+
+    results = {}
+    for name, model in models.items():
+        pipeline = Pipeline([
+            ('preprocessor', preprocessor),
+            ('classifier', model)
+        ])
+        cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5)
+        pipeline.fit(X_train, y_train)
+        y_pred = pipeline.predict(X_test)
+        y_proba = pipeline.predict_proba(X_test)[:,1]
+        results[name] = {
+            'accuracy': accuracy_score(y_test, y_pred),
+            'precision': precision_score(y_test, y_pred, zero_division=0),
+            'recall': recall_score(y_test, y_pred, zero_division=0),
+            'auc': roc_auc_score(y_test, y_proba),
+            'cv_mean': cv_scores.mean(),
+            'cv_std': cv_scores.std()
+        }
+    return results
 
 
 def show_enhanced_ml_analysis():
@@ -3708,6 +3732,7 @@ def show_enhanced_ml_analysis():
             'KNN': KNeighborsClassifier(n_neighbors=5, weights='distance'),
             'MLP': MLPClassifier(hidden_layer_sizes=(50,50), max_iter=500, random_state=42)
         }
+        
         results = {}
         with st.spinner("🔄 Entraînement des modèles en cours..."):
             for name, model in models.items():
