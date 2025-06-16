@@ -3734,7 +3734,7 @@ def show_enhanced_ml_analysis():
                             {name}
                             {'<span style="margin-left: 10px; background: #FF6B35; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">CHAMPION</span>' if is_winner else ''}</h4>
                         <div style="font-size: 1.1rem; font-weight: bold; color: {'#D35400' if is_winner else '#7F8C8D'};">
-                            Score F1: {metrics['f1']:.3f}
+                            Accuracy: {metrics['accuracy']:.3f}
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
