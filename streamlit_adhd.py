@@ -3332,7 +3332,7 @@ def display_optimization_results(optimized_results):
                 st.metric(param, str(value))
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def train_and_evaluate(models, X_train, y_train, X_test, y_test):
+def train_and_evaluate(_models, X_train, y_train, X_test, y_test):
     from sklearn.metrics import recall_score, precision_score, accuracy_score, roc_auc_score
     from sklearn.model_selection import cross_val_score
 
@@ -3732,9 +3732,9 @@ def show_enhanced_ml_analysis():
             'KNN': KNeighborsClassifier(n_neighbors=5, weights='distance'),
             'MLP': MLPClassifier(hidden_layer_sizes=(50,50), max_iter=500, random_state=42)
         }
-        results = train_and_evaluate(models, X_train, y_train, X_test, y_test)
+        results = train_and_evaluate(_models, X_train, y_train, X_test, y_test)
         with st.spinner("🔄 Entraînement des modèles en cours..."):
-            for name, model in models.items():
+            for name, model in _models.items():
                 try:
                     pipeline = Pipeline([
                         ('preprocessor', preprocessor),
