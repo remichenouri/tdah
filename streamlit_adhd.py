@@ -3021,512 +3021,6 @@ def simple_ml_analysis(X_train, X_test, y_train, y_test):
     except Exception as e:
         st.error(f"❌ Erreur analyse simplifiée : {str(e)}")
         return None
-
-def display_simple_results(results):
-    """Affiche les résultats de l'analyse simplifiée"""
-    st.markdown("### 📊 Résultats de l'Analyse Simplifiée")
-    
-    for name, metrics in results.items():
-        if name != 'model':
-            st.markdown(f"**{name}:**")
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Accuracy", f"{metrics['accuracy']:.3f}")
-            with col2:
-                st.metric("Precision", f"{metrics['precision']:.3f}")
-            with col3:
-                st.metric("Recall", f"{metrics['recall']:.3f}")
-            with col4:
-                st.metric("F1-Score", f"{metrics['f1']:.3f}")
-            
-            st.markdown("---")
-
-def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
-    """Version corrigée qui stocke les instances de modèles"""
-    try:
-        from sklearn.ensemble import (
-            RandomForestClassifier, GradientBoostingClassifier, 
-            ExtraTreesClassifier, AdaBoostClassifier
-        )
-        from sklearn.linear_model import LogisticRegression
-        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
-        import time
-        
-        # Dictionnaire des modèles avec instances
-        models_dict = {
-            'RandomForestClassifier': RandomForestClassifier(n_estimators=100, random_state=42),
-            'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000),
-            'GradientBoostingClassifier': GradientBoostingClassifier(random_state=42),
-            'LogReg_L1': LogisticRegression(penalty='l1', solver='liblinear', random_state=42),
-            'LogReg_L2': LogisticRegression(penalty='l2', random_state=42, max_iter=1000)
-        }
-        
-        results = {}
-        model_instances = {}  # Stockage séparé des instances
-        
-        for name, model in models_dict.items():
-            try:
-                start_time = time.time()
-                
-                # Entraînement
-                model.fit(X_train, y_train)
-                
-                # Prédictions
-                y_pred = model.predict(X_test)
-                
-                # Probabilités si disponibles
-                if hasattr(model, 'predict_proba'):
-                    try:
-                        y_proba = model.predict_proba(X_test)[:, 1]
-                        auc = roc_auc_score(y_test, y_proba)
-                    except:
-                        auc = 0.5
-                else:
-                    auc = 0.5
-                
-                # Calcul des métriques
-                accuracy = accuracy_score(y_test, y_pred)
-                precision = precision_score(y_test, y_pred, zero_division=0)
-                recall = recall_score(y_test, y_pred, zero_division=0)
-                f1 = f1_score(y_test, y_pred, zero_division=0)
-                
-                time_taken = time.time() - start_time
-                
-                # Stockage des résultats AVEC l'instance du modèle
-                results[name] = {
-                    'Accuracy': float(accuracy),
-                    'Balanced Accuracy': float(accuracy),
-                    'ROC AUC': float(auc),
-                    'F1 Score': float(f1),
-                    'Time Taken': float(time_taken),
-                    'model_instance': model  # CRUCIAL : stocker l'instance
-                }
-                
-                # Stockage séparé pour l'optimisation
-                model_instances[name] = model
-                
-            except Exception as e:
-                st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
-                continue
-        
-        if results:
-            # Stocker les instances dans session state pour l'optimisation
-            st.session_state.model_instances = model_instances
-            
-            # Créer le DataFrame sans les instances pour l'affichage
-            display_results = {}
-            for name, data in results.items():
-                display_data = {k: v for k, v in data.items() if k != 'model_instance'}
-                display_results[name] = display_data
-            
-            results_df = pd.DataFrame(display_results).T
-            results_df_sorted = results_df.sort_values(['ROC AUC', 'Accuracy'], ascending=False)
-            return results_df_sorted
-        else:
-            st.error("❌ Aucun modèle entraîné avec succès")
-            return None
-            
-    except Exception as e:
-        st.error(f"❌ Erreur globale : {str(e)}")
-        return None
-
-
-def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
-    """Version corrigée de l'optimisation des hyperparamètres"""
-    
-    try:
-        from sklearn.model_selection import GridSearchCV
-        from sklearn.metrics import accuracy_score, roc_auc_score
-        
-        # Vérification préalable des modèles
-        if not best_models:
-            st.error("❌ Aucun modèle fourni pour l'optimisation")
-            return None
-        
-        st.info(f"🔧 Début de l'optimisation de {len(best_models)} modèles...")
-        
-        # Grilles de paramètres simplifiées pour éviter les timeouts
-        param_grids = {
-            'RandomForestClassifier': {
-                'n_estimators': [50, 100],
-                'max_depth': [5, 10, None],
-                'min_samples_split': [2, 5]
-            },
-            'LogisticRegression': {
-                'C': [0.1, 1, 10],
-                'solver': ['lbfgs', 'liblinear'],
-                'max_iter': [1000]
-            },
-            'LogReg_L1': {
-                'C': [0.1, 1, 10],
-                'solver': ['liblinear'],
-                'max_iter': [1000]
-            },
-            'LogReg_L2': {
-                'C': [0.1, 1, 10],
-                'solver': ['lbfgs'],
-                'max_iter': [1000]
-            },
-            'GradientBoostingClassifier': {
-                'n_estimators': [50, 100],
-                'learning_rate': [0.01, 0.1],
-                'max_depth': [3, 5]
-            }
-        }
-        
-        optimized_results = {}
-        
-        for model_name, model_data in best_models.items():
-            try:
-                st.info(f"🔧 Optimisation de {model_name}...")
-                
-                # Vérification de la présence du modèle
-                if 'model' not in model_data or model_data['model'] is None:
-                    st.warning(f"⚠️ Instance de modèle manquante pour {model_name}")
-                    # Créer une nouvelle instance
-                    base_model = create_model_instance_corrected(model_name)
-                else:
-                    # Utiliser l'instance existante mais créer une nouvelle pour GridSearch
-                    base_model = create_model_instance_corrected(model_name)
-                
-                # Déterminer la grille de paramètres
-                grid_key = model_name
-                if grid_key not in param_grids:
-                    # Recherche par similarité de nom
-                    for key in param_grids.keys():
-                        if key in model_name or model_name in key:
-                            grid_key = key
-                            break
-                    else:
-                        # Fallback par défaut
-                        grid_key = 'RandomForestClassifier'
-                        base_model = RandomForestClassifier(random_state=42)
-                
-                param_grid = param_grids[grid_key]
-                
-                # Configuration GridSearchCV
-                grid_search = GridSearchCV(
-                    estimator=base_model,
-                    param_grid=param_grid,
-                    cv=3,  # Réduction pour éviter les timeouts
-                    scoring='roc_auc',
-                    n_jobs=1,  # Réduction de la charge
-                    verbose=0,
-                    error_score='raise'
-                )
-                
-                # Entraînement avec gestion d'erreur
-                try:
-                    grid_search.fit(X_train, y_train)
-                except Exception as fit_error:
-                    st.warning(f"⚠️ Erreur GridSearchCV pour {model_name}: {str(fit_error)}")
-                    continue
-                
-                # Vérification que GridSearch a fonctionné
-                if not hasattr(grid_search, 'best_estimator_') or grid_search.best_estimator_ is None:
-                    st.warning(f"⚠️ GridSearchCV n'a pas produit de meilleur modèle pour {model_name}")
-                    continue
-                
-                # Évaluation sur test set
-                y_pred = grid_search.predict(X_test)
-                
-                # Calcul AUC avec gestion d'erreur
-                try:
-                    y_proba = grid_search.predict_proba(X_test)[:, 1]
-                    test_auc = roc_auc_score(y_test, y_proba)
-                except:
-                    test_auc = 0.5
-                
-                test_accuracy = accuracy_score(y_test, y_pred)
-                
-                # Stockage des résultats
-                optimized_results[model_name] = {
-                    'best_model': grid_search.best_estimator_,
-                    'best_params': grid_search.best_params_,
-                    'best_cv_score': grid_search.best_score_,
-                    'test_accuracy': test_accuracy,
-                    'test_auc': test_auc,
-                    'n_candidates': len(grid_search.cv_results_['params'])
-                }
-                
-                st.success(f"✅ {model_name} optimisé - AUC: {test_auc:.3f}")
-                
-            except Exception as e:
-                st.warning(f"⚠️ Erreur optimisation {model_name}: {str(e)}")
-                continue
-        
-        if optimized_results:
-            st.success(f"✅ Optimisation terminée pour {len(optimized_results)} modèles")
-            return optimized_results
-        else:
-            st.error("❌ Aucune optimisation n'a abouti")
-            return None
-        
-    except ImportError as e:
-        st.error(f"❌ Erreur d'import : {e}")
-        return None
-        
-    except Exception as e:
-        st.error(f"❌ Erreur générale d'optimisation : {str(e)}")
-        return None
-
-
-def display_optimization_results(optimized_results):
-    """Affiche les résultats d'optimisation de manière détaillée"""
-    
-    if not optimized_results:
-        st.warning("⚠️ Aucun résultat d'optimisation disponible")
-        return
-    
-    st.markdown("### 🏆 Résultats de l'Optimisation")
-    
-    # Tableau récapitulatif
-    results_data = []
-    for model_name, results in optimized_results.items():
-        results_data.append({
-            'Modèle': model_name,
-            'AUC Test': f"{results.get('test_auc', 0):.4f}",
-            'Accuracy Test': f"{results.get('test_accuracy', 0):.4f}",
-            'CV Score': f"{results.get('best_cv_score', 0):.4f}",
-            'Nb Configs': results.get('n_candidates', 'N/A'),
-            'Meilleurs Paramètres': str(results.get('best_params', {}))[:100] + "..."
-        })
-    
-    if results_data:
-        results_df = pd.DataFrame(results_data)
-        st.dataframe(results_df, use_container_width=True)
-        
-        # Identification du meilleur modèle
-        best_model = max(optimized_results.items(), key=lambda x: x[1].get('test_auc', 0))
-        
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #4caf50, #8bc34a); 
-                   padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center;">
-            <h3 style="color: white; margin: 0;">🥇 MEILLEUR MODÈLE</h3>
-            <h2 style="color: white; margin: 10px 0;">{best_model[0]}</h2>
-            <p style="color: white; margin: 0; font-size: 1.2rem;">
-                AUC: {best_model[1].get('test_auc', 0):.4f} | 
-                Accuracy: {best_model[1].get('test_accuracy', 0):.4f}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Paramètres optimaux du meilleur modèle
-        st.markdown("### ⚙️ Paramètres Optimaux du Meilleur Modèle")
-        best_params = best_model[1].get('best_params', {})
-        
-        params_cols = st.columns(min(len(best_params), 4))
-        for i, (param, value) in enumerate(best_params.items()):
-            with params_cols[i % 4]:
-                st.metric(param, str(value))
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def train_and_evaluate(_models, _preprocessor, X_train, y_train, X_test, y_test):
-    from sklearn.metrics import recall_score, precision_score, accuracy_score, roc_auc_score
-    from sklearn.model_selection import cross_val_score
-
-    results = {}
-    for name, model in _models.items():
-        pipeline = Pipeline([
-            ('preprocessor', _preprocessor),  # Utiliser le paramètre
-            ('classifier', model)
-        ])
-        cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5)
-        pipeline.fit(X_train, y_train)
-        y_pred = pipeline.predict(X_test)
-        y_proba = pipeline.predict_proba(X_test)[:,1]
-        results[name] = {
-            'accuracy': accuracy_score(y_test, y_pred),
-            'precision': precision_score(y_test, y_pred, zero_division=0),
-            'recall': recall_score(y_test, y_pred, zero_division=0),
-            'auc': roc_auc_score(y_test, y_proba),
-            'cv_mean': cv_scores.mean(),
-            'cv_std': cv_scores.std()
-        }
-    return results
-
-@st.cache_data(ttl=86400, show_spinner=False)
-def load_comparison_results():
-    url = 'https://drive.google.com/uc?export=download&id=1tbho_ft9iqDmjD1enMS2uztHyjhkimwG'
-    local_filename = 'model_cache/comparison_results.pkl'
-                
-    # Créer le dossier si nécessaire
-    os.makedirs('model_cache', exist_ok=True)
-                
-    # Télécharger uniquement si le fichier n'existe pas
-    if not os.path.exists(local_filename):
-        with st.spinner("Chargement des modèles pré-entraînés..."):
-            gdown.download(url, local_filename, quiet=True, fuzzy=True)
-                
-    return joblib.load(local_filename)
-                
-                
-def show_enhanced_ml_analysis():
-    """Version améliorée de l'analyse ML avec format du streamlit autisme adapté au TDAH"""
-    
-    from sklearn.compose import ColumnTransformer
-    from sklearn.preprocessing import StandardScaler, OneHotEncoder
-    from sklearn.compose import ColumnTransformer
-    from sklearn.pipeline import Pipeline
-    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-    from sklearn.metrics import roc_auc_score, confusion_matrix, classification_report, roc_curve
-    from sklearn.model_selection import cross_val_score, train_test_split
-    from xgboost import XGBClassifier
-    from lightgbm import LGBMClassifier
-    from catboost import CatBoostClassifier
-    from sklearn.ensemble import (
-        RandomForestClassifier, AdaBoostClassifier,
-        ExtraTreesClassifier, VotingClassifier
-    )
-    from sklearn.linear_model import LogisticRegression
-    from sklearn.tree import DecisionTreeClassifier
-    from sklearn.svm import SVC
-    from sklearn.naive_bayes import GaussianNB
-    from sklearn.neighbors import KNeighborsClassifier
-    from sklearn.neural_network import MLPClassifier
-        
-    # Styles CSS harmonisés avec les couleurs TDAH
-    st.markdown("""
-    <style>
-        /* Variables couleurs TDAH */
-        :root {
-            --tdah-primary: #FF6B35 !important;
-            --tdah-secondary: #F7931E !important;
-            --tdah-accent: #FFD23F !important;
-            --tdah-dark: #2C3E50 !important;
-            --tdah-light: #ECF0F1 !important;
-        }
-
-        .tdah-header {
-            background: linear-gradient(90deg, var(--tdah-primary), var(--tdah-secondary));
-            padding: 40px 25px;
-            border-radius: 20px;
-            margin-bottom: 35px;
-            text-align: center;
-        }
-
-        .info-card-tdah {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            margin: 15px 0;
-            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.15);
-            border-left: 4px solid var(--tdah-primary);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .info-card-tdah:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(255, 107, 53, 0.25);
-        }
-        :root {
-          --primary: #d84315 !important;
-          --secondary: #ff5722 !important;
-          --accent: #ff9800 !important;
-        }
-        [data-testid="stSidebar"] {
-          width: 60px !important;
-          transition: width 0.3s ease !important;
-        }
-        [data-testid="stSidebar"]:hover {
-          width: 240px !important;
-          overflow-y: auto !important;
-        }
-        .info-card-modern {
-          background: white !important;
-          border-left: 4px solid var(--secondary) !important;
-          border-radius: 15px !important;
-          padding: 25px !important;
-          box-shadow: 0 4px 15px rgba(255,87,34,0.08) !important;
-        }
-
-        .metric-grid-tdah {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
-        }
-
-        .metric-card-tdah {
-            background: linear-gradient(135deg, #fff5f0, #ffe8db);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: center;
-            border: 1px solid #ffcab3;
-            transition: all 0.3s ease;
-        }
-
-        .metric-card-tdah:hover {
-            transform: scale(1.02);
-            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);
-        }
-
-        .section-title-tdah {
-            color: var(--tdah-dark);
-            font-size: 1.8rem;
-            border-bottom: 3px solid var(--tdah-primary);
-            padding-bottom: 10px;
-            margin: 30px 0 20px 0;
-        }
-
-        .preprocessing-header-tdah {
-            background: linear-gradient(135deg, var(--tdah-primary), var(--tdah-secondary));
-            padding: 30px 20px;
-            border-radius: 15px;
-            margin-bottom: 25px;
-            text-align: center;
-        }
-
-        .explanation-box-tdah {
-            background: linear-gradient(135deg, #fff8f0, #ffecdb);
-            padding: 20px;
-            border-radius: 12px;
-            border-left: 4px solid var(--tdah-accent);
-            margin: 15px 0;
-        }
-
-        .model-card-tdah {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 10px 0;
-            border: 2px solid #ffe0cc;
-            transition: all 0.3s ease;
-        }
-
-        .model-card-tdah.winner {
-            border-color: var(--tdah-primary);
-            background: linear-gradient(135deg, #fff5f0, #ffe8db);
-            box-shadow: 0 6px 20px rgba(255, 107, 53, 0.2);
-        }
-
-        .performance-metric {
-            display: inline-block;
-            background: var(--tdah-accent);
-            color: #8B4513;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: bold;
-            margin: 2px;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # En-tête principal stylisé
-    st.markdown("""
-    <div class="tdah-header">
-        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;
-                   text-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: 600;">
-            🧠 Dépistage TDAH par Intelligence Artificielle
-        </h1>
-        <p style="color: rgba(255,255,255,0.95); font-size: 1.3rem;
-                  max-width: 800px; margin: 0 auto; line-height: 1.6;">
-            Analyse prédictive avancée pour l'identification précoce du TDAH
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
     
 def show_enhanced_ml_analysis():
     """
@@ -3655,102 +3149,6 @@ def show_enhanced_ml_analysis():
     </div>
     """, unsafe_allow_html=True)
     
-    # ===========================
-    # 4. GÉNÉRATION DES DONNÉES
-    # ===========================
-    
-    @st.cache_data(ttl=3600)
-    def create_enhanced_tdah_dataset(n_samples=2500):
-        """Crée un dataset TDAH enrichi et réaliste"""
-        np.random.seed(42)
-        
-        # Variables démographiques réalistes
-        ages = np.random.normal(34, 11, n_samples)
-        ages = np.clip(ages, 18, 70).astype(int)
-        
-        genders = np.random.choice(['M', 'F'], n_samples, p=[0.42, 0.58])
-        
-        educations = np.random.choice([
-            'Bac', 'Bac+2', 'Bac+3', 'Bac+5', 'Doctorat'
-        ], n_samples, p=[0.18, 0.25, 0.32, 0.20, 0.05])
-        
-        # Génération réaliste des réponses ASRS (0-4 points)
-        # 30% de vrais cas TDAH dans l'échantillon
-        n_tdah = int(n_samples * 0.30)
-        
-        # Cas TDAH : scores plus élevés et plus variables
-        asrs_tdah = np.zeros((n_tdah, 18))
-        for i in range(18):
-            if i < 6:  # Questions Partie A plus discriminantes
-                asrs_tdah[:, i] = np.random.normal(2.8, 0.9, n_tdah)
-            else:  # Questions Partie B
-                asrs_tdah[:, i] = np.random.normal(2.4, 1.0, n_tdah)
-        
-        # Cas Non-TDAH : scores plus faibles
-        asrs_normal = np.zeros((n_samples - n_tdah, 18))
-        for i in range(18):
-            if i < 6:  # Questions Partie A
-                asrs_normal[:, i] = np.random.normal(1.1, 0.7, n_samples - n_tdah)
-            else:  # Questions Partie B
-                asrs_normal[:, i] = np.random.normal(1.3, 0.8, n_samples - n_tdah)
-        
-        # Combinaison et contraintes
-        asrs_all = np.vstack([asrs_tdah, asrs_normal])
-        asrs_all = np.clip(asrs_all, 0, 4).round().astype(int)
-        
-        # Mélange des données
-        indices = np.random.permutation(n_samples)
-        asrs_all = asrs_all[indices]
-        
-        # Diagnostic basé sur les scores ASRS + variabilité
-        asrs_part_a = asrs_all[:, :6].sum(axis=1)
-        diagnostic_proba = (asrs_part_a / 24) * 0.8 + np.random.uniform(0, 0.2, n_samples)
-        diagnosis = (diagnostic_proba > 0.5).astype(int)
-        
-        # Variables complémentaires
-        stress = np.random.uniform(1.5, 4.5, n_samples)
-        qol = np.random.uniform(3, 8.5, n_samples)
-        sleep = np.random.uniform(1.2, 4.8, n_samples)
-        
-        # Corrélations réalistes pour les cas TDAH
-        tdah_mask = diagnosis == 1
-        stress[tdah_mask] += np.random.normal(0.5, 0.3, tdah_mask.sum())
-        qol[tdah_mask] -= np.random.normal(0.8, 0.4, tdah_mask.sum())
-        sleep[tdah_mask] += np.random.normal(0.4, 0.3, tdah_mask.sum())
-        
-        # Contraintes finales
-        stress = np.clip(stress, 1, 5)
-        qol = np.clip(qol, 1, 10)
-        sleep = np.clip(sleep, 1, 5)
-        
-        # Construction du DataFrame
-        data = {
-            'subject_id': [f'S{i:04d}' for i in range(n_samples)],
-            'age': ages[indices],
-            'gender': genders[indices],
-            'education': educations[indices],
-            'stress_level': stress,
-            'quality_of_life': qol,
-            'sleep_problems': sleep,
-            'diagnosis': diagnosis
-        }
-        
-        # Ajout des questions ASRS
-        for i in range(18):
-            data[f'asrs_q{i+1}'] = asrs_all[:, i]
-        
-        # Scores calculés
-        data['asrs_total'] = asrs_all.sum(axis=1)
-        data['asrs_part_a'] = asrs_all[:, :6].sum(axis=1)
-        data['asrs_part_b'] = asrs_all[:, 6:].sum(axis=1)
-        data['asrs_inattention'] = asrs_all[:, [0,1,2,3,6,7,8]].sum(axis=1)
-        data['asrs_hyperactivity'] = asrs_all[:, [4,5,9,10,11,12,13,14,15,16,17]].sum(axis=1)
-        
-        return pd.DataFrame(data)
-    
-    # ===========================
-    # 5. CLASSE MODÈLE NAIVE BAYES
-    # ===========================
     
     class TDAHNaiveBayesDetector:
         """Détecteur TDAH optimisé avec Naive Bayes pour dépistage de masse"""
@@ -3762,34 +3160,21 @@ def show_enhanced_ml_analysis():
             self.is_trained = False
             self.metrics = {}
             
-        def prepare_data(self, df):
-            """Prépare les données pour l'entraînement"""
-            # Features principales
-            asrs_features = [f'asrs_q{i}' for i in range(1, 19)]
-            demo_features = ['age', 'stress_level', 'quality_of_life', 'sleep_problems']
-            
-            # Encodage des variables catégorielles
-            df_processed = df.copy()
-            
-            # Genre
-            gender_encoder = LabelEncoder()
-            df_processed['gender_encoded'] = gender_encoder.fit_transform(df['gender'])
-            
-            # Éducation
-            education_encoder = LabelEncoder()
-            df_processed['education_encoded'] = education_encoder.fit_transform(df['education'])
-            
-            # Liste finale des features
-            self.feature_names = asrs_features + demo_features + ['gender_encoded', 'education_encoded']
-            
-            X = df_processed[self.feature_names]
-            y = df_processed['diagnosis']
-            
-            return X, y
+        def show_comparison_tab():
+            st.header("📈 Comparaison des modèles")
+            # Lecture des résultats CSV préalablement téléchargé
+            results_df = pd.read_csv("tdah_model_results.csv")
+            # Tri par recall décroissant
+            results_df = results_df.sort_values(by="recall", ascending=False)
+            st.dataframe(results_df.style.format({
+                "accuracy":"{:.4f}", "precision":"{:.4f}",
+                "recall":"{:.4f}",    "f1_score":"{:.4f}",
+                "roc_auc":"{:.4f}"
+            }))
             
         def train(self, df):
             """Entraîne le modèle Naive Bayes"""
-            X, y = self.prepare_data(df)
+            X, y = df
             
             # Division train/test stratifiée
             X_train, X_test, y_train, y_test = train_test_split(
@@ -3931,6 +3316,7 @@ def show_enhanced_ml_analysis():
     # ===========================
     
     tabs = st.tabs([
+        "📈 Comparaison Modèles",
         "🤖 Modèle Naive Bayes",
         "📊 Performance Dépistage", 
         "🔬 Analyse Approfondie",
@@ -3941,8 +3327,10 @@ def show_enhanced_ml_analysis():
     # ===========================
     # ONGLET 1: MODÈLE NAIVE BAYES
     # ===========================
-    
     with tabs[0]:
+        show_comparison_tab()
+        
+    with tabs[1]:
         st.markdown("""
         <div class="explanation-box">
             <h3 style="color: #D35400; margin-top: 0;">
@@ -4091,7 +3479,7 @@ def show_enhanced_ml_analysis():
     # ONGLET 2: PERFORMANCE DÉPISTAGE
     # ===========================
     
-    with tabs[1]:
+    with tabs[2]:
         st.markdown("""
         <div class="dépistage-focus">
             <h3 style="color: #D35400; margin-top: 0;">
@@ -4210,7 +3598,7 @@ def show_enhanced_ml_analysis():
     # ONGLET 3: ANALYSE APPROFONDIE
     # ===========================
     
-    with tabs[2]:
+    with tabs[3]:
         st.markdown("### 🔬 Analyse Technique Approfondie")
         
         if 'tdah_nb_model' in st.session_state and 'test_data' in st.session_state:
@@ -4303,7 +3691,7 @@ def show_enhanced_ml_analysis():
     # ONGLET 4: OPTIMISATION SEUILS
     # ===========================
     
-    with tabs[3]:
+    with tabs[4]:
         st.markdown("### ⚖️ Optimisation du Seuil pour le Dépistage")
         
         st.markdown("""
@@ -4474,7 +3862,7 @@ def show_enhanced_ml_analysis():
     # ONGLET 5: GUIDE VULGARISÉ
     # ===========================
     
-    with tabs[4]:
+    with tabs[5]:
         st.markdown("### 💡 Guide d'Utilisation - Version Grand Public")
         
         st.markdown("""
@@ -4623,6 +4011,8 @@ def show_enhanced_ml_analysis():
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+
 
 def show_enhanced_ai_prediction():
     if not check_rgpd_consent():
