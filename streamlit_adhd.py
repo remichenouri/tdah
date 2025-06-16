@@ -3672,17 +3672,31 @@ def show_enhanced_ml_analysis():
         """, unsafe_allow_html=True)
     
         # Définition des modèles à comparer
+        from xgboost import XGBClassifier
+        from lightgbm import LGBMClassifier
+        from catboost import CatBoostClassifier
+        from sklearn.ensemble import (
+            RandomForestClassifier, AdaBoostClassifier,
+            ExtraTreesClassifier, VotingClassifier
+        )
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.tree import DecisionTreeClassifier
+        from sklearn.svm import SVC
+        from sklearn.naive_bayes import GaussianNB
+        from sklearn.neighbors import KNeighborsClassifier
+        from sklearn.neural_network import MLPClassifier
+        
         models = {
             'Régression Logistique': LogisticRegression(random_state=42, max_iter=1000),
-            'Random Forest': RandomForestClassifier(random_state=42, n_estimators=100),
+            'Random Forest': RandomForestClassifier(random_state=42, n_estimators=100, n_jobs=-1),
             'Arbre de Décision': DecisionTreeClassifier(random_state=42),
-            'SVM': SVC(random_state=42, probability=True),
+            'SVM': SVC(probability=True, random_state=42, class_weight='balanced'),
             'Naive Bayes': GaussianNB(),
             'XGBoost': XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42),
-            'LightGBM': LGBMClassifier(random_state=42, class_weight='balanced'),
-            'CatBoost': CatBoostClassifier(verbose=0, random_state=42, auto_class_weights='Balanced'),
+            'LightGBM': LGBMClassifier(class_weight='balanced', random_state=42),
+            'CatBoost': CatBoostClassifier(verbose=0, auto_class_weights='Balanced', random_state=42),
             'AdaBoost': AdaBoostClassifier(n_estimators=100, random_state=42),
-            'ExtraTrees': ExtraTreesClassifier(n_estimators=100, random_state=42, class_weight='balanced'),
+            'ExtraTrees': ExtraTreesClassifier(n_estimators=100, class_weight='balanced', random_state=42),
             'Voting (soft)': VotingClassifier(
                 estimators=[
                     ('rf', RandomForestClassifier(random_state=42)),
@@ -3693,9 +3707,7 @@ def show_enhanced_ml_analysis():
             ),
             'KNN': KNeighborsClassifier(n_neighbors=5, weights='distance'),
             'MLP': MLPClassifier(hidden_layer_sizes=(50,50), max_iter=500, random_state=42)
-    
         }
-    
         results = {}
         with st.spinner("🔄 Entraînement des modèles en cours..."):
             for name, model in models.items():
