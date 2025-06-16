@@ -3367,7 +3367,6 @@ def show_enhanced_ml_analysis():
     
     from sklearn.compose import ColumnTransformer
     from sklearn.preprocessing import StandardScaler, OneHotEncoder
-    from sklearn.preprocessing import StandardScaler, OneHotEncoder
     from sklearn.compose import ColumnTransformer
     from sklearn.pipeline import Pipeline
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
