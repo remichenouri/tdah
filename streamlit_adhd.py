@@ -3360,8 +3360,8 @@ def train_and_evaluate(_models, X_train, y_train, X_test, y_test):
 
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
-available_num = [c for c in ['age','stress_level','quality_of_life'] if c in df.columns]
-available_cat = [c for c in ['gender','education','job_status'] if c in df.columns]
+available_num = [c for c in ['age','stress_level','quality_of_life'] if c in df_ml.columns]
+available_cat = [c for c in ['gender','education','job_status'] if c in df_ml.columns]
 preprocessor = ColumnTransformer(
     transformers=[
         ('num', StandardScaler(), available_num),
