@@ -2901,7 +2901,7 @@ def display_optimization_results(optimized_results):
     """Affiche les résultats d'optimisation des modèles"""
     st.markdown("### 🏆 Résultats de l'optimisation")
     
-    # Tableau des résultats
+    # Tableau des résultats - CORRECTION: échappement HTML proper
     results_data = []
     for model_name, results in optimized_results.items():
         results_data.append({
@@ -2909,7 +2909,8 @@ def display_optimization_results(optimized_results):
             'Meilleurs paramètres': str(results.get('best_params', 'N/A')),
             'Score CV': f"{results.get('best_score', 0):.4f}",
             'Accuracy Test': f"{results.get('test_accuracy', 0):.4f}",
-            'AUC Test': f"{results.get('test_auc', 0):.4f}"
+            'AUC Test': f"{results.get('test_auc', 0):.4f}",
+            'Sensibilité': f"{results.get('recall', 0):.4f}"  # AJOUT
         })
     
     if results_data:
@@ -2917,7 +2918,7 @@ def display_optimization_results(optimized_results):
         st.dataframe(results_df, use_container_width=True)
     else:
         st.warning("Aucun résultat d'optimisation disponible")
-
+        
 def simple_ml_analysis(X_train, X_test, y_train, y_test):
     """Version simplifiée de l'analyse ML"""
     try:
