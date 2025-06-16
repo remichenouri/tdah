@@ -3358,6 +3358,19 @@ def train_and_evaluate(_models, X_train, y_train, X_test, y_test):
     return results
 
 
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+
+# Définition globale du préprocesseur
+numerical_cols = ['age', 'stress_level', 'quality_of_life']
+categorical_cols = ['gender', 'education', 'job_status']
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', StandardScaler(), numerical_cols),
+        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_cols)
+    ],
+    remainder='passthrough'
+)
 
 def show_enhanced_ml_analysis():
     """Version améliorée de l'analyse ML avec format du streamlit autisme adapté au TDAH"""
@@ -3682,8 +3695,7 @@ def show_enhanced_ml_analysis():
                 </div>
             </div>
             """, unsafe_allow_html=True)
-
-    # ONGLET 2: Comparaison Rapide
+            
     # ONGLET 2: Comparaison Rapide
     with ml_tabs[1]:
         st.markdown("""
