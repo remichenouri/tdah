@@ -3776,9 +3776,9 @@ def show_enhanced_ml_analysis():
                 - Précision : {metrics['precision']:.2%}  
                 - AUC : {metrics['auc']:.2%}  
                 """, unsafe_allow_html=True)
-                if is_best:
-                    st.success(f"Modèle champion pour la sensibilité : {name} ({metrics['recall']:.2%})")
-                    st.markdown(f"""
+            if is_best:
+                st.success(f"Modèle champion pour la sensibilité : {name} ({metrics['recall']:.2%})")
+                st.markdown(f"""
                     <div class="model-card-tdah {'winner' if is_champion else ''}">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                             <h4 style="color: {'#D35400' if is_champion else '#2C3E50'}; margin: 0; display: flex; align-items: center;">
