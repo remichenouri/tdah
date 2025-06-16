@@ -3739,13 +3739,13 @@ def show_enhanced_ml_analysis():
             'MLP': MLPClassifier(hidden_layer_sizes=(50,50), max_iter=500, random_state=42)
         }
         results = train_and_evaluate(
-            _models=models,
-            _preprocessor=preprocessor,
-            X_train=X_train,
-            y_train=y_train,
-            X_test=X_test,
-            y_test=y_test
-        )
+        _models=_models,
+        _preprocessor=preprocessor,
+        X_train=X_train,
+        y_train=y_train,
+        X_test=X_test,
+        y_test=y_test
+    )
         with st.spinner("🔄 Entraînement des modèles en cours..."):
             for name, model in _models.items():
                 try:
