@@ -3360,14 +3360,12 @@ def train_and_evaluate(_models, X_train, y_train, X_test, y_test):
 
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
-
-# Définition globale du préprocesseur
-numerical_cols = ['age', 'stress_level', 'quality_of_life']
-categorical_cols = ['gender', 'education', 'job_status']
+available_num = [c for c in ['age','stress_level','quality_of_life'] if c in df.columns]
+available_cat = [c for c in ['gender','education','job_status'] if c in df.columns]
 preprocessor = ColumnTransformer(
     transformers=[
-        ('num', StandardScaler(), numerical_cols),
-        ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_cols)
+        ('num', StandardScaler(), available_num),
+        ('cat', OneHotEncoder(handle_unknown='ignore'), available_cat)
     ],
     remainder='passthrough'
 )
