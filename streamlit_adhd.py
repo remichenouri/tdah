@@ -3213,8 +3213,8 @@ def show_enhanced_ml_analysis():
             Retourne un tuple : (metrics, X_test, y_test, y_pred, y_proba).
             """
             # 1. Séparation des caractéristiques et de la cible
-            X = df.drop(columns=['target'])
-            y = df['target']
+            X = df.drop(columns=['diagnosis'])
+            y = df['diagnosis']
         
             # 2. Découpage en ensembles d'entraînement et de test
             X_train, X_test, y_train, y_test = train_test_split(
