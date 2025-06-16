@@ -3818,131 +3818,87 @@ def show_enhanced_ml_analysis():
     with ml_tabs[2]:
         st.markdown("""
         <div class="preprocessing-header-tdah">
-            <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;">
-                🎯 Analyse Approfondie - Régression Logistique
-            </h2>
+            <h2 style="color: white; font-size: 2.2rem;">🎯 Analyse Approfondie – Naive Bayes</h2>
             <p style="color: rgba(255,255,255,0.95); font-size: 1.1rem;">
-                Plongée dans les détails du meilleur modèle
+                Exploration détaillée du modèle Naive Bayes (GaussianNB) pour le dépistage du TDAH
             </p>
         </div>
         """, unsafe_allow_html=True)
-
-        # Explication de la Régression Logistique
+    
+        # Explication de Naive Bayes
         st.markdown("""
         <div class="explanation-box-tdah">
-            <h3 style="color: #D35400; margin-top: 0;">
-                📊 Qu'est-ce que la Régression Logistique ?
-            </h3>
+            <h3 style="color: #D35400;">📊 Qu'est-ce que Naive Bayes ?</h3>
             <p style="color: #2c3e50; line-height: 1.6;">
-                La régression logistique est comme un <strong>"calculateur de probabilités"</strong> très sophistiqué. 
-                Elle analyse chaque réponse au questionnaire et calcule mathématiquement la probabilité 
-                qu'une personne ait un TDAH. C'est simple, rapide, et très efficace pour le dépistage médical !
+                Le classifieur GaussianNB applique le théorème de Bayes sous l’hypothèse d’indépendance conditionnelle des features.
+                Il calcule rapidement des probabilités pour chaque classe en modélisant chaque variable continue par une distribution gaussienne.
             </p>
         </div>
         """, unsafe_allow_html=True)
-
-        # Entraînement du modèle champion
+    
         try:
-            logistic_pipeline = Pipeline([
+            from sklearn.naive_bayes import GaussianNB
+            import matplotlib.pyplot as plt
+            import seaborn as sns
+            from sklearn.metrics import (
+                accuracy_score, precision_score,
+                recall_score, f1_score,
+                roc_auc_score, confusion_matrix, roc_curve
+            )
+    
+            # Pipeline Naive Bayes
+            nb_pipeline = Pipeline([
                 ('preprocessor', preprocessor),
-                ('classifier', LogisticRegression(random_state=42, max_iter=1000))
+                ('classifier', GaussianNB())
             ])
-            
-            logistic_pipeline.fit(X_train, y_train)
-            y_pred_lr = logistic_pipeline.predict(X_test)
-            y_pred_proba_lr = logistic_pipeline.predict_proba(X_test)[:, 1]
-            
-            # Métriques détaillées
+    
+            # Entraînement et prédiction
+            nb_pipeline.fit(X_train, y_train)
+            y_pred_nb       = nb_pipeline.predict(X_test)
+            y_proba_nb      = nb_pipeline.predict_proba(X_test)[:, 1]
+    
+            # Calcul des métriques
+            accuracy_nb     = accuracy_score(y_test, y_pred_nb)
+            precision_nb    = precision_score(y_test, y_pred_nb, zero_division=0)
+            recall_nb       = recall_score(y_test, y_pred_nb, zero_division=0)
+            f1_nb           = f1_score(y_test, y_pred_nb, zero_division=0)
+            auc_nb          = roc_auc_score(y_test, y_proba_nb)
+    
+            # Affichage des résultats
             col1, col2 = st.columns(2)
-            
             with col1:
-                st.markdown("""
-                <div class="info-card-tdah">
-                    <h3 style="color: #D35400;">📊 Performances Détaillées</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                accuracy = accuracy_score(y_test, y_pred_lr)
-                precision = precision_score(y_test, y_pred_lr, zero_division=0)
-                recall = recall_score(y_test, y_pred_lr, zero_division=0)
-                f1 = f1_score(y_test, y_pred_lr, zero_division=0)
-                
-                st.metric("🎯 Précision", f"{precision:.1%}", "Fiabilité des détections")
-                st.metric("🔍 Sensibilité", f"{recall:.1%}", "Capacité à détecter les vrais cas")
-                st.metric("⚖️ Score F1", f"{f1:.1%}", "Équilibre global")
-                st.metric("✅ Exactitude", f"{accuracy:.1%}", "Taux de bonnes prédictions")
-                
+                st.metric("✅ Exactitude", f"{accuracy_nb:.1%}")
+                st.metric("🎯 Précision",   f"{precision_nb:.1%}")
+                st.metric("🔍 Sensibilité",  f"{recall_nb:.1%}")
+                st.metric("⚖️ Score F1",    f"{f1_nb:.1%}")
             with col2:
-                # Matrice de confusion stylisée
-                cm = confusion_matrix(y_test, y_pred_lr)
-                
-                fig, ax = plt.subplots(figsize=(8, 6))
+                cm = confusion_matrix(y_test, y_pred_nb)
+                fig, ax = plt.subplots(figsize=(6,5))
                 sns.heatmap(cm, annot=True, fmt='d', cmap='Oranges',
-                           xticklabels=['Non-TDAH', 'TDAH'], 
-                           yticklabels=['Non-TDAH', 'TDAH'],
-                           ax=ax)
-                ax.set_title('Matrice de Confusion', fontsize=16, color='#D35400')
-                ax.set_xlabel('Prédictions', fontsize=12)
-                ax.set_ylabel('Réalité', fontsize=12)
-                
+                            xticklabels=['Non-TDAH','TDAH'],
+                            yticklabels=['Non-TDAH','TDAH'], ax=ax)
+                ax.set_title("Matrice de Confusion", fontsize=14, color='#D35400')
                 st.pyplot(fig)
-                
-                # Interprétation de la matrice
-                tn, fp, fn, tp = cm.ravel()
-                st.markdown(f"""
-                <div style="background: #fff5f0; padding: 15px; border-radius: 8px; margin-top: 10px;">
-                    <h4 style="color: #D35400; margin-top: 0;">🔍 Interprétation</h4>
-                    <ul style="color: #2c3e50; line-height: 1.6;">
-                        <li><strong>Vrais positifs:</strong> {tp} cas TDAH correctement détectés</li>
-                        <li><strong>Faux négatifs:</strong> {fn} cas TDAH manqués</li>
-                        <li><strong>Faux positifs:</strong> {fp} fausses alertes</li>
-                        <li><strong>Vrais négatifs:</strong> {tn} cas non-TDAH bien identifiés</li>
-                    </ul>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # Courbes ROC et Precision-Recall
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Courbe ROC
-                fpr, tpr, _ = roc_curve(y_test, y_pred_proba_lr)
-                auc_score = roc_auc_score(y_test, y_pred_proba_lr)
-                
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines', name=f'ROC (AUC = {auc_score:.3f})',
-                                       line=dict(color='#FF6B35', width=3)))
-                fig.add_trace(go.Scatter(x=[0, 1], y=[0, 1], mode='lines', name='Hasard',
-                                       line=dict(color='gray', width=1, dash='dash')))
-                fig.update_layout(
-                    title='Courbe ROC - Capacité de Discrimination',
-                    xaxis_title='Taux de Faux Positifs',
-                    yaxis_title='Taux de Vrais Positifs',
-                    showlegend=True
-                )
-                st.plotly_chart(fig, use_container_width=True)
-                
-            with col2:
-                # Histogramme des probabilités
-                probabilities_tdah = y_pred_proba_lr[y_test == 1]
-                probabilities_no_tdah = y_pred_proba_lr[y_test == 0]
-                
-                fig = go.Figure()
-                fig.add_trace(go.Histogram(x=probabilities_no_tdah, name='Non-TDAH', 
-                                         opacity=0.7, marker_color='#3498db'))
-                fig.add_trace(go.Histogram(x=probabilities_tdah, name='TDAH', 
-                                         opacity=0.7, marker_color='#FF6B35'))
-                fig.update_layout(
-                    title='Distribution des Probabilités Prédites',
-                    xaxis_title='Probabilité TDAH',
-                    yaxis_title='Nombre de cas',
-                    barmode='overlay'
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
+    
+            # Courbe ROC
+            fpr, tpr, _ = roc_curve(y_test, y_proba_nb)
+            fig_roc = go.Figure()
+            fig_roc.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines',
+                                         name=f"AUC = {auc_nb:.3f}",
+                                         line=dict(color='#FF6B35', width=3)))
+            fig_roc.add_trace(go.Scatter(x=[0,1], y=[0,1], mode='lines',
+                                         line=dict(color='gray', dash='dash'),
+                                         name='Hasard'))
+            fig_roc.update_layout(
+                title="Courbe ROC – GaussianNB",
+                xaxis_title="Taux de Faux Positifs",
+                yaxis_title="Taux de Vrais Positifs"
+            )
+            st.plotly_chart(fig_roc, use_container_width=True)
+    
         except Exception as e:
-            st.error(f"Erreur lors de l'analyse détaillée: {str(e)}")
-
+            st.error(f"❌ Erreur lors de l'analyse Naive Bayes: {e}")
+            
     # ONGLET 4: Optimisation Dépistage
     with ml_tabs[3]:
         st.markdown("""
