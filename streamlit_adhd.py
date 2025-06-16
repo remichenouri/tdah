@@ -16,6 +16,8 @@ import uuid
 import hashlib
 import time
 import joblib
+import gdown
+import os
 from datetime import datetime
 from sklearn.pipeline import Pipeline
 
@@ -3359,21 +3361,21 @@ def train_and_evaluate(_models, _preprocessor, X_train, y_train, X_test, y_test)
     return results
 
 @st.cache_data(ttl=86400, show_spinner=False)
-        def load_comparison_results():
+def load_comparison_results():
             """Charge les résultats de comparaison depuis Google Drive"""
-            try:
-                url = 'https://drive.google.com/uc?export=download&id=1tbho_ft9iqDmjD1enMS2uztHyjhkimwG'
-                local_filename = 'model_cache/comparison_results.pkl'
+    try:
+        url = 'https://drive.google.com/uc?export=download&id=1tbho_ft9iqDmjD1enMS2uztHyjhkimwG'
+        local_filename = 'model_cache/comparison_results.pkl'
                 
                 # Créer le dossier si nécessaire
-                os.makedirs('model_cache', exist_ok=True)
+        os.makedirs('model_cache', exist_ok=True)
                 
                 # Télécharger uniquement si le fichier n'existe pas
-                if not os.path.exists(local_filename):
-                    with st.spinner("Chargement des modèles pré-entraînés..."):
-                        gdown.download(url, local_filename, quiet=True, fuzzy=True)
+        if not os.path.exists(local_filename):
+            with st.spinner("Chargement des modèles pré-entraînés..."):
+                gdown.download(url, local_filename, quiet=True, fuzzy=True)
                 
-                return joblib.load(local_filename)
+        return joblib.load(local_filename)
                 
                 
 def show_enhanced_ml_analysis():
