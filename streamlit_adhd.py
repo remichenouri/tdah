@@ -3162,9 +3162,14 @@ def show_enhanced_ml_analysis():
             
         def show_comparison_tab():
             st.header("📈 Comparaison des modèles")
-            # Lecture des résultats CSV préalablement téléchargé
-            results_df = pd.read_csv("tdah_model_results.csv")
-            # Tri par recall décroissant
+            url = 'https://drive.google.com/file/d/1RcR4zRToSAVSa6h5T6ZmONenJcRm6-bi/view?usp=drive_link'
+            file_id = url.split('/d/')[1].split('/')[0]
+            download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+    
+            # Chargement du dataset
+            results_df = pd_local.read_csv(download_url)
+            return results_df
+            
             results_df = results_df.sort_values(by="recall", ascending=False)
             st.dataframe(results_df.style.format({
                 "accuracy":"{:.4f}", "precision":"{:.4f}",
