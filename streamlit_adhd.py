@@ -3768,37 +3768,37 @@ def show_enhanced_ml_analysis():
     
             # Affichage du classement avec mise en avant du champion
             for i, (name, metrics) in enumerate(sorted_models):
-            is_best = (i == 0)
-            icon = "🥇" if is_best else f"{i+1}️"
-            st.markdown(f"""
-            **{icon} {name}**  
-            - Recall : **{metrics['recall']:.2%}**  
-            - Précision : {metrics['precision']:.2%}  
-            - AUC : {metrics['auc']:.2%}  
-            """, unsafe_allow_html=True)
-            if is_best:
-                st.success(f"Modèle champion pour la sensibilité : {name} ({metrics['recall']:.2%})")
+                is_best = (i == 0)
+                icon = "🥇" if is_best else f"{i+1}️"
                 st.markdown(f"""
-                <div class="model-card-tdah {'winner' if is_champion else ''}">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h4 style="color: {'#D35400' if is_champion else '#2C3E50'}; margin: 0; display: flex; align-items: center;">
-                            <span style="margin-right: 10px; font-size: 1.5rem;">{rank_icon}</span>{name}
-                            {'<span style="margin-left:10px; background:#FF6B35; color:white; padding:4px 8px; border-radius:12px; font-size:0.8rem;">CHAMPION</span>' if is_champion else ''}
-                        </h4>
-                        <div style="font-size:1.1rem; font-weight:bold; color:{'#D35400' if is_champion else '#7F8C8D'};">
-                            Recall: {metrics['recall']:.3f}
-                        </div>
-                    </div>
-                    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-                        <span style="font-weight:600; color:#d84315;">Précision: {metrics['precision']:.3f}</span>
-                        <span style="font-weight:600; color:#d84315;">AUC: {metrics['auc']:.3f}</span>
-                        <span style="font-weight:600; color:#d84315;">CV mean: {metrics['cv_mean']:.3f}±{metrics['cv_std']:.3f}</span>
-                    </div>
-                    <p style="color:#27AE60; font-weight:bold; margin:0;">
-                        <i>🎯 Optimal pour le dépistage TDAH – Excellent équilibre précision/recall</i>
-                    </p>
-                </div>
+                **{icon} {name}**  
+                - Recall : **{metrics['recall']:.2%}**  
+                - Précision : {metrics['precision']:.2%}  
+                - AUC : {metrics['auc']:.2%}  
                 """, unsafe_allow_html=True)
+                if is_best:
+                    st.success(f"Modèle champion pour la sensibilité : {name} ({metrics['recall']:.2%})")
+                    st.markdown(f"""
+                    <div class="model-card-tdah {'winner' if is_champion else ''}">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h4 style="color: {'#D35400' if is_champion else '#2C3E50'}; margin: 0; display: flex; align-items: center;">
+                                <span style="margin-right: 10px; font-size: 1.5rem;">{rank_icon}</span>{name}
+                                {'<span style="margin-left:10px; background:#FF6B35; color:white; padding:4px 8px; border-radius:12px; font-size:0.8rem;">CHAMPION</span>' if is_champion else ''}
+                            </h4>
+                            <div style="font-size:1.1rem; font-weight:bold; color:{'#D35400' if is_champion else '#7F8C8D'};">
+                                Recall: {metrics['recall']:.3f}
+                            </div>
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                            <span style="font-weight:600; color:#d84315;">Précision: {metrics['precision']:.3f}</span>
+                            <span style="font-weight:600; color:#d84315;">AUC: {metrics['auc']:.3f}</span>
+                            <span style="font-weight:600; color:#d84315;">CV mean: {metrics['cv_mean']:.3f}±{metrics['cv_std']:.3f}</span>
+                        </div>
+                        <p style="color:#27AE60; font-weight:bold; margin:0;">
+                            <i>🎯 Optimal pour le dépistage TDAH – Excellent équilibre précision/recall</i>
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
 
 
     # ONGLET 3: Analyse Régression Logistique
