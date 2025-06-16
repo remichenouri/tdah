@@ -16,6 +16,7 @@ import uuid
 import hashlib
 import time
 from datetime import datetime
+from sklearn.pipeline import Pipeline
 
 class GDPRConsentManager:
     """Gestionnaire des consentements RGPD"""
