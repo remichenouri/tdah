@@ -3591,7 +3591,7 @@ def show_enhanced_ml_analysis():
     ml_tabs = st.tabs([
         "🔧 Préparation des Données",
         "⚡ Comparaison Rapide",
-        "🎯 Analyse Régression Logistique",
+        "🎯 Analyse Naive Bayes",
         "🔍 Optimisation Dépistage",
         "📊 Métriques Avancées"
     ])
