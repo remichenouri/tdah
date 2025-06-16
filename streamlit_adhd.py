@@ -3206,8 +3206,56 @@ def show_enhanced_ml_analysis():
             self.is_trained = False
             self.metrics = {}
             
-            
+
+        def train(self, df):
+            """
+            Entraîne le modèle Naive Bayes sur le DataFrame `df` et calcule les métriques de performance.
+            Retourne un tuple : (metrics, X_test, y_test, y_pred, y_proba).
+            """
+            # 1. Séparation des caractéristiques et de la cible
+            X = df.drop(columns=['target'])
+            y = df['target']
         
+            # 2. Découpage en ensembles d'entraînement et de test
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, stratify=y, random_state=42
+            )
+        
+            # 3. Standardisation des données
+            self.scaler.fit(X_train)
+            X_train_scaled = self.scaler.transform(X_train)
+            X_test_scaled  = self.scaler.transform(X_test)
+        
+            # 4. Entraînement du modèle Naive Bayes
+            self.model.fit(X_train_scaled, y_train)
+        
+            # 5. Prédiction et probabilités
+            y_pred  = self.model.predict(X_test_scaled)
+            y_proba = self.model.predict_proba(X_test_scaled)[:, 1]
+        
+            # 6. Calcul des métriques principales
+            metrics = {
+                'accuracy':     accuracy_score(y_test, y_pred),
+                'precision':    precision_score(y_test, y_pred, zero_division=0),
+                'recall':       recall_score(y_test, y_pred, zero_division=0),
+                'f1_score':     f1_score(y_test, y_pred, zero_division=0),
+                'roc_auc':      roc_auc_score(y_test, y_proba),
+                'cv_auc_mean':  cross_val_score(self.model, X, y, cv=5, scoring='roc_auc').mean(),
+                'cv_auc_std':   cross_val_score(self.model, X, y, cv=5, scoring='roc_auc').std(),
+                'n_samples':    len(df),
+                'n_test':       len(y_test),
+                'prevalence':   y.mean()
+            }
+        
+            # 7. Optimisation du seuil pour maximiser la sensibilité
+            self._optimize_threshold_for_screening(X_test_scaled, y_test)
+        
+            # 8. Sauvegarde de l’état et des métriques
+            self.is_trained = True
+            self.metrics    = metrics
+        
+            return metrics, X_test_scaled, y_test, y_pred, y_proba
+                
         def _optimize_threshold_for_screening(self, X_test, y_test):
             """Optimise le seuil pour maximiser la détection (recall)"""
             y_proba = self.model.predict_proba(X_test)[:, 1]
