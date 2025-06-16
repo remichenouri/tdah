@@ -2376,9 +2376,6 @@ def prepare_ml_data_safe(df):
         from sklearn.model_selection import train_test_split
         from sklearn.preprocessing import StandardScaler, LabelEncoder
         
-        # Validation du DataFrame
-        if df is None or len(df) == 0:
-            raise ValueError("DataFrame vide ou None")
             
         # Variables cibles
         if 'diagnosis' not in df.columns:
