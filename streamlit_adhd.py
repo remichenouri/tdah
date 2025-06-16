@@ -1136,12 +1136,12 @@ if 'css_loaded' not in st.session_state:
     # Nouvelles statistiques du dataset
     df = load_enhanced_dataset()
 
-    if df is not None and len(df) > 1000:
-        # Statistiques réelles du dataset
-        total_participants = len(df)
-        tdah_cases = df['diagnosis'].sum() if 'diagnosis' in df.columns else 0
-        mean_age = df['age'].mean() if 'age' in df.columns else 0
-        male_ratio = (df['gender'] == 'M').mean() if 'gender' in df.columns else 0
+
+    # Statistiques réelles du dataset
+    total_participants = len(df)
+    tdah_cases = df['diagnosis'].sum() if 'diagnosis' in df.columns else 0
+    mean_age = df['age'].mean() if 'age' in df.columns else 0
+    male_ratio = (df['gender'] == 'M').mean() if 'gender' in df.columns else 0
 
         st.markdown("""
         <h2 style="color: #ff5722; margin: 45px 0 25px 0; text-align: center; font-size: 2.2rem;">
