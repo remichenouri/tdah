@@ -2455,7 +2455,7 @@ def prepare_ml_data_safe(df):
         from sklearn.model_selection import train_test_split
         
         np.random.seed(42)
-        n_samples = min(1000, len(df) if df is not None else 1000)
+        n_samples = min(1000)
         
         # Données simulées minimales
         X_simple = np.random.randn(n_samples, 10)  # 10 features
