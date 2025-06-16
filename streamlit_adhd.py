@@ -1929,11 +1929,6 @@ def show_enhanced_data_exploration():
         with tabs[3]:  # Onglet Visualisations interactives
             st.subheader("🎯 Visualisations interactives")
 
-            # Vérification du dataset
-            if df is None or len(df) == 0:
-                st.error("Aucune donnée disponible pour la visualisation")
-                return
-
             # Variables à exclure de l'interface utilisateur
             excluded_from_ui = ['source_file', 'generation_date', 'version', 'streamlit_ready', 'subject_id']
 
