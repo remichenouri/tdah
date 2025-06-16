@@ -2136,60 +2136,65 @@ def safe_model_prediction(model, X_data):
         st.error(f"❌ Erreur de prédiction : {str(e)}")
         return None, None
 
-def compare_models_manually(X_train, X_test, y_train, y_test):
-    """Comparaison manuelle de modèles ML sans LazyPredict"""
+def compare_models_by_recall(X_train, X_test, y_train, y_test):
+    """Comparaison de modèles classés par sensibilité (recall) - OPTIMISÉ POUR DÉPISTAGE"""
     try:
         from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
         from sklearn.linear_model import LogisticRegression
         from sklearn.svm import SVC
         from sklearn.naive_bayes import GaussianNB
-        from sklearn.neighbors import KNeighborsClassifier
-        from sklearn.tree import DecisionTreeClassifier
-        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
-        import time
+        from sklearn.metrics import recall_score, precision_score, f1_score, roc_auc_score
         
-        # Définition des modèles à tester
+        # Modèles avec hyperparamètres optimisés pour sensibilité
         models = {
-            'RandomForest': RandomForestClassifier(n_estimators=100, random_state=42),
-            'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000),
-            'GradientBoosting': GradientBoostingClassifier(random_state=42),
-            'SVM': SVC(probability=True, random_state=42),
-            'GaussianNB': GaussianNB(),
-            'KNeighbors': KNeighborsClassifier(),
-            'DecisionTree': DecisionTreeClassifier(random_state=42)
+            'LogisticRegression_HighRecall': LogisticRegression(
+                random_state=42, max_iter=1000, class_weight='balanced'
+            ),
+            'RandomForest_HighRecall': RandomForestClassifier(
+                n_estimators=200, random_state=42, class_weight='balanced',
+                max_depth=None, min_samples_split=2
+            ),
+            'SVM_HighRecall': SVC(
+                probability=True, random_state=42, class_weight='balanced',
+                gamma='scale', C=0.1  # Paramètres favorisant la sensibilité
+            ),
+            'GradientBoosting_HighRecall': GradientBoostingClassifier(
+                random_state=42, learning_rate=0.05, n_estimators=150
+            ),
+            'GaussianNB_HighRecall': GaussianNB()
         }
         
         results = {}
         
         for name, model in models.items():
             try:
-                start_time = time.time()
-                
                 # Entraînement
                 model.fit(X_train, y_train)
                 
-                # Prédictions
-                y_pred = model.predict(X_test)
-                y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
+                # Prédictions avec seuil optimisé pour sensibilité
+                if hasattr(model, 'predict_proba'):
+                    y_proba = model.predict_proba(X_test)[:, 1]
+                    # Seuil abaissé pour maximiser la sensibilité
+                    optimal_threshold = 0.3  # Au lieu de 0.5 par défaut
+                    y_pred = (y_proba >= optimal_threshold).astype(int)
+                else:
+                    y_pred = model.predict(X_test)
+                    y_proba = None
                 
                 # Calcul des métriques
-                accuracy = accuracy_score(y_test, y_pred)
-                precision = precision_score(y_test, y_pred, zero_division=0)
                 recall = recall_score(y_test, y_pred, zero_division=0)
+                precision = precision_score(y_test, y_pred, zero_division=0)
                 f1 = f1_score(y_test, y_pred, zero_division=0)
                 
-                # AUC seulement si les probabilités sont disponibles
+                # AUC si probabilités disponibles
                 auc = roc_auc_score(y_test, y_proba) if y_proba is not None else 0.5
                 
-                time_taken = time.time() - start_time
-                
                 results[name] = {
-                    'Accuracy': accuracy,
+                    'Recall (Sensibilité)': recall,
                     'Precision': precision,
-                    'Recall': recall,
                     'F1_Score': f1,
                     'ROC_AUC': auc,
-                    'Time_Taken': time_taken,
+                    'Seuil_Optimal': optimal_threshold,
                     'model': model
                 }
                 
@@ -2197,11 +2202,75 @@ def compare_models_manually(X_train, X_test, y_train, y_test):
                 st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
                 continue
         
-        return results
-        
-    except ImportError as e:
-        st.error(f"❌ Erreur d'import : {e}")
+        if results:
+            # Création DataFrame trié par SENSIBILITÉ (priorité dépistage)
+            results_df = pd.DataFrame(results).T
+            results_df = results_df.drop('model', axis=1, errors='ignore')
+            
+            # TRI PAR SENSIBILITÉ - MÉTRIQUE PRIORITAIRE POUR DÉPISTAGE
+            results_df_sorted = results_df.sort_values(
+                ['Recall (Sensibilité)', 'ROC_AUC'], 
+                ascending=[False, False]
+            )
+            
+            return results_df_sorted
+        else:
+            st.error("❌ Aucun modèle entraîné avec succès")
+            return None
+            
+    except Exception as e:
+        st.error(f"❌ Erreur globale : {str(e)}")
         return None
+
+def display_screening_optimized_results(results_df):
+    """Affichage des résultats optimisés pour le dépistage massif"""
+    
+    st.markdown("### 🎯 Classement par Sensibilité - Optimisé pour Dépistage Massif")
+    
+    # Mise en évidence du modèle optimal pour dépistage
+    if not results_df.empty:
+        best_model = results_df.index[0]
+        best_recall = results_df.iloc[0]['Recall (Sensibilité)']
+        
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #4caf50, #8bc34a); 
+                   padding: 20px; border-radius: 12px; margin: 20px 0; text-align: center;">
+            <h3 style="color: white; margin: 0;">🥇 MODÈLE OPTIMAL POUR DÉPISTAGE</h3>
+            <h2 style="color: white; margin: 10px 0;">{best_model}</h2>
+            <p style="color: white; margin: 0; font-size: 1.2rem;">
+                Sensibilité: {best_recall:.1%} - Maximise la détection des cas TDAH
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Formatage avec emphasis sur la sensibilité
+    styled_df = results_df.style.format({
+        'Recall (Sensibilité)': '{:.1%}',
+        'Precision': '{:.1%}',
+        'F1_Score': '{:.3f}',
+        'ROC_AUC': '{:.3f}',
+        'Seuil_Optimal': '{:.2f}'
+    }).background_gradient(
+        subset=['Recall (Sensibilité)'], 
+        cmap='Greens'  # Highlight de la métrique prioritaire
+    )
+    
+    st.dataframe(styled_df, use_container_width=True)
+    
+    # Explication de la métrique prioritaire
+    st.markdown("""
+    ### 📊 Pourquoi Prioriser la Sensibilité en Dépistage Massif ?
+    
+    **Sensibilité (Recall) = Vrais Positifs / (Vrais Positifs + Faux Négatifs)**
+    
+    En santé publique, **manquer un cas** (faux négatif) a des conséquences plus graves qu'une **fausse alerte** (faux positif) :
+    
+    - ✅ **Faux positif** : Orientation vers spécialiste → Confirmation/infirmation du diagnostic
+    - ❌ **Faux négatif** : Cas TDAH non détecté → Retard de prise en charge, complications
+    
+    **Seuil abaissé** (0.3 au lieu de 0.5) pour **maximiser la détection** des cas potentiels.
+    """)
+
 def create_comparison_chart(df_results):
     """Crée un graphique de comparaison des modèles - VERSION CORRIGÉE"""
     
