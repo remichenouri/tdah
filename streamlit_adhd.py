@@ -3208,7 +3208,7 @@ def show_enhanced_ml_analysis():
             self.is_trained = False
             self.metrics = {}
 
-        df=show
+        df = load_enhanced_dataset()
 
         gender_map    = {'M': 0, 'F': 1}
         education_map = {'Bac': 0, 'Bac+2': 1, 'Bac+3': 2, 'Bac+5': 3, 'Doctorat': 4}
@@ -3422,7 +3422,6 @@ def show_enhanced_ml_analysis():
         # Chargement et entraînement du modèle
         if 'tdah_nb_model' not in st.session_state:
             with st.spinner("🔄 Entraînement du modèle Naive Bayes en cours..."):
-                df = load_enhanced_dataset()
                 
                 # Création et entraînement du modèle
                 detector = TDAHNaiveBayesDetector()
