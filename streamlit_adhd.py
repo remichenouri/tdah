@@ -3690,6 +3690,9 @@ def show_enhanced_ml_analysis():
             
     # ONGLET 2: Comparaison Rapide
     with ml_tabs[1]:
+        pkf_path = "model_cache/model_comparison_results.pkl"
+        # Chargement des résultats pré-entraînés
+        comparison_results = joblib.load(pkf_path)
         st.markdown("""
         <div class="preprocessing-header-tdah">
             <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;">
@@ -3700,78 +3703,30 @@ def show_enhanced_ml_analysis():
             </p>
         </div>
         """, unsafe_allow_html=True)
+        def show_quick_comparison_tab(preprocessor, X_train, y_train, X_test, y_test):
+        # 1. Chargement des résultats PKL
+        results_path = "model_cache/model_comparison_results.pkl"
+        try:
+            results_dict = joblib.load(results_path)
+        except Exception as e:
+            st.error(f"Impossible de charger les résultats pré-entraînés : {e}")
+            return
+
+        df_results = pd.DataFrame(results_dict).T  # transpose si nécessaire
+        df_results = df_results.sort_values(by="recall", ascending=False)
     
-        # Définition des modèles à comparer
-        from xgboost import XGBClassifier
-        from lightgbm import LGBMClassifier
-        from catboost import CatBoostClassifier
-        from sklearn.ensemble import (
-            RandomForestClassifier, AdaBoostClassifier,
-            ExtraTreesClassifier, VotingClassifier
+        # 3. Affichage du tableau et d’un graphique
+        st.markdown("### ⚡ Comparaison Rapide des Modèles (pré-entraînés)")
+        st.dataframe(df_results, use_container_width=True)
+    
+        fig = px.bar(
+            df_results,
+            x=df_results.index,
+            y="recall",
+            title="Sensibilité (Recall) par Modèle",
+            labels={"x": "Modèle", "recall": "Recall"}
         )
-        from sklearn.linear_model import LogisticRegression
-        from sklearn.tree import DecisionTreeClassifier
-        from sklearn.svm import SVC
-        from sklearn.naive_bayes import GaussianNB
-        from sklearn.neighbors import KNeighborsClassifier
-        from sklearn.neural_network import MLPClassifier
-        
-        _models = {
-            'Régression Logistique': LogisticRegression(random_state=42, max_iter=1000),
-            'Random Forest': RandomForestClassifier(random_state=42, n_estimators=100, n_jobs=-1),
-            'Arbre de Décision': DecisionTreeClassifier(random_state=42),
-            'SVM': SVC(probability=True, random_state=42, class_weight='balanced'),
-            'Naive Bayes': GaussianNB(),
-            'XGBoost': XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42),
-            'LightGBM': LGBMClassifier(class_weight='balanced', random_state=42),
-            'CatBoost': CatBoostClassifier(verbose=0, auto_class_weights='Balanced', random_state=42),
-            'AdaBoost': AdaBoostClassifier(n_estimators=100, random_state=42),
-            'ExtraTrees': ExtraTreesClassifier(n_estimators=100, class_weight='balanced', random_state=42),
-            'Voting (soft)': VotingClassifier(
-                estimators=[
-                    ('rf', RandomForestClassifier(random_state=42)),
-                    ('xgb', XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)),
-                    ('lgbm', LGBMClassifier(force_col_wise=True, random_state=42))
-                ],
-                voting='soft'
-            ),
-            'KNN': KNeighborsClassifier(n_neighbors=5, weights='distance'),
-            'MLP': MLPClassifier(hidden_layer_sizes=(50,50), max_iter=500, random_state=42)
-        }
-        results = train_and_evaluate(
-                _models=_models,
-                _preprocessor=preprocessor,
-                X_train=X_train,
-                y_train=y_train,
-                X_test=X_test,
-                y_test=y_test
-            )
-            
-        for name, model in _models.items():
-            try:
-                pipeline = Pipeline([
-                        ('preprocessor', preprocessor),
-                        ('classifier', model)
-                    ])
-                    # Validation croisée
-                cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5)
-                    # Entraînement et prédiction
-                pipeline.fit(X_train, y_train)
-                y_pred = pipeline.predict(X_test)
-                    # Prédiction des probabilités pour calcul du recall
-                y_proba = pipeline.predict_proba(X_test)[:, 1]
-                    # Stockage des métriques, dont recall_score
-                results[name] = {
-                        'accuracy': accuracy_score(y_test, y_pred),
-                        'precision': precision_score(y_test, y_pred, zero_division=0),
-                        'recall': recall_score(y_test, y_pred, zero_division=0),
-                        'f1': f1_score(y_test, y_pred, zero_division=0),
-                        'auc': roc_auc_score(y_test, y_proba),
-                        'cv_mean': cv_scores.mean(),
-                        'cv_std': cv_scores.std()
-                    }
-            except Exception as e:
-                st.warning(f"Erreur avec {name}: {e}")
+        st.plotly_chart(fig, use_container_width=True)
     
         if results:
             # Tri des modèles par recall (sensibilité) décroissant
