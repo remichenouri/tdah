@@ -3340,7 +3340,7 @@ def train_and_evaluate(_models, X_train, y_train, X_test, y_test):
     results = {}
     for name, model in _models.items():
         pipeline = Pipeline([
-            ('preprocessor', preprocessor),
+            ('preprocessor', _preprocessor),
             ('classifier', model)
         ])
         cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5)
@@ -3741,6 +3741,7 @@ def show_enhanced_ml_analysis():
         }
         results = train_and_evaluate(
             _models=models,
+            _preprocessor=preprocessor,
             X_train=X_train,
             y_train=y_train,
             X_test=X_test,
