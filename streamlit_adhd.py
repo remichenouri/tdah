@@ -2202,6 +2202,38 @@ def compare_models_manually(X_train, X_test, y_train, y_test):
     except ImportError as e:
         st.error(f"❌ Erreur d'import : {e}")
         return None
+def create_comparison_chart(df_results):
+    """Crée un graphique de comparaison des modèles - VERSION CORRIGÉE"""
+    
+    fig = go.Figure()
+    
+    # CORRECTION: Vérification des colonnes disponibles
+    available_metrics = []
+    for metric in ['Recall', 'Precision', 'F1_Score', 'ROC_AUC', 'Accuracy']:
+        if metric in df_results.columns:
+            available_metrics.append(metric)
+    
+    # Graphique en barres pour les métriques disponibles
+    for metric in available_metrics:
+        fig.add_trace(go.Bar(
+            name=metric,
+            x=df_results.index,
+            y=df_results[metric],
+            text=[f"{v:.3f}" for v in df_results[metric]],
+            textposition='auto'
+        ))
+    
+    fig.update_layout(
+        title="Comparaison des Performances des Modèles",
+        xaxis_title="Modèles",
+        yaxis_title="Score",
+        barmode='group',
+        height=500,
+        showlegend=True
+    )
+    
+    return fig  # CORRECTION: Toujours retourner une figure
+
 
 def display_models_comparison(models_results):
     """Affiche les résultats de comparaison des modèles"""
@@ -2225,33 +2257,6 @@ def display_models_comparison(models_results):
     # Graphique de comparaison
     create_comparison_chart(df_results)
 
-def create_comparison_chart(df_results):
-    """Crée un graphique de comparaison des modèles"""
-    
-    fig = go.Figure()
-    
-    # Graphique en barres pour les métriques principales
-    metrics = ['Accuracy', 'Precision', 'Recall', 'F1_Score', 'ROC_AUC']
-    
-    for metric in metrics:
-        fig.add_trace(go.Bar(
-            name=metric,
-            x=df_results.index,
-            y=df_results[metric],
-            text=[f"{v:.3f}" for v in df_results[metric]],
-            textposition='auto'
-        ))
-    
-    fig.update_layout(
-        title="Comparaison des Performances des Modèles",
-        xaxis_title="Modèles",
-        yaxis_title="Score",
-        barmode='group',
-        height=500,
-        showlegend=True
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
 
 def display_manual_results(models_results):
     """Affiche les résultats avec noms de colonnes corrigés"""
