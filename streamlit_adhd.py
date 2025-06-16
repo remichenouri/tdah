@@ -3659,102 +3659,102 @@ def show_enhanced_ml_analysis():
 
     # ONGLET 2: Comparaison Rapide
     # ONGLET 2: Comparaison Rapide
-with ml_tabs[1]:
-    st.markdown("""
-    <div class="preprocessing-header-tdah">
-        <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;">
-            ⚡ Comparaison Rapide des Modèles
-        </h2>
-        <p style="color: rgba(255,255,255,0.95); font-size: 1.1rem;">
-            Quel algorithme détecte le mieux le TDAH ?
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Définition des modèles à comparer
-    models = {
-        'Régression Logistique': LogisticRegression(random_state=42, max_iter=1000),
-        'Random Forest': RandomForestClassifier(random_state=42, n_estimators=100),
-        'Arbre de Décision': DecisionTreeClassifier(random_state=42),
-        'SVM': SVC(random_state=42, probability=True),
-        'Naive Bayes': GaussianNB(),
-        'XGBoost': XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42),
-        'LightGBM': LGBMClassifier(random_state=42, class_weight='balanced'),
-        'CatBoost': CatBoostClassifier(verbose=0, random_state=42, auto_class_weights='Balanced'),
-        'AdaBoost': AdaBoostClassifier(n_estimators=100, random_state=42),
-        'ExtraTrees': ExtraTreesClassifier(n_estimators=100, random_state=42, class_weight='balanced'),
-        'Voting (soft)': VotingClassifier(
-            estimators=[
-                ('rf', RandomForestClassifier(random_state=42)),
-                ('xgb', XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)),
-                ('lgbm', LGBMClassifier(random_state=42))
-            ],
-            voting='soft'
-        ),
-        'KNN': KNeighborsClassifier(n_neighbors=5, weights='distance'),
-        'MLP': MLPClassifier(hidden_layer_sizes=(50,50), max_iter=500, random_state=42)
-
-    }
-
-    results = {}
-    with st.spinner("🔄 Entraînement des modèles en cours..."):
-        for name, model in models.items():
-            try:
-                pipeline = Pipeline([
-                    ('preprocessor', preprocessor),
-                    ('classifier', model)
-                ])
-                # Validation croisée
-                cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5)
-                # Entraînement et prédiction
-                pipeline.fit(X_train, y_train)
-                y_pred = pipeline.predict(X_test)
-                # Prédiction des probabilités pour calcul du recall
-                y_proba = pipeline.predict_proba(X_test)[:, 1]
-                # Stockage des métriques, dont recall_score
-                results[name] = {
-                    'accuracy': accuracy_score(y_test, y_pred),
-                    'precision': precision_score(y_test, y_pred, zero_division=0),
-                    'recall': recall_score(y_test, y_pred, zero_division=0),
-                    'f1': f1_score(y_test, y_pred, zero_division=0),
-                    'auc': roc_auc_score(y_test, y_proba),
-                    'cv_mean': cv_scores.mean(),
-                    'cv_std': cv_scores.std()
-                }
-            except Exception as e:
-                st.warning(f"Erreur avec {name}: {e}")
-
-    if results:
-        # Tri des modèles par recall (sensibilité) décroissant
-        sorted_models = sorted(results.items(),
-                               key=lambda x: x[1]['recall'],
-                               reverse=True)
-
-        # Affichage du classement avec mise en avant du champion
-        for i, (name, metrics) in enumerate(sorted_models):
-            rank_icon = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}️⃣"
-            is_champion = (i == 0)
-            st.markdown(f"""
-            <div class="model-card-tdah {'winner' if is_champion else ''}">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h4 style="color: {'#D35400' if is_champion else '#2C3E50'}; margin: 0; display: flex; align-items: center;">
-                        <span style="margin-right: 10px; font-size: 1.5rem;">{rank_icon}</span>{name}
-                        {'<span style="margin-left:10px; background:#FF6B35; color:white; padding:4px 8px; border-radius:12px; font-size:0.8rem;">CHAMPION</span>' if is_champion else ''}
-                    </h4>
-                    <div style="font-size:1.1rem; font-weight:bold; color:{'#D35400' if is_champion else '#7F8C8D'};">
-                        Recall: {metrics['recall']:.3f}
+    with ml_tabs[1]:
+        st.markdown("""
+        <div class="preprocessing-header-tdah">
+            <h2 style="color: white; font-size: 2.2rem; margin-bottom: 10px;">
+                ⚡ Comparaison Rapide des Modèles
+            </h2>
+            <p style="color: rgba(255,255,255,0.95); font-size: 1.1rem;">
+                Quel algorithme détecte le mieux le TDAH ?
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+        # Définition des modèles à comparer
+        models = {
+            'Régression Logistique': LogisticRegression(random_state=42, max_iter=1000),
+            'Random Forest': RandomForestClassifier(random_state=42, n_estimators=100),
+            'Arbre de Décision': DecisionTreeClassifier(random_state=42),
+            'SVM': SVC(random_state=42, probability=True),
+            'Naive Bayes': GaussianNB(),
+            'XGBoost': XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42),
+            'LightGBM': LGBMClassifier(random_state=42, class_weight='balanced'),
+            'CatBoost': CatBoostClassifier(verbose=0, random_state=42, auto_class_weights='Balanced'),
+            'AdaBoost': AdaBoostClassifier(n_estimators=100, random_state=42),
+            'ExtraTrees': ExtraTreesClassifier(n_estimators=100, random_state=42, class_weight='balanced'),
+            'Voting (soft)': VotingClassifier(
+                estimators=[
+                    ('rf', RandomForestClassifier(random_state=42)),
+                    ('xgb', XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)),
+                    ('lgbm', LGBMClassifier(random_state=42))
+                ],
+                voting='soft'
+            ),
+            'KNN': KNeighborsClassifier(n_neighbors=5, weights='distance'),
+            'MLP': MLPClassifier(hidden_layer_sizes=(50,50), max_iter=500, random_state=42)
+    
+        }
+    
+        results = {}
+        with st.spinner("🔄 Entraînement des modèles en cours..."):
+            for name, model in models.items():
+                try:
+                    pipeline = Pipeline([
+                        ('preprocessor', preprocessor),
+                        ('classifier', model)
+                    ])
+                    # Validation croisée
+                    cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5)
+                    # Entraînement et prédiction
+                    pipeline.fit(X_train, y_train)
+                    y_pred = pipeline.predict(X_test)
+                    # Prédiction des probabilités pour calcul du recall
+                    y_proba = pipeline.predict_proba(X_test)[:, 1]
+                    # Stockage des métriques, dont recall_score
+                    results[name] = {
+                        'accuracy': accuracy_score(y_test, y_pred),
+                        'precision': precision_score(y_test, y_pred, zero_division=0),
+                        'recall': recall_score(y_test, y_pred, zero_division=0),
+                        'f1': f1_score(y_test, y_pred, zero_division=0),
+                        'auc': roc_auc_score(y_test, y_proba),
+                        'cv_mean': cv_scores.mean(),
+                        'cv_std': cv_scores.std()
+                    }
+                except Exception as e:
+                    st.warning(f"Erreur avec {name}: {e}")
+    
+        if results:
+            # Tri des modèles par recall (sensibilité) décroissant
+            sorted_models = sorted(results.items(),
+                                   key=lambda x: x[1]['recall'],
+                                   reverse=True)
+    
+            # Affichage du classement avec mise en avant du champion
+            for i, (name, metrics) in enumerate(sorted_models):
+                rank_icon = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}️⃣"
+                is_champion = (i == 0)
+                st.markdown(f"""
+                <div class="model-card-tdah {'winner' if is_champion else ''}">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="color: {'#D35400' if is_champion else '#2C3E50'}; margin: 0; display: flex; align-items: center;">
+                            <span style="margin-right: 10px; font-size: 1.5rem;">{rank_icon}</span>{name}
+                            {'<span style="margin-left:10px; background:#FF6B35; color:white; padding:4px 8px; border-radius:12px; font-size:0.8rem;">CHAMPION</span>' if is_champion else ''}
+                        </h4>
+                        <div style="font-size:1.1rem; font-weight:bold; color:{'#D35400' if is_champion else '#7F8C8D'};">
+                            Recall: {metrics['recall']:.3f}
+                        </div>
                     </div>
+                    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                        <span style="font-weight:600; color:#d84315;">Précision: {metrics['precision']:.3f}</span>
+                        <span style="font-weight:600; color:#d84315;">AUC: {metrics['auc']:.3f}</span>
+                        <span style="font-weight:600; color:#d84315;">CV mean: {metrics['cv_mean']:.3f}±{metrics['cv_std']:.3f}</span>
+                    </div>
+                    <p style="color:#27AE60; font-weight:bold; margin:0;">
+                        <i>🎯 Optimal pour le dépistage TDAH – Excellent équilibre précision/recall</i>
+                    </p>
                 </div>
-                <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-                    <span style="font-weight:600; color:#d84315;">Précision: {metrics['precision']:.3f}</span>
-                    <span style="font-weight:600; color:#d84315;">AUC: {metrics['auc']:.3f}</span>
-                    <span style="font-weight:600; color:#d84315;">CV mean: {metrics['cv_mean']:.3f}±{metrics['cv_std']:.3f}</span>
-                </div>
-                <p style="color:#27AE60; font-weight:bold; margin:0;">
-                    <i>🎯 Optimal pour le dépistage TDAH – Excellent équilibre précision/recall</i>
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
 
     # ONGLET 3: Analyse Régression Logistique
