@@ -3747,21 +3747,21 @@ def show_enhanced_ml_analysis():
                 y_test=y_test
             )
             
-            for name, model in models.items():
-                try:
-                    pipeline = Pipeline([
+        for name, model in models.items():
+            try:
+                pipeline = Pipeline([
                         ('preprocessor', preprocessor),
                         ('classifier', model)
                     ])
                     # Validation croisée
-                    cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5)
+                cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5)
                     # Entraînement et prédiction
-                    pipeline.fit(X_train, y_train)
-                    y_pred = pipeline.predict(X_test)
+                pipeline.fit(X_train, y_train)
+                y_pred = pipeline.predict(X_test)
                     # Prédiction des probabilités pour calcul du recall
-                    y_proba = pipeline.predict_proba(X_test)[:, 1]
+                y_proba = pipeline.predict_proba(X_test)[:, 1]
                     # Stockage des métriques, dont recall_score
-                    results[name] = {
+                results[name] = {
                         'accuracy': accuracy_score(y_test, y_pred),
                         'precision': precision_score(y_test, y_pred, zero_division=0),
                         'recall': recall_score(y_test, y_pred, zero_division=0),
@@ -3770,8 +3770,8 @@ def show_enhanced_ml_analysis():
                         'cv_mean': cv_scores.mean(),
                         'cv_std': cv_scores.std()
                     }
-                except Exception as e:
-                    st.warning(f"Erreur avec {name}: {e}")
+            except Exception as e:
+                st.warning(f"Erreur avec {name}: {e}")
     
         if results:
             # Tri des modèles par recall (sensibilité) décroissant
