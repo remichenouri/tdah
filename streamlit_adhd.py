@@ -3337,7 +3337,7 @@ def train_and_evaluate(_models, X_train, y_train, X_test, y_test):
     from sklearn.model_selection import cross_val_score
 
     results = {}
-    for name, model in models.items():
+    for name, model in _models.items():
         pipeline = Pipeline([
             ('preprocessor', preprocessor),
             ('classifier', model)
@@ -3355,6 +3355,7 @@ def train_and_evaluate(_models, X_train, y_train, X_test, y_test):
             'cv_std': cv_scores.std()
         }
     return results
+
 
 
 def show_enhanced_ml_analysis():
@@ -3732,7 +3733,13 @@ def show_enhanced_ml_analysis():
             'KNN': KNeighborsClassifier(n_neighbors=5, weights='distance'),
             'MLP': MLPClassifier(hidden_layer_sizes=(50,50), max_iter=500, random_state=42)
         }
-        results = train_and_evaluate(_models, X_train, y_train, X_test, y_test)
+        results = train_and_evaluate(
+            _models=models,
+            X_train=X_train,
+            y_train=y_train,
+            X_test=X_test,
+            y_test=y_test
+        )
         with st.spinner("🔄 Entraînement des modèles en cours..."):
             for name, model in _models.items():
                 try:
