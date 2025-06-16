@@ -3551,32 +3551,20 @@ def show_enhanced_ml_analysis():
             
             # Liste des transformations avec style
             st.markdown("""
-            <div style="padding: 15px;">
-                <div style="display: flex; align-items: center; margin: 10px 0; padding: 10px; 
-                            background: #fff5f0; border-radius: 8px;">
-                    <span style="font-size: 1.5rem; margin-right: 10px;">🔢</span>
-                    <div>
-                        <strong>Encodage binaire</strong><br>
-                        <small style="color: #7f8c8d;">Oui/Non → 1/0</small>
-                    </div>
+            <div style="display: flex; align-items: center; margin: 10px 0; padding: 10px; 
+                        background: #fff5f0; border-radius: 8px;">
+                <span style="font-size: 1.5rem; margin-right: 10px;">📐</span>
+                <div>
+                    <strong>Standardisation</strong><br>
+                    <small style="color: #7f8c8d;">Normalisation des valeurs numériques</small>
                 </div>
-                
-                <div style="display: flex; align-items: center; margin: 10px 0; padding: 10px; 
-                            background: #fff5f0; border-radius: 8px;">
-                    <span style="font-size: 1.5rem; margin-right: 10px;">📐</span>
-                    <div>
-                        <strong>Standardisation</strong><br>
-                        <small style="color: #7f8c8d;">Normalisation des valeurs numériques</small>
-                    </div>
-                </div>
-                
-                <div style="display: flex; align-items: center; margin: 10px 0; padding: 10px; 
-                            background: #fff5f0; border-radius: 8px;">
-                    <span style="font-size: 1.5rem; margin-right: 10px;">🧹</span>
-                    <div>
-                        <strong>Nettoyage</strong><br>
-                        <small style="color: #7f8c8d;">Suppression des valeurs aberrantes</small>
-                    </div>
+            </div>
+            <div style="display: flex; align-items: center; margin: 10px 0; padding: 10px; 
+                        background: #fff5f0; border-radius: 8px;">
+                <span style="font-size: 1.5rem; margin-right: 10px;">🧹</span>
+                <div>
+                    <strong>Nettoyage</strong><br>
+                    <small style="color: #7f8c8d;">Suppression des valeurs aberrantes</small>
                 </div>
             </div>
             """, unsafe_allow_html=True)
