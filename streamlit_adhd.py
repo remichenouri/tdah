@@ -1505,10 +1505,6 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
         st.info("💡 Cette variable technique ne peut pas être utilisée pour les graphiques")
         return
 
-    # Validations préalables sur le DataFrame filtré
-    if df_viz is None or df_viz.empty:
-        st.error("Dataset vide ou non disponible après filtrage")
-        return
     if x_var not in df_viz.columns:
         st.error(f"Variable '{x_var}' non trouvée dans le dataset filtré")
         return
