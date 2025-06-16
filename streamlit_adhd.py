@@ -3716,7 +3716,7 @@ def show_enhanced_ml_analysis():
         from sklearn.neighbors import KNeighborsClassifier
         from sklearn.neural_network import MLPClassifier
         
-        models = {
+        _models = {
             'Régression Logistique': LogisticRegression(random_state=42, max_iter=1000),
             'Random Forest': RandomForestClassifier(random_state=42, n_estimators=100, n_jobs=-1),
             'Arbre de Décision': DecisionTreeClassifier(random_state=42),
