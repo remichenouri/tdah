@@ -3732,8 +3732,7 @@ def show_enhanced_ml_analysis():
             'KNN': KNeighborsClassifier(n_neighbors=5, weights='distance'),
             'MLP': MLPClassifier(hidden_layer_sizes=(50,50), max_iter=500, random_state=42)
         }
-        
-        results = {}
+        results = train_and_evaluate(models, X_train, y_train, X_test, y_test)
         with st.spinner("🔄 Entraînement des modèles en cours..."):
             for name, model in models.items():
                 try:
@@ -3769,8 +3768,16 @@ def show_enhanced_ml_analysis():
     
             # Affichage du classement avec mise en avant du champion
             for i, (name, metrics) in enumerate(sorted_models):
-                rank_icon = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}️⃣"
-                is_champion = (i == 0)
+            is_best = (i == 0)
+            icon = "🥇" if is_best else f"{i+1}️"
+            st.markdown(f"""
+            **{icon} {name}**  
+            - Recall : **{metrics['recall']:.2%}**  
+            - Précision : {metrics['precision']:.2%}  
+            - AUC : {metrics['auc']:.2%}  
+            """, unsafe_allow_html=True)
+            if is_best:
+                st.success(f"Modèle champion pour la sensibilité : {name} ({metrics['recall']:.2%})")
                 st.markdown(f"""
                 <div class="model-card-tdah {'winner' if is_champion else ''}">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
