@@ -3354,7 +3354,20 @@ def show_enhanced_ml_analysis():
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
     from sklearn.metrics import roc_auc_score, confusion_matrix, classification_report, roc_curve
     from sklearn.model_selection import cross_val_score, train_test_split
-    
+    from xgboost import XGBClassifier
+    from lightgbm import LGBMClassifier
+    from catboost import CatBoostClassifier
+    from sklearn.ensemble import (
+        RandomForestClassifier, AdaBoostClassifier,
+        ExtraTreesClassifier, VotingClassifier
+    )
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.tree import DecisionTreeClassifier
+    from sklearn.svm import SVC
+    from sklearn.naive_bayes import GaussianNB
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.neural_network import MLPClassifier
+        
     # Styles CSS harmonisés avec les couleurs TDAH
     st.markdown("""
     <style>
@@ -3664,7 +3677,23 @@ with ml_tabs[1]:
         'Random Forest': RandomForestClassifier(random_state=42, n_estimators=100),
         'Arbre de Décision': DecisionTreeClassifier(random_state=42),
         'SVM': SVC(random_state=42, probability=True),
-        'Naive Bayes': GaussianNB()
+        'Naive Bayes': GaussianNB(),
+        'XGBoost': XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42),
+        'LightGBM': LGBMClassifier(random_state=42, class_weight='balanced'),
+        'CatBoost': CatBoostClassifier(verbose=0, random_state=42, auto_class_weights='Balanced'),
+        'AdaBoost': AdaBoostClassifier(n_estimators=100, random_state=42),
+        'ExtraTrees': ExtraTreesClassifier(n_estimators=100, random_state=42, class_weight='balanced'),
+        'Voting (soft)': VotingClassifier(
+            estimators=[
+                ('rf', RandomForestClassifier(random_state=42)),
+                ('xgb', XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)),
+                ('lgbm', LGBMClassifier(random_state=42))
+            ],
+            voting='soft'
+        ),
+        'KNN': KNeighborsClassifier(n_neighbors=5, weights='distance'),
+        'MLP': MLPClassifier(hidden_layer_sizes=(50,50), max_iter=500, random_state=42)
+
     }
 
     results = {}
