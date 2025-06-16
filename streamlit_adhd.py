@@ -3720,7 +3720,7 @@ def show_enhanced_ml_analysis():
             """, unsafe_allow_html=True)
             
             # Tri des modèles par F1-score (priorité au dépistage)
-            sorted_models = sorted(results.items(), key=lambda x: x[1]['accuracy'], reverse=True)
+            sorted_models = sorted(results.items(), key=lambda x: x[1]['recall'], reverse=True)
             
             for i, (name, metrics) in enumerate(sorted_models):
                 rank_icon = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}️⃣"
@@ -3734,7 +3734,7 @@ def show_enhanced_ml_analysis():
                             {name}
                             {'<span style="margin-left: 10px; background: #FF6B35; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem;">CHAMPION</span>' if is_winner else ''}</h4>
                         <div style="font-size: 1.1rem; font-weight: bold; color: {'#D35400' if is_winner else '#7F8C8D'};">
-                            Accuracy: {metrics['accuracy']:.3f}
+                            Accuracy: {metrics['recall']:.3f}
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
