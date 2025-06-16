@@ -1143,34 +1143,34 @@ if 'css_loaded' not in st.session_state:
     mean_age = df['age'].mean() if 'age' in df.columns else 0
     male_ratio = (df['gender'] == 'M').mean() if 'gender' in df.columns else 0
 
-        st.markdown("""
+    st.markdown("""
         <h2 style="color: #ff5722; margin: 45px 0 25px 0; text-align: center; font-size: 2.2rem;">
             📊 Données de notre étude
         </h2>
         """, unsafe_allow_html=True)
 
-        col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4 = st.columns(4)
 
-        with col1:
-            st.metric(
+    with col1:
+        st.metric(
                 "Participants total",
                 f"{total_participants:,}",
                 help="Nombre total de participants dans notre dataset"
             )
-        with col2:
-            st.metric(
+    with col2:
+        st.metric(
                 "Cas TDAH détectés",
                 f"{tdah_cases:,} ({tdah_cases/total_participants:.1%})",
                 help="Proportion de participants avec diagnostic TDAH positif"
             )
-        with col3:
-            st.metric(
+    with col3:
+        st.metric(
                 "Âge moyen",
                 f"{mean_age:.1f} ans",
                 help="Âge moyen des participants"
             )
-        with col4:
-            st.metric(
+    with col4:
+        st.metric(
                 "Ratio Hommes/Femmes",
                 f"{male_ratio:.1%} / {1-male_ratio:.1%}",
                 help="Répartition par genre"
