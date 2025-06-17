@@ -3290,59 +3290,49 @@ def show_enhanced_ml_analysis():
     df[cat_cols] = cat_imputer.fit_transform(df[cat_cols])
     
     class TDAHNaiveBayesDetector:
-        """Détecteur TDAH optimisé avec Naive Bayes pour dépistage de masse"""
-        
+        """Détecteur TDAH optimisé pour le dépistage de masse"""
+    
         def __init__(self):
             self.model = GaussianNB()
             self.scaler = StandardScaler()
-            self.feature_names = []
             self.is_trained = False
             self.metrics = {}
-        
-
-        def train(self, df):
-            df = self._prepare_dataframe(df)
-            # Enregistrement des noms de features
-            self.feature_names = df.drop(columns=['diagnosis']).columns.tolist()
+    
+        def train(self, df: pd.DataFrame):
             X = df.drop(columns=['diagnosis'])
             y = df['diagnosis']
-        
-            # Split train/test
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,
-                                                                stratify=y, random_state=42)
-        
-        
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42, stratify=y
+            )
             # Normalisation
-            self.scaler.fit(X_train)
-            X_train_scaled = self.scaler.transform(X_train)
-            X_test_scaled  = self.scaler.transform(X_test)
-        
+            X_train_s = self.scaler.fit_transform(X_train)
+            X_test_s  = self.scaler.transform(X_test)
             # Entraînement
-            self.model.fit(X_train_scaled, y_train)
-            y_pred  = self.model.predict(X_test_scaled)
-            y_proba = self.model.predict_proba(X_test_scaled)[:,1]
-        
-            # Calcul métriques
-            metrics = {
-                'accuracy':     accuracy_score(y_test, y_pred),
-                'precision':    precision_score(y_test, y_pred, zero_division=0),
-                'recall':       recall_score(y_test, y_pred, zero_division=0),
-                'f1_score':     f1_score(y_test, y_pred, zero_division=0),
-                'roc_auc':      roc_auc_score(y_test, y_proba),
-                'cv_auc_mean':  cross_val_score(self.model, X, y, cv=5, scoring='roc_auc').mean(),
-                'cv_auc_std':   cross_val_score(self.model, X, y, cv=5, scoring='roc_auc').std(),
-                'n_samples':    len(df),
-                'n_test':       len(y_test),
-                'prevalence':   y.mean()
+            self.model.fit(X_train_s, y_train)
+            y_pred = self.model.predict(X_test_s)
+            y_proba = self.model.predict_proba(X_test_s)[:,1]
+            # Calcul des métriques
+            self.metrics = {
+                'accuracy': accuracy_score(y_test, y_pred),
+                'precision': precision_score(y_test, y_pred, zero_division=0),
+                'recall': recall_score(y_test, y_pred, zero_division=0),
+                'f1': f1_score(y_test, y_pred, zero_division=0),
+                'roc_auc': roc_auc_score(y_test, y_proba),
+                'cv_auc': cross_val_score(self.model, X, y, cv=5, scoring='roc_auc').mean(),
+                'optimal_threshold': self._find_optimal_threshold(y_test, y_proba)
             }
-        
-            # Optimisation seuil
-            self._optimize_threshold_for_screening(X_test_scaled, y_test)
-        
             self.is_trained = True
-            self.metrics    = metrics
-            return metrics, X_test_scaled, y_test, y_pred, y_proba
-
+            return X_test_s, y_test, y_pred, y_proba
+    
+        def _find_optimal_threshold(self, y_true, y_proba):
+            best_thr, best_prec = 0.5, 0.0
+            for thr in np.linspace(0.1, 0.9, 17):
+                y_pred_t = (y_proba >= thr).astype(int)
+                prec = precision_score(y_true, y_pred_t, zero_division=0)
+                rec  = recall_score(y_true, y_pred_t, zero_division=0)
+                if rec >= 0.85 and prec > best_prec:
+                    best_prec, best_thr = prec, thr
+            return best_thr
 
         def _optimize_threshold_for_screening(self, X_test, y_test):
             """Optimise le seuil pour un dépistage selon recall et precision."""
