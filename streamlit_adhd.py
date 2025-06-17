@@ -3276,53 +3276,65 @@ def show_enhanced_ml_analysis():
         </p>
     </div>
     """, unsafe_allow_html=True)
-    df = load_enhanced_dataset()
+    # Chargement et préparation du dataset
+    df = load_enhanced_dataset()  # Fonction existante pour charger les données
+    # Encodages
+    df['gender'] = df['gender'].map({'M':0,'F':1}).fillna(0).astype(int)
+    df['education'] = df['education'].map({
+        'Bac':0,'Bac+2':1,'Bac+3':2,'Bac+5':3,'Doctorat':4
+    }).fillna(0).astype(int)
+    # Imputation
+    num_cols = df.select_dtypes(include=['int64','float64']).columns
+    df[num_cols] = SimpleImputer(strategy='median').fit_transform(df[num_cols])
 
-    gender_map    = {'M': 0, 'F': 1}
-    education_map = {'Bac': 0, 'Bac+2': 1, 'Bac+3': 2, 'Bac+5': 3, 'Doctorat': 4}   
-    df['gender']    = df['gender'].map(gender_map)
-    df['education'] = df['education'].map(education_map)
-    numeric_cols = df.select_dtypes(include=['int64','float64']).columns
-    imputer = SimpleImputer(strategy='median')
-    df[numeric_cols] = imputer.fit_transform(df[numeric_cols])
-    cat_cols = df.select_dtypes(include=['object','category']).columns
-    cat_imputer = SimpleImputer(strategy='most_frequent')
-    df[cat_cols] = cat_imputer.fit_transform(df[cat_cols])
-    
-    class TDAHNaiveBayesDetector:
-        """Détecteur TDAH optimisé pour le dépistage de masse"""
-    
-        def __init__(self):
-            self.model = GaussianNB()
-            self.scaler = StandardScaler()
-            self.is_trained = False
-            self.metrics = {}
-    
-        def train(self, df: pd.DataFrame):
-            X = df.drop(columns=['diagnosis'])
-            y = df['diagnosis']
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=0.2, random_state=42, stratify=y
-            )
-            # Normalisation
-            X_train_s = self.scaler.fit_transform(X_train)
-            X_test_s  = self.scaler.transform(X_test)
-            # Entraînement
-            self.model.fit(X_train_s, y_train)
-            y_pred = self.model.predict(X_test_s)
-            y_proba = self.model.predict_proba(X_test_s)[:,1]
-            # Calcul des métriques
-            self.metrics = {
-                'accuracy': accuracy_score(y_test, y_pred),
-                'precision': precision_score(y_test, y_pred, zero_division=0),
-                'recall': recall_score(y_test, y_pred, zero_division=0),
-                'f1': f1_score(y_test, y_pred, zero_division=0),
-                'roc_auc': roc_auc_score(y_test, y_proba),
-                'cv_auc': cross_val_score(self.model, X, y, cv=5, scoring='roc_auc').mean(),
-                'optimal_threshold': self._find_optimal_threshold(y_test, y_proba)
-            }
-            self.is_trained = True
-            return X_test_s, y_test, y_pred, y_proba
+    # Entraînement Naive Bayes
+    X = df.drop(columns=['diagnosis'])
+    y = df['diagnosis'].map({'Yes':1,'No':0}) if df['diagnosis'].dtype == object else df['diagnosis']
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, stratify=y, random_state=42, test_size=0.2
+    )
+    scaler = StandardScaler().fit(X_train)
+    X_train_s = scaler.transform(X_train)
+    X_test_s = scaler.transform(X_test)
+
+    model = GaussianNB()
+    model.fit(X_train_s, y_train)
+    y_pred = model.predict(X_test_s)
+    y_proba = model.predict_proba(X_test_s)[:,1]
+
+    # Calcul des métriques
+    metrics = {
+        'accuracy': accuracy_score(y_test, y_pred),
+        'precision': precision_score(y_test, y_pred, zero_division=0),
+        'recall': recall_score(y_test, y_pred, zero_division=0),
+        'f1': f1_score(y_test, y_pred, zero_division=0),
+        'roc_auc': roc_auc_score(y_test, y_proba),
+        'cv_auc': cross_val_score(model, X_train_s, y_train, cv=5, scoring='roc_auc').mean()
+    }
+
+    # Affichage des métriques
+    st.subheader("📊 Performances Naive Bayes")
+    cols = st.columns(5)
+    for col, label in zip(cols, ['accuracy','precision','recall','f1','roc_auc']):
+        col.metric(label.capitalize(), f"{metrics[label]:.2%}")
+
+    # Matrice de confusion
+    cm = confusion_matrix(y_test, y_pred)
+    fig_cm = go.Figure(
+        go.Heatmap(z=cm, x=['Pred 0','Pred 1'], y=['True 0','True 1'],
+                   colorscale='Oranges', text=cm, texttemplate="%{text}")
+    )
+    fig_cm.update_layout(title="Matrice de confusion")
+    st.plotly_chart(fig_cm, use_container_width=True)
+
+    # Courbe ROC
+    fpr, tpr, _ = roc_curve(y_test, y_proba)
+    fig_roc = go.Figure()
+    fig_roc.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines',
+                                 name=f"AUC={metrics['roc_auc']:.2f}"))
+    fig_roc.add_trace(go.Scatter(x=[0,1], y=[0,1], mode='lines', line_dash='dash'))
+    fig_roc.update_layout(title="Courbe ROC")
+    st.plotly_chart(fig_roc, use_container_width=True)
     
         def _find_optimal_threshold(self, y_true, y_proba):
             best_thr, best_prec = 0.5, 0.0
