@@ -3024,20 +3024,20 @@ def simple_ml_analysis(X_train, X_test, y_train, y_test):
 
 
  def show_comparison_tab():
-        import pandas as pd  # Import correct
-        import numpy as np
-        st.header("📈 Comparaison des modèles")
+    import pandas as pd  # Import correct
+    import numpy as np
+    st.header("📈 Comparaison des modèles")
         
-        try:
-            url = 'https://drive.google.com/file/d/1RcR4zRToSAVSa6h5T6ZmONenJcRm6-bi/view?usp=drive_link'
-            file_id = url.split('/d/')[1].split('/')[0]
-            download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
+    try:
+        url = 'https://drive.google.com/file/d/1RcR4zRToSAVSa6h5T6ZmONenJcRm6-bi/view?usp=drive_link'
+        file_id = url.split('/d/')[1].split('/')[0]
+        download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
             
-            # Chargement du dataset avec gestion d'erreur
-            results_df = pd.read_csv(download_url)
-            results_df = results_df.sort_values(by="recall", ascending=False)
+        # Chargement du dataset avec gestion d'erreur
+        results_df = pd.read_csv(download_url)
+        results_df = results_df.sort_values(by="recall", ascending=False)
             
-            st.dataframe(results_df.style.format({
+        st.dataframe(results_df.style.format({
                 "accuracy": "{:.4f}",
                 "precision": "{:.4f}", 
                 "recall": "{:.4f}",
@@ -3045,12 +3045,12 @@ def simple_ml_analysis(X_train, X_test, y_train, y_test):
                 "roc_auc": "{:.4f}"
             }))
             
-        except Exception as e:
-            st.error(f"Erreur lors du chargement des données : {str(e)}")
-            st.info("Utilisation de données de démonstration à la place")
+    except Exception as e:
+        st.error(f"Erreur lors du chargement des données : {str(e)}")
+        st.info("Utilisation de données de démonstration à la place")
             
             # Données de fallback
-            fallback_data = {
+        fallback_data = {
                 'model': ['NaiveBayes', 'SVM', 'LightGBM', 'CatBoost', 'LogisticRegression'],
                 'accuracy': [0.2372, 0.7952, 0.8563, 0.8153, 0.9492],
                 'precision': [0.0723, 0.1964, 0.2411, 0.2267, 0.7708],
@@ -3059,11 +3059,11 @@ def simple_ml_analysis(X_train, X_test, y_train, y_test):
                 'roc_auc': [0.8648, 0.8457, 0.8410, 0.8463, 0.8762]
             }
             
-            results_df = pd.DataFrame(fallback_data)
-            results_df = results_df.sort_values(by="recall", ascending=False)
+        results_df = pd.DataFrame(fallback_data)
+        results_df = results_df.sort_values(by="recall", ascending=False)
             
-            st.dataframe(results_df.style.format({
-                "accuracy": "{:.4f}",
+        st.dataframe(results_df.style.format({
+            "accuracy": "{:.4f}",
                 "precision": "{:.4f}",
                 "recall": "{:.4f}",
                 "f1_score": "{:.4f}",
