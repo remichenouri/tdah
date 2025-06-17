@@ -3336,58 +3336,58 @@ def show_enhanced_ml_analysis():
     fig_roc.update_layout(title="Courbe ROC")
     st.plotly_chart(fig_roc, use_container_width=True)
     
-        def _find_optimal_threshold(self, y_true, y_proba):
-            best_thr, best_prec = 0.5, 0.0
-            for thr in np.linspace(0.1, 0.9, 17):
-                y_pred_t = (y_proba >= thr).astype(int)
-                prec = precision_score(y_true, y_pred_t, zero_division=0)
-                rec  = recall_score(y_true, y_pred_t, zero_division=0)
-                if rec >= 0.85 and prec > best_prec:
+    def _find_optimal_threshold(self, y_true, y_proba):
+        best_thr, best_prec = 0.5, 0.0
+        for thr in np.linspace(0.1, 0.9, 17):
+            y_pred_t = (y_proba >= thr).astype(int)
+            prec = precision_score(y_true, y_pred_t, zero_division=0)
+            rec  = recall_score(y_true, y_pred_t, zero_division=0)
+            if rec >= 0.85 and prec > best_prec:
                     best_prec, best_thr = prec, thr
-            return best_thr
+        return best_thr
 
-        def _optimize_threshold_for_screening(self, X_test, y_test):
-            """Optimise le seuil pour un dépistage selon recall et precision."""
-            # Calcul du pouvoir discriminant
-            class_means = self.model.theta_
-            class_vars  = self.model.var_
-            discriminant_power = np.abs(class_means[1] - class_means[0]) / np.sqrt(class_vars[1] + class_vars[0])
+    def _optimize_threshold_for_screening(self, X_test, y_test):
+        """Optimise le seuil pour un dépistage selon recall et precision."""
+        # Calcul du pouvoir discriminant
+        class_means = self.model.theta_
+        class_vars  = self.model.var_
+        discriminant_power = np.abs(class_means[1] - class_means[0]) / np.sqrt(class_vars[1] + class_vars[0])
         
-            # Vérification des longueurs avant création du DataFrame
-            assert len(self.feature_names) == len(discriminant_power), \
-                "feature_names et discriminant_power doivent avoir la même longueur"
+        # Vérification des longueurs avant création du DataFrame
+        assert len(self.feature_names) == len(discriminant_power), \
+        "feature_names et discriminant_power doivent avoir la même longueur"
         
-            # Construction et tri du DataFrame d’importance
-            importance_df = pd.DataFrame({
-                'Feature': self.feature_names,
-                'Pouvoir_Discriminant': discriminant_power
-            }).sort_values('Pouvoir_Discriminant', ascending=False)
-            self.metrics['importance_df'] = importance_df
+        # Construction et tri du DataFrame d’importance
+        importance_df = pd.DataFrame({
+            'Feature': self.feature_names,
+            'Pouvoir_Discriminant': discriminant_power
+        }).sort_values('Pouvoir_Discriminant', ascending=False)
+        self.metrics['importance_df'] = importance_df
         
-            # Calcul des probabilités prédites
-            y_proba = self.model.predict_proba(X_test)[:, 1]
+        # Calcul des probabilités prédites
+        y_proba = self.model.predict_proba(X_test)[:, 1]
         
-            # Balayage des seuils
-            thresholds = np.linspace(0.1, 0.9, 81)
-            best_precision = 0.0
-            optimal_threshold = 0.5
-            results = []
+        # Balayage des seuils
+        thresholds = np.linspace(0.1, 0.9, 81)
+        best_precision = 0.0
+        optimal_threshold = 0.5
+        results = []
         
-            for thr in thresholds:
-                y_pred = (y_proba >= thr).astype(int)
-                rec = recall_score(y_test, y_pred, zero_division=0)
-                prec = precision_score(y_test, y_pred, zero_division=0)
-                f1 = f1_score(y_test, y_pred, zero_division=0)
-                results.append({'threshold': thr, 'recall': rec, 'precision': prec, 'f1': f1})
+        for thr in thresholds:
+            y_pred = (y_proba >= thr).astype(int)
+            rec = recall_score(y_test, y_pred, zero_division=0)
+            prec = precision_score(y_test, y_pred, zero_division=0)
+            f1 = f1_score(y_test, y_pred, zero_division=0)
+            results.append({'threshold': thr, 'recall': rec, 'precision': prec, 'f1': f1})
         
-                # Choix du seuil : recall>=85% et meilleure précision
-                if rec >= 0.85 and prec > best_precision:
-                    best_precision = prec
-                    optimal_threshold = thr
+            # Choix du seuil : recall>=85% et meilleure précision
+            if rec >= 0.85 and prec > best_precision:
+                best_precision = prec
+                optimal_threshold = thr
         
-            # Enregistrement des métriques dans l’état du modèle
-            self.metrics['optimal_threshold']   = optimal_threshold
-            self.metrics['threshold_results']   = pd.DataFrame(results)
+        # Enregistrement des métriques dans l’état du modèle
+        self.metrics['optimal_threshold']   = optimal_threshold
+        self.metrics['threshold_results']   = pd.DataFrame(results)
             
         def predict_risk(self, user_responses):
             """Prédit le risque TDAH pour un utilisateur"""
