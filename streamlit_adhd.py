@@ -3344,8 +3344,7 @@ def show_enhanced_ml_analysis():
             return metrics, X_test_scaled, y_test, y_pred, y_proba
 
 
-                
-       def _optimize_threshold_for_screening(self, X_test, y_test):
+        def _optimize_threshold_for_screening(self, X_test, y_test):
             """Optimise le seuil pour un dépistage selon recall et precision."""
             # Calcul du pouvoir discriminant
             class_means = self.model.theta_
