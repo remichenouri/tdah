@@ -3276,6 +3276,13 @@ def show_enhanced_ml_analysis():
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+    from tdah_detector import TDAHNaiveBayesDetector 
+    
+    # Chargement du dataset
+    df = load_enhanced_dataset()
+    # Instanciation du détecteur
+    detector = TDAHNaiveBayesDetector()
     # Chargement et préparation du dataset
     df = load_enhanced_dataset()  # Fonction existante pour charger les données
     # Encodages
