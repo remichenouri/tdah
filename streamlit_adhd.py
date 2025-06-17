@@ -3167,6 +3167,17 @@ def show_enhanced_ml_analysis():
     </div>
     """, unsafe_allow_html=True)
     df = load_enhanced_dataset()
+
+    gender_map    = {'M': 0, 'F': 1}
+    education_map = {'Bac': 0, 'Bac+2': 1, 'Bac+3': 2, 'Bac+5': 3, 'Doctorat': 4}   
+    df['gender']    = df['gender'].map(gender_map)
+    df['education'] = df['education'].map(education_map)
+    numeric_cols = df.select_dtypes(include=['int64','float64']).columns
+    imputer = SimpleImputer(strategy='median')
+    df[numeric_cols] = imputer.fit_transform(df[numeric_cols])
+    cat_cols = df.select_dtypes(include=['object','category']).columns
+    cat_imputer = SimpleImputer(strategy='most_frequent')
+    df[cat_cols] = cat_imputer.fit_transform(df[cat_cols])
     
     class TDAHNaiveBayesDetector:
         """Détecteur TDAH optimisé avec Naive Bayes pour dépistage de masse"""
@@ -3177,25 +3188,12 @@ def show_enhanced_ml_analysis():
             self.feature_names = []
             self.is_trained = False
             self.metrics = {}
-
-        df = load_enhanced_dataset()
-
-        gender_map    = {'M': 0, 'F': 1}
-        education_map = {'Bac': 0, 'Bac+2': 1, 'Bac+3': 2, 'Bac+5': 3, 'Doctorat': 4}
-        
-        df['gender']    = df['gender'].map(gender_map)
-        df['education'] = df['education'].map(education_map)
-        numeric_cols = df.select_dtypes(include=['int64','float64']).columns
-        imputer = SimpleImputer(strategy='median')
-        df[numeric_cols] = imputer.fit_transform(df[numeric_cols])
-        cat_cols = df.select_dtypes(include=['object','category']).columns
-        cat_imputer = SimpleImputer(strategy='most_frequent')
-        df[cat_cols] = cat_imputer.fit_transform(df[cat_cols])
         
 
         def train(self, df):
-            
-            # Séparation
+            df = self._prepare_dataframe(df)
+            # Enregistrement des noms de features
+            self.feature_names = df.drop(columns=['diagnosis']).columns.tolist()
             X = df.drop(columns=['diagnosis'])
             y = df['diagnosis']
         
@@ -3237,37 +3235,48 @@ def show_enhanced_ml_analysis():
 
 
                 
-        def _optimize_threshold_for_screening(self, X_test, y_test):
-            """Optimise le seuil pour maximiser la détection (recall)"""
+       def _optimize_threshold_for_screening(self, X_test, y_test):
+            """Optimise le seuil pour un dépistage selon recall et precision."""
+            # Calcul du pouvoir discriminant
+            class_means = self.model.theta_
+            class_vars  = self.model.var_
+            discriminant_power = np.abs(class_means[1] - class_means[0]) / np.sqrt(class_vars[1] + class_vars[0])
+        
+            # Vérification des longueurs avant création du DataFrame
+            assert len(self.feature_names) == len(discriminant_power), \
+                "feature_names et discriminant_power doivent avoir la même longueur"
+        
+            # Construction et tri du DataFrame d’importance
+            importance_df = pd.DataFrame({
+                'Feature': self.feature_names,
+                'Pouvoir_Discriminant': discriminant_power
+            }).sort_values('Pouvoir_Discriminant', ascending=False)
+            self.metrics['importance_df'] = importance_df
+        
+            # Calcul des probabilités prédites
             y_proba = self.model.predict_proba(X_test)[:, 1]
-            
+        
+            # Balayage des seuils
             thresholds = np.linspace(0.1, 0.9, 81)
-            best_recall = 0
+            best_precision = 0.0
             optimal_threshold = 0.5
-            
-            threshold_results = []
-            
-            for threshold in thresholds:
-                y_pred_thresh = (y_proba >= threshold).astype(int)
-                
-                recall = recall_score(y_test, y_pred_thresh, zero_division=0)
-                precision = precision_score(y_test, y_pred_thresh, zero_division=0)
-                f1 = f1_score(y_test, y_pred_thresh, zero_division=0)
-                
-                threshold_results.append({
-                    'threshold': threshold,
-                    'recall': recall,
-                    'precision': precision,
-                    'f1': f1
-                })
-                
-                # Critère pour dépistage : recall >= 85% avec meilleure précision
-                if recall >= 0.85 and recall > best_recall:
-                    best_recall = recall
-                    optimal_threshold = threshold
-            
-            self.metrics['optimal_threshold'] = optimal_threshold
-            self.metrics['threshold_results'] = pd.DataFrame(threshold_results)
+            results = []
+        
+            for thr in thresholds:
+                y_pred = (y_proba >= thr).astype(int)
+                rec = recall_score(y_test, y_pred, zero_division=0)
+                prec = precision_score(y_test, y_pred, zero_division=0)
+                f1 = f1_score(y_test, y_pred, zero_division=0)
+                results.append({'threshold': thr, 'recall': rec, 'precision': prec, 'f1': f1})
+        
+                # Choix du seuil : recall>=85% et meilleure précision
+                if rec >= 0.85 and prec > best_precision:
+                    best_precision = prec
+                    optimal_threshold = thr
+        
+            # Enregistrement des métriques dans l’état du modèle
+            self.metrics['optimal_threshold']   = optimal_threshold
+            self.metrics['threshold_results']   = pd.DataFrame(results)
             
         def predict_risk(self, user_responses):
             """Prédit le risque TDAH pour un utilisateur"""
