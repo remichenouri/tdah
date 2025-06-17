@@ -15,12 +15,7 @@ import streamlit as st
 import uuid
 import hashlib
 import time
-import gdown
-import joblib
-
-import os
 from datetime import datetime
-from sklearn.pipeline import Pipeline
 
 class GDPRConsentManager:
     """Gestionnaire des consentements RGPD"""
@@ -1136,41 +1131,41 @@ if 'css_loaded' not in st.session_state:
     # Nouvelles statistiques du dataset
     df = load_enhanced_dataset()
 
+    if df is not None and len(df) > 1000:
+        # Statistiques réelles du dataset
+        total_participants = len(df)
+        tdah_cases = df['diagnosis'].sum() if 'diagnosis' in df.columns else 0
+        mean_age = df['age'].mean() if 'age' in df.columns else 0
+        male_ratio = (df['gender'] == 'M').mean() if 'gender' in df.columns else 0
 
-    # Statistiques réelles du dataset
-    total_participants = len(df)
-    tdah_cases = df['diagnosis'].sum() if 'diagnosis' in df.columns else 0
-    mean_age = df['age'].mean() if 'age' in df.columns else 0
-    male_ratio = (df['gender'] == 'M').mean() if 'gender' in df.columns else 0
-
-    st.markdown("""
+        st.markdown("""
         <h2 style="color: #ff5722; margin: 45px 0 25px 0; text-align: center; font-size: 2.2rem;">
             📊 Données de notre étude
         </h2>
         """, unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4 = st.columns(4)
 
-    with col1:
-        st.metric(
+        with col1:
+            st.metric(
                 "Participants total",
                 f"{total_participants:,}",
                 help="Nombre total de participants dans notre dataset"
             )
-    with col2:
-        st.metric(
+        with col2:
+            st.metric(
                 "Cas TDAH détectés",
                 f"{tdah_cases:,} ({tdah_cases/total_participants:.1%})",
                 help="Proportion de participants avec diagnostic TDAH positif"
             )
-    with col3:
-        st.metric(
+        with col3:
+            st.metric(
                 "Âge moyen",
                 f"{mean_age:.1f} ans",
                 help="Âge moyen des participants"
             )
-    with col4:
-        st.metric(
+        with col4:
+            st.metric(
                 "Ratio Hommes/Femmes",
                 f"{male_ratio:.1%} / {1-male_ratio:.1%}",
                 help="Répartition par genre"
@@ -1505,6 +1500,10 @@ def smart_visualization(df, x_var, y_var=None, color_var=None, force_chart_type=
         st.info("💡 Cette variable technique ne peut pas être utilisée pour les graphiques")
         return
 
+    # Validations préalables sur le DataFrame filtré
+    if df_viz is None or df_viz.empty:
+        st.error("Dataset vide ou non disponible après filtrage")
+        return
     if x_var not in df_viz.columns:
         st.error(f"Variable '{x_var}' non trouvée dans le dataset filtré")
         return
@@ -1660,6 +1659,9 @@ def show_enhanced_data_exploration():
     # Chargement du dataset
     df = load_enhanced_dataset()
 
+    if df is None or len(df) == 0:
+        st.error("Impossible de charger le dataset")
+        return
 
     # Onglets d'exploration
     tabs = st.tabs([
@@ -1929,6 +1931,11 @@ def show_enhanced_data_exploration():
         with tabs[3]:  # Onglet Visualisations interactives
             st.subheader("🎯 Visualisations interactives")
 
+            # Vérification du dataset
+            if df is None or len(df) == 0:
+                st.error("Aucune donnée disponible pour la visualisation")
+                return
+
             # Variables à exclure de l'interface utilisateur
             excluded_from_ui = ['source_file', 'generation_date', 'version', 'streamlit_ready', 'subject_id']
 
@@ -2129,154 +2136,104 @@ def safe_model_prediction(model, X_data):
         st.error(f"❌ Erreur de prédiction : {str(e)}")
         return None, None
 
-def compare_models_by_recall(X_train, X_test, y_train, y_test):
-    """Comparaison de modèles classés par sensibilité (recall) - OPTIMISÉ POUR DÉPISTAGE"""
+def compare_models_manually(X_train, X_test, y_train, y_test):
+    """Comparaison manuelle de modèles ML sans LazyPredict"""
     try:
         from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
         from sklearn.linear_model import LogisticRegression
         from sklearn.svm import SVC
         from sklearn.naive_bayes import GaussianNB
-        from sklearn.metrics import recall_score, precision_score, f1_score, roc_auc_score
-        
-        # Modèles avec hyperparamètres optimisés pour sensibilité
+        from sklearn.neighbors import KNeighborsClassifier
+        from sklearn.tree import DecisionTreeClassifier
+        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+        import time
+
+        # Définition des modèles à tester
         models = {
-            'LogisticRegression_HighRecall': LogisticRegression(
-                random_state=42, max_iter=1000, class_weight='balanced'
-            ),
-            'RandomForest_HighRecall': RandomForestClassifier(
-                n_estimators=200, random_state=42, class_weight='balanced',
-                max_depth=None, min_samples_split=2
-            ),
-            'SVM_HighRecall': SVC(
-                probability=True, random_state=42, class_weight='balanced',
-                gamma='scale', C=0.1  # Paramètres favorisant la sensibilité
-            ),
-            'GradientBoosting_HighRecall': GradientBoostingClassifier(
-                random_state=42, learning_rate=0.05, n_estimators=150
-            ),
-            'GaussianNB_HighRecall': GaussianNB()
+            'RandomForest': RandomForestClassifier(n_estimators=100, random_state=42),
+            'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000),
+            'GradientBoosting': GradientBoostingClassifier(random_state=42),
+            'SVM': SVC(probability=True, random_state=42),
+            'GaussianNB': GaussianNB(),
+            'KNeighbors': KNeighborsClassifier(),
+            'DecisionTree': DecisionTreeClassifier(random_state=42)
         }
-        
+
         results = {}
-        
-        for name, model in _models.items():
+
+        for name, model in models.items():
             try:
+                start_time = time.time()
+
                 # Entraînement
                 model.fit(X_train, y_train)
-                
-                # Prédictions avec seuil optimisé pour sensibilité
-                if hasattr(model, 'predict_proba'):
-                    y_proba = model.predict_proba(X_test)[:, 1]
-                    # Seuil abaissé pour maximiser la sensibilité
-                    optimal_threshold = 0.3  # Au lieu de 0.5 par défaut
-                    y_pred = (y_proba >= optimal_threshold).astype(int)
-                else:
-                    y_pred = model.predict(X_test)
-                    y_proba = None
-                
+
+                # Prédictions
+                y_pred = model.predict(X_test)
+                y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else None
+
                 # Calcul des métriques
-                recall = recall_score(y_test, y_pred, zero_division=0)
+                accuracy = accuracy_score(y_test, y_pred)
                 precision = precision_score(y_test, y_pred, zero_division=0)
+                recall = recall_score(y_test, y_pred, zero_division=0)
                 f1 = f1_score(y_test, y_pred, zero_division=0)
-                
-                # AUC si probabilités disponibles
+
+                # AUC seulement si les probabilités sont disponibles
                 auc = roc_auc_score(y_test, y_proba) if y_proba is not None else 0.5
-                
+
+                time_taken = time.time() - start_time
+
                 results[name] = {
-                    'Recall (Sensibilité)': recall,
+                    'Accuracy': accuracy,
                     'Precision': precision,
+                    'Recall': recall,
                     'F1_Score': f1,
                     'ROC_AUC': auc,
-                    'Seuil_Optimal': optimal_threshold,
+                    'Time_Taken': time_taken,
                     'model': model
                 }
-                
+
             except Exception as e:
                 st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
                 continue
-        
-        if results:
-            # Création DataFrame trié par SENSIBILITÉ (priorité dépistage)
-            results_df = pd.DataFrame(results).T
-            results_df = results_df.drop('model', axis=1, errors='ignore')
-            
-            # TRI PAR SENSIBILITÉ - MÉTRIQUE PRIORITAIRE POUR DÉPISTAGE
-            results_df_sorted = results_df.sort_values(
-                ['Recall (Sensibilité)', 'ROC_AUC'], 
-                ascending=[False, False]
-            )
-            
-            return results_df_sorted
-        else:
-            st.error("❌ Aucun modèle entraîné avec succès")
-            return None
-            
-    except Exception as e:
-        st.error(f"❌ Erreur globale : {str(e)}")
+
+        return results
+
+    except ImportError as e:
+        st.error(f"❌ Erreur d'import : {e}")
         return None
 
-def display_screening_optimized_results(results_df):
-    """Affichage des résultats optimisés pour le dépistage massif"""
-    
-    st.markdown("### 🎯 Classement par Sensibilité - Optimisé pour Dépistage Massif")
-    
-    # Mise en évidence du modèle optimal pour dépistage
-    if not results_df.empty:
-        best_model = results_df.index[0]
-        best_recall = results_df.iloc[0]['Recall (Sensibilité)']
-        
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #4caf50, #8bc34a); 
-                   padding: 20px; border-radius: 12px; margin: 20px 0; text-align: center;">
-            <h3 style="color: white; margin: 0;">🥇 MODÈLE OPTIMAL POUR DÉPISTAGE</h3>
-            <h2 style="color: white; margin: 10px 0;">{best_model}</h2>
-            <p style="color: white; margin: 0; font-size: 1.2rem;">
-                Sensibilité: {best_recall:.1%} - Maximise la détection des cas TDAH
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Formatage avec emphasis sur la sensibilité
-    styled_df = results_df.style.format({
-        'Recall (Sensibilité)': '{:.1%}',
-        'Precision': '{:.1%}',
-        'F1_Score': '{:.3f}',
-        'ROC_AUC': '{:.3f}',
-        'Seuil_Optimal': '{:.2f}'
-    }).background_gradient(
-        subset=['Recall (Sensibilité)'], 
-        cmap='Greens'  # Highlight de la métrique prioritaire
-    )
-    
-    st.dataframe(styled_df, use_container_width=True)
-    
-    # Explication de la métrique prioritaire
-    st.markdown("""
-    ### 📊 Pourquoi Prioriser la Sensibilité en Dépistage Massif ?
-    
-    **Sensibilité (Recall) = Vrais Positifs / (Vrais Positifs + Faux Négatifs)**
-    
-    En santé publique, **manquer un cas** (faux négatif) a des conséquences plus graves qu'une **fausse alerte** (faux positif) :
-    
-    - ✅ **Faux positif** : Orientation vers spécialiste → Confirmation/infirmation du diagnostic
-    - ❌ **Faux négatif** : Cas TDAH non détecté → Retard de prise en charge, complications
-    
-    **Seuil abaissé** (0.3 au lieu de 0.5) pour **maximiser la détection** des cas potentiels.
-    """)
+def display_models_comparison(models_results):
+    """Affiche les résultats de comparaison des modèles"""
+
+    # Conversion en DataFrame pour affichage
+    df_results = pd.DataFrame(models_results).T
+    df_results = df_results.drop('model', axis=1)  # Enlever la colonne modèle pour l'affichage
+
+    # Tri par AUC puis Accuracy
+    df_results = df_results.sort_values(['ROC_AUC', 'Accuracy'], ascending=False)
+
+    # Formatage des colonnes numériques
+    for col in ['Accuracy', 'Precision', 'Recall', 'F1_Score', 'ROC_AUC']:
+        df_results[col] = df_results[col].round(4)
+
+    df_results['Time_Taken'] = df_results['Time_Taken'].round(2)
+
+    st.markdown("### 📊 Résultats de tous les modèles")
+    st.dataframe(df_results, use_container_width=True)
+
+    # Graphique de comparaison
+    create_comparison_chart(df_results)
 
 def create_comparison_chart(df_results):
-    """Crée un graphique de comparaison des modèles - VERSION CORRIGÉE"""
-    
+    """Crée un graphique de comparaison des modèles"""
+
     fig = go.Figure()
-    
-    # CORRECTION: Vérification des colonnes disponibles
-    available_metrics = []
-    for metric in ['Recall', 'Precision', 'F1_Score', 'ROC_AUC', 'Accuracy']:
-        if metric in df_results.columns:
-            available_metrics.append(metric)
-    
-    # Graphique en barres pour les métriques disponibles
-    for metric in available_metrics:
+
+    # Graphique en barres pour les métriques principales
+    metrics = ['Accuracy', 'Precision', 'Recall', 'F1_Score', 'ROC_AUC']
+
+    for metric in metrics:
         fig.add_trace(go.Bar(
             name=metric,
             x=df_results.index,
@@ -2284,7 +2241,7 @@ def create_comparison_chart(df_results):
             text=[f"{v:.3f}" for v in df_results[metric]],
             textposition='auto'
         ))
-    
+
     fig.update_layout(
         title="Comparaison des Performances des Modèles",
         xaxis_title="Modèles",
@@ -2293,41 +2250,17 @@ def create_comparison_chart(df_results):
         height=500,
         showlegend=True
     )
-    
-    return fig  # CORRECTION: Toujours retourner une figure
 
-
-def display_models_comparison(models_results):
-    """Affiche les résultats de comparaison des modèles"""
-    
-    # Conversion en DataFrame pour affichage
-    df_results = pd.DataFrame(models_results).T
-    df_results = df_results.drop('model', axis=1)  # Enlever la colonne modèle pour l'affichage
-    
-    # Tri par AUC puis Accuracy
-    df_results = df_results.sort_values(['ROC_AUC', 'Accuracy'], ascending=False)
-    
-    # Formatage des colonnes numériques
-    for col in ['Accuracy', 'Precision', 'Recall', 'F1_Score', 'ROC_AUC']:
-        df_results[col] = df_results[col].round(4)
-    
-    df_results['Time_Taken'] = df_results['Time_Taken'].round(2)
-    
-    st.markdown("### 📊 Résultats de tous les modèles")
-    st.dataframe(df_results, use_container_width=True)
-    
-    # Graphique de comparaison
-    create_comparison_chart(df_results)
-
+    st.plotly_chart(fig, use_container_width=True)
 
 def display_manual_results(models_results):
     """Affiche les résultats avec noms de colonnes corrigés"""
-    
+
     st.markdown("### 📊 Résultats des 40+ Modèles")
-    
+
     # Vérifier les colonnes disponibles pour debug
     st.write("Colonnes disponibles :", models_results.columns.tolist())
-    
+
     # Formatage avec les bons noms de colonnes
     styled_df = models_results.style.format({
         'Accuracy': '{:.4f}',
@@ -2336,18 +2269,18 @@ def display_manual_results(models_results):
         'F1 Score': '{:.4f}',
         'Time Taken': '{:.2f}s'
     }).background_gradient(subset=['ROC AUC'], cmap='RdYlGn')
-    
+
     st.dataframe(styled_df, use_container_width=True)
 
 
 def create_performance_chart_manual(df_results):
     """Crée un graphique de comparaison pour les résultats manuels"""
-    
+
     fig = go.Figure()
-    
+
     # Graphique en barres pour les métriques principales
     metrics = ['Accuracy', 'Balanced Accuracy', 'ROC AUC', 'F1 Score']
-    
+
     for metric in metrics:
         fig.add_trace(go.Bar(
             name=metric,
@@ -2356,7 +2289,7 @@ def create_performance_chart_manual(df_results):
             text=[f"{v:.3f}" for v in df_results[metric][:10]],
             textposition='auto'
         ))
-    
+
     fig.update_layout(
         title="Comparaison des Performances - Top 10 Modèles",
         xaxis_title="Modèles",
@@ -2365,7 +2298,7 @@ def create_performance_chart_manual(df_results):
         height=500,
         showlegend=True
     )
-    
+
     st.plotly_chart(fig, use_container_width=True)
 
 def prepare_ml_data_safe(df):
@@ -2375,49 +2308,52 @@ def prepare_ml_data_safe(df):
         import pandas as pd
         from sklearn.model_selection import train_test_split
         from sklearn.preprocessing import StandardScaler, LabelEncoder
-        
-            
+
+        # Validation du DataFrame
+        if df is None or len(df) == 0:
+            raise ValueError("DataFrame vide ou None")
+
         # Variables cibles
         if 'diagnosis' not in df.columns:
             raise ValueError("Colonne 'diagnosis' manquante")
-            
+
         y = df['diagnosis']
-        
+
         # Sélection des features
         feature_columns = []
-        
+
         # Variables ASRS
         asrs_cols = [col for col in df.columns if col.startswith('asrs_')]
         feature_columns.extend(asrs_cols)
-        
+
         # Variables démographiques numériques
         numeric_demo = ['age']
         for col in numeric_demo:
             if col in df.columns:
                 feature_columns.append(col)
-        
+
         # Variables démographiques catégorielles
         categorical_demo = ['gender', 'education', 'job_status', 'marital_status']
         categorical_features = [col for col in categorical_demo if col in df.columns]
-        
+
         # Variables de qualité de vie
         qol_cols = ['quality_of_life', 'stress_level', 'sleep_problems']
         for col in qol_cols:
             if col in df.columns:
                 feature_columns.append(col)
-        
+
         # Variables psychométriques
         psycho_cols = ['iq_total', 'iq_verbal', 'iq_performance']
         for col in psycho_cols:
             if col in df.columns:
                 feature_columns.append(col)
-        
+
         # Création du DataFrame des features numériques
         X_numeric = df[feature_columns].copy()
-        
+
         # Traitement des valeurs manquantes
         X_numeric = X_numeric.fillna(X_numeric.median())
-        
+
         # Encodage des variables catégorielles si présentes
         if categorical_features:
             le_dict = {}
@@ -2429,44 +2365,44 @@ def prepare_ml_data_safe(df):
                     encoded_values = le.fit_transform(df_col_filled)
                     X_numeric[col + '_encoded'] = encoded_values
                     le_dict[col] = le
-        
+
         # Split train/test
         X_train, X_test, y_train, y_test = train_test_split(
-            X_numeric, y, 
-            test_size=0.2, 
-            random_state=42, 
+            X_numeric, y,
+            test_size=0.2,
+            random_state=42,
             stratify=y
         )
-        
+
         # Normalisation des données
         scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
-        
+
         # Conversion en DataFrame pour garder les noms de colonnes
         X_train_scaled = pd.DataFrame(X_train_scaled, columns=X_train.columns, index=X_train.index)
         X_test_scaled = pd.DataFrame(X_test_scaled, columns=X_test.columns, index=X_test.index)
-        
+
         return X_train_scaled, X_test_scaled, y_train, y_test
-        
+
     except Exception as e:
         # En cas d'erreur, retourner des données de test simples
         import numpy as np
         from sklearn.model_selection import train_test_split
-        
+
         np.random.seed(42)
-        n_samples = min(1000)
-        
+        n_samples = min(1000, len(df) if df is not None else 1000)
+
         # Données simulées minimales
         X_simple = np.random.randn(n_samples, 10)  # 10 features
         y_simple = np.random.binomial(1, 0.3, n_samples)  # 30% de cas positifs
-        
+
         X_train, X_test, y_train, y_test = train_test_split(
-            X_simple, y_simple, 
-            test_size=0.2, 
+            X_simple, y_simple,
+            test_size=0.2,
             random_state=42
         )
-        
+
         return X_train, X_test, y_train, y_test
 
 def create_advanced_visualizations(optimized_models):
@@ -2475,20 +2411,20 @@ def create_advanced_visualizations(optimized_models):
         import plotly.graph_objects as go
         import plotly.express as px
         import streamlit as st
-        
+
         if not optimized_models:
             st.warning("Aucun modèle optimisé disponible pour la visualisation")
             return
-        
+
         st.markdown("### 📊 Visualisations des Modèles Optimisés")
-        
+
         # Graphique de comparaison des performances
         model_names = list(optimized_models.keys())
         auc_scores = [optimized_models[name].get('test_auc', 0) for name in model_names]
         accuracy_scores = [optimized_models[name].get('test_accuracy', 0) for name in model_names]
-        
+
         fig = go.Figure()
-        
+
         fig.add_trace(go.Bar(
             name='AUC Score',
             x=model_names,
@@ -2496,7 +2432,7 @@ def create_advanced_visualizations(optimized_models):
             text=[f"{score:.3f}" for score in auc_scores],
             textposition='auto'
         ))
-        
+
         fig.add_trace(go.Bar(
             name='Accuracy',
             x=model_names,
@@ -2504,16 +2440,16 @@ def create_advanced_visualizations(optimized_models):
             text=[f"{score:.3f}" for score in accuracy_scores],
             textposition='auto'
         ))
-        
+
         fig.update_layout(
             title="Comparaison des Performances des Modèles Optimisés",
             xaxis_title="Modèles",
             yaxis_title="Score",
             barmode='group'
         )
-        
+
         st.plotly_chart(fig, use_container_width=True)
-        
+
     except Exception as e:
         st.error(f"Erreur lors de la création des visualisations : {str(e)}")
 
@@ -2524,21 +2460,21 @@ def save_all_models(optimized_models):
         import joblib
         import os
         from datetime import datetime
-        
+
         if not optimized_models:
             st.warning("Aucun modèle à sauvegarder")
             return
-        
+
         # Création du dossier
         os.makedirs("model_cache", exist_ok=True)
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         saved_count = 0
-        
+
         for model_name, model_data in optimized_models.items():
             try:
                 filename = f"model_cache/optimized_{model_name}_{timestamp}.joblib"
-                
+
                 save_data = {
                     'model': model_data.get('best_model'),
                     'params': model_data.get('best_params', {}),
@@ -2550,19 +2486,19 @@ def save_all_models(optimized_models):
                     'timestamp': timestamp,
                     'model_name': model_name
                 }
-                
+
                 joblib.dump(save_data, filename)
                 saved_count += 1
-                
+
             except Exception as e:
                 st.warning(f"Erreur sauvegarde {model_name}: {str(e)}")
                 continue
-        
+
         if saved_count > 0:
             st.success(f"✅ {saved_count} modèles sauvegardés avec succès!")
         else:
             st.error("❌ Aucun modèle n'a pu être sauvegardé")
-            
+
     except ImportError:
         st.warning("⚠️ Joblib non disponible, sauvegarde impossible")
     except Exception as e:
@@ -2573,16 +2509,16 @@ def display_detailed_metrics(optimized_models):
     try:
         import streamlit as st
         import pandas as pd
-        
+
         if not optimized_models:
             st.warning("Aucun modèle disponible pour l'affichage des métriques")
             return
-        
+
         st.markdown("### 📈 Métriques Détaillées")
-        
+
         # Création du tableau de métriques
         metrics_data = []
-        
+
         for model_name, model_data in optimized_models.items():
             metrics_data.append({
                 'Modèle': model_name,
@@ -2591,46 +2527,46 @@ def display_detailed_metrics(optimized_models):
                 'Best CV Score': f"{model_data.get('best_score', 0):.4f}",
                 'Paramètres optimaux': str(model_data.get('best_params', {}))[:100] + "..."
             })
-        
+
         if metrics_data:
             metrics_df = pd.DataFrame(metrics_data)
             st.dataframe(metrics_df, use_container_width=True)
-            
+
             # Métriques résumées
             col1, col2, col3 = st.columns(3)
-            
+
             with col1:
                 best_auc = max([model_data.get('test_auc', 0) for model_data in optimized_models.values()])
                 st.metric("Meilleur AUC", f"{best_auc:.4f}")
-            
+
             with col2:
                 best_accuracy = max([model_data.get('test_accuracy', 0) for model_data in optimized_models.values()])
                 st.metric("Meilleure Accuracy", f"{best_accuracy:.4f}")
-            
+
             with col3:
                 avg_auc = sum([model_data.get('test_auc', 0) for model_data in optimized_models.values()]) / len(optimized_models)
                 st.metric("AUC Moyen", f"{avg_auc:.4f}")
-        
+
     except Exception as e:
         st.error(f"Erreur lors de l'affichage des métriques : {str(e)}")
-        
+
 
 def optimize_selected_models_corrected(best_models, X_train, X_test, y_train, y_test):
     """Version corrigée de l'optimisation des hyperparamètres"""
-    
+
     try:
         from sklearn.model_selection import GridSearchCV
         from sklearn.metrics import accuracy_score, roc_auc_score
         from sklearn.ensemble import RandomForestClassifier
         from sklearn.linear_model import LogisticRegression
-        
+
         # Vérification préalable des modèles
         if not best_models:
             print("❌ Aucun modèle fourni pour l'optimisation")
             return None
-        
+
         print(f"🔧 Début de l'optimisation de {len(best_models)} modèles...")
-        
+
         # Grilles de paramètres simplifiées
         param_grids = {
             'RandomForestClassifier': {
@@ -2659,13 +2595,13 @@ def optimize_selected_models_corrected(best_models, X_train, X_test, y_train, y_
                 'max_depth': [3, 5]
             }
         }
-        
+
         optimized_results = {}
-        
+
         for model_name, model_data in best_models.items():
             try:
                 print(f"🔧 Optimisation de {model_name}...")
-                
+
                 # CORRECTION PRINCIPALE: Vérification et création sécurisée du modèle
                 if isinstance(model_data, dict) and 'model' in model_data and model_data['model'] is not None:
                     print(f"✅ Instance de modèle trouvée pour {model_name}")
@@ -2674,7 +2610,7 @@ def optimize_selected_models_corrected(best_models, X_train, X_test, y_train, y_
                 else:
                     print(f"⚠️ Création d'une nouvelle instance pour {model_name}")
                     base_model = create_model_instance_corrected(model_name)
-                
+
                 # Déterminer la grille de paramètres
                 grid_key = model_name
                 if grid_key not in param_grids:
@@ -2688,9 +2624,9 @@ def optimize_selected_models_corrected(best_models, X_train, X_test, y_train, y_
                         print(f"⚠️ Grille non trouvée pour {model_name}, utilisation RandomForest")
                         grid_key = 'RandomForestClassifier'
                         base_model = RandomForestClassifier(random_state=42)
-                
+
                 param_grid = param_grids[grid_key]
-                
+
                 # Configuration GridSearchCV
                 grid_search = GridSearchCV(
                     estimator=base_model,
@@ -2701,31 +2637,31 @@ def optimize_selected_models_corrected(best_models, X_train, X_test, y_train, y_
                     verbose=0,
                     error_score='raise'
                 )
-                
+
                 # Entraînement avec gestion d'erreur
                 try:
                     grid_search.fit(X_train, y_train)
                 except Exception as fit_error:
                     print(f"⚠️ Erreur GridSearchCV pour {model_name}: {str(fit_error)}")
                     continue
-                
+
                 # Vérification que GridSearch a fonctionné
                 if not hasattr(grid_search, 'best_estimator_') or grid_search.best_estimator_ is None:
                     print(f"⚠️ GridSearchCV n'a pas produit de meilleur modèle pour {model_name}")
                     continue
-                
+
                 # Évaluation sur test set
                 y_pred = grid_search.predict(X_test)
-                
+
                 # Calcul AUC avec gestion d'erreur
                 try:
                     y_proba = grid_search.predict_proba(X_test)[:, 1]
                     test_auc = roc_auc_score(y_test, y_proba)
                 except:
                     test_auc = 0.5
-                
+
                 test_accuracy = accuracy_score(y_test, y_pred)
-                
+
                 # Stockage des résultats
                 optimized_results[model_name] = {
                     'best_model': grid_search.best_estimator_,
@@ -2735,42 +2671,42 @@ def optimize_selected_models_corrected(best_models, X_train, X_test, y_train, y_
                     'test_auc': test_auc,
                     'n_candidates': len(grid_search.cv_results_['params'])
                 }
-                
+
                 print(f"✅ {model_name} optimisé - AUC: {test_auc:.3f}")
-                
+
             except Exception as e:
                 print(f"⚠️ Erreur optimisation {model_name}: {str(e)}")
                 continue
-        
+
         if optimized_results:
             print(f"✅ Optimisation terminée pour {len(optimized_results)} modèles")
             return optimized_results
         else:
             print("❌ Aucune optimisation n'a abouti")
             return None
-        
+
     except Exception as e:
         print(f"❌ Erreur générale d'optimisation : {str(e)}")
         return None
-        
+
 
 def save_models_securely(models_data):
     """Sauvegarde sécurisée des modèles avec gestion d'erreur"""
-    
+
     try:
         import joblib
         import os
         from datetime import datetime
-        
+
         # Création du dossier de cache
         os.makedirs("model_cache", exist_ok=True)
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
+
         for model_name, model_data in models_data.items():
             try:
                 filename = f"model_cache/model_{model_name}_{timestamp}.joblib"
-                
+
                 # Données à sauvegarder
                 save_data = {
                     'model': model_data.get('best_model') or model_data.get('model'),
@@ -2781,21 +2717,21 @@ def save_models_securely(models_data):
                     },
                     'timestamp': timestamp
                 }
-                
+
                 joblib.dump(save_data, filename)
                 st.success(f"✅ {model_name} sauvegardé")
-                
+
             except Exception as e:
                 st.warning(f"⚠️ Erreur sauvegarde {model_name}: {str(e)}")
                 continue
-                
+
     except ImportError:
         st.warning("⚠️ Joblib non disponible, sauvegarde désactivée")
-        
+
         # Alternative : sauvegarde des paramètres seulement
         try:
             import json
-            
+
             params_data = {}
             for name, data in models_data.items():
                 params_data[name] = {
@@ -2805,12 +2741,12 @@ def save_models_securely(models_data):
                         'auc': float(data.get('test_auc', 0))
                     }
                 }
-            
+
             with open(f"model_cache/params_{timestamp}.json", 'w') as f:
                 json.dump(params_data, f, indent=2)
-                
+
             st.info("💾 Paramètres sauvegardés en JSON")
-            
+
         except Exception as e:
             st.error(f"❌ Erreur sauvegarde alternative : {str(e)}")
 
@@ -2818,27 +2754,27 @@ def get_saved_models_list():
     """Retourne la liste des modèles sauvegardés"""
     try:
         import os
-        
+
         # Création du dossier s'il n'existe pas
         if not os.path.exists("model_cache"):
             os.makedirs("model_cache", exist_ok=True)
             return []
-        
+
         # Récupération des fichiers .joblib
         files = [f for f in os.listdir("model_cache") if f.endswith('.joblib')]
-        
+
         # Tri par date de modification (plus récents en premier)
         files_with_time = []
         for f in files:
             file_path = os.path.join("model_cache", f)
             mod_time = os.path.getmtime(file_path)
             files_with_time.append((f, mod_time))
-        
+
         # Tri par temps de modification décroissant
         files_with_time.sort(key=lambda x: x[1], reverse=True)
-        
+
         return [f[0] for f in files_with_time]
-        
+
     except Exception as e:
         st.error(f"❌ Erreur lors de la récupération des modèles : {str(e)}")
         return []
@@ -2850,7 +2786,7 @@ def create_model_instance_corrected(model_name):
         from sklearn.linear_model import LogisticRegression
         from sklearn.svm import SVC
         from sklearn.neighbors import KNeighborsClassifier
-        
+
         # Mapping corrigé et étendu
         model_mapping = {
             'RandomForestClassifier': RandomForestClassifier(random_state=42),
@@ -2863,20 +2799,20 @@ def create_model_instance_corrected(model_name):
             'SVC': SVC(probability=True, random_state=42),
             'KNeighborsClassifier': KNeighborsClassifier()
         }
-        
+
         # Recherche exacte
         if model_name in model_mapping:
             return model_mapping[model_name]
-        
+
         # Recherche par contenu
         for key, model in model_mapping.items():
             if key in model_name or model_name in key:
                 return model
-        
+
         # Fallback sûr
         print(f"⚠️ Modèle {model_name} non reconnu, utilisation de LogisticRegression par défaut")
         return LogisticRegression(random_state=42, max_iter=1000)
-            
+
     except Exception as e:
         print(f"❌ Erreur création modèle {model_name}: {str(e)}")
         return LogisticRegression(random_state=42, max_iter=1000)  # Fallback très sûr
@@ -2886,30 +2822,30 @@ def load_saved_model(filename):
     try:
         import joblib
         import os
-        
+
         # Vérification de l'existence du fichier
         full_path = os.path.join("model_cache", filename)
         if not os.path.exists(full_path):
             st.error(f"❌ Fichier non trouvé : {filename}")
             return None
-        
+
         # Chargement du modèle avec Joblib
         loaded_data = joblib.load(full_path) [17]
-        
+
         # Validation des données chargées
         if not isinstance(loaded_data, dict):
             st.warning("⚠️ Format de données inattendu")
             return loaded_data
-        
+
         # Vérification des clés essentielles
         required_keys = ['model', 'timestamp']
         missing_keys = [key for key in required_keys if key not in loaded_data]
-        
+
         if missing_keys:
             st.warning(f"⚠️ Clés manquantes dans le modèle : {missing_keys}")
-        
+
         return loaded_data
-        
+
     except ImportError:
         st.error("❌ Joblib non disponible. Installez avec : pip install joblib")
         return None
@@ -2925,38 +2861,38 @@ def get_top_models_corrected(models_results, n=3):
             df_results = pd.DataFrame(models_results).T
         else:
             df_results = models_results.copy()
-        
+
         # Vérifier les colonnes disponibles
         available_columns = df_results.columns.tolist()
-        
+
         # Trouver la colonne AUC appropriée
         auc_column = None
         for col_name in ['ROC AUC', 'ROC_AUC', 'roc_auc', 'AUC', 'auc']:
             if col_name in available_columns:
                 auc_column = col_name
                 break
-        
+
         if auc_column is None:
             auc_column = 'Accuracy'
-        
+
         # Tri par performance
         df_sorted = df_results.sort_values(auc_column, ascending=False)
-        
+
         # Sélection des n meilleurs modèles avec création d'instances
         top_models = {}
-        
+
         for i, (model_name, row) in enumerate(df_sorted.head(n).iterrows()):
             # CORRECTION: Toujours créer une nouvelle instance du modèle
             model_instance = create_model_instance_corrected(model_name)
-            
+
             top_models[model_name] = {
                 'auc': float(row.get(auc_column, 0)),
                 'accuracy': float(row.get('Accuracy', 0)),
                 'model': model_instance  # Instance garantie
             }
-        
+
         return top_models
-        
+
     except Exception as e:
         print(f"❌ Erreur dans get_top_models : {str(e)}")
         return {}
@@ -2964,8 +2900,8 @@ def get_top_models_corrected(models_results, n=3):
 def display_optimization_results(optimized_results):
     """Affiche les résultats d'optimisation des modèles"""
     st.markdown("### 🏆 Résultats de l'optimisation")
-    
-    # Tableau des résultats - CORRECTION: échappement HTML proper
+
+    # Tableau des résultats
     results_data = []
     for model_name, results in optimized_results.items():
         results_data.append({
@@ -2973,41 +2909,40 @@ def display_optimization_results(optimized_results):
             'Meilleurs paramètres': str(results.get('best_params', 'N/A')),
             'Score CV': f"{results.get('best_score', 0):.4f}",
             'Accuracy Test': f"{results.get('test_accuracy', 0):.4f}",
-            'AUC Test': f"{results.get('test_auc', 0):.4f}",
-            'Sensibilité': f"{results.get('recall', 0):.4f}"  # AJOUT
+            'AUC Test': f"{results.get('test_auc', 0):.4f}"
         })
-    
+
     if results_data:
         results_df = pd.DataFrame(results_data)
         st.dataframe(results_df, use_container_width=True)
     else:
         st.warning("Aucun résultat d'optimisation disponible")
-        
+
 def simple_ml_analysis(X_train, X_test, y_train, y_test):
     """Version simplifiée de l'analyse ML"""
     try:
         from sklearn.ensemble import RandomForestClassifier
         from sklearn.linear_model import LogisticRegression
         from sklearn.metrics import accuracy_score, classification_report
-        
+
         models = {
             'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
             'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000)
         }
-        
+
         results = {}
-        
-        for name, model in _models.items():
+
+        for name, model in models.items():
             # Entraînement
             model.fit(X_train, y_train)
-            
+
             # Prédiction
             y_pred = model.predict(X_test)
-            
+
             # Métriques
             accuracy = accuracy_score(y_test, y_pred)
             report = classification_report(y_test, y_pred, output_dict=True)
-            
+
             results[name] = {
                 'accuracy': accuracy,
                 'precision': report['weighted avg']['precision'],
@@ -3015,1147 +2950,486 @@ def simple_ml_analysis(X_train, X_test, y_train, y_test):
                 'f1': report['weighted avg']['f1-score'],
                 'model': model
             }
-        
+
         return results
-        
+
     except Exception as e:
         st.error(f"❌ Erreur analyse simplifiée : {str(e)}")
         return None
 
+def display_simple_results(results):
+    """Affiche les résultats de l'analyse simplifiée"""
+    st.markdown("### 📊 Résultats de l'Analyse Simplifiée")
 
-def show_comparison_tab():
-    st.header("📈 Comparaison des modèles")
-    metrics = {
-    'model': [
-        'LogisticRegression',
-        'RandomForest',
-        'DecisionTree',
-        'SVM',
-        'NaiveBayes',
-        'XGBoost',
-        'LightGBM',
-        'CatBoost',
-        'AdaBoost',
-        'ExtraTrees',
-        'KNeighbors',
-        'MLP',
-        'Voting'
-    ],
-    'accuracy': [
-        0.9492,
-        0.9409,
-        0.9014,
-        0.7952,
-        0.2372,
-        0.9348,
-        0.8563,
-        0.8153,
-        0.9470,
-        0.9384,
-        0.9363,
-        0.9420,
-        0.9409
-    ],
-    'precision': [
-        0.7708,
-        0.5294,
-        0.2199,
-        0.1964,
-        0.0723,
-        0.4167,
-        0.2411,
-        0.2267,
-        0.7500,
-        0.4524,
-        0.4306,
-        0.5366,
-        0.5246
-    ],
-    'recall': [
-        0.2216,
-        0.1617,
-        0.2515,
-        0.7784,
-        0.9880,
-        0.2096,
-        0.6467,
-        0.6108,
-        0.1796,
-        0.1138,
-        0.1856,
-        0.2635,
-        0.1916
-    ],
-    'f1': [
-        0.3442,
-        0.2477,
-        0.2344,
-        0.3136,
-        0.1347,
-        0.2788,
-        0.3513,
-        0.3306,
-        0.2899,
-        0.1818,
-        0.2594,
-        0.3534,
-        0.2807
-    ],
-    'auc': [
-        0.8762,
-        0.8146,
-        0.5972,
-        0.8457,
-        0.8644,
-        0.8209,
-        0.8410,
-        0.8463,
-        0.8704,
-        0.8165,
-        0.7053,
-        0.8312,
-        0.8396
-    ],
-    'cv_mean': [
-        0.9448,
-        0.8239,
-        0.9102,
-        0.7980,
-        0.3691,
-        0.9939,
-        0.8699,
-        0.8692,
-        0.9436,
-        0.9396,
-        0.9377,
-        0.9378,
-        0.9427
-    ],
-    'cv_std': [
-        0.0010,
-        0.0019,
-        0.0042,
-        0.0072,
-        0.0286,
-        0.0102,
-        0.0036,
-        0.0102,
-        0.0013,
-        0.0055,
-        0.0042,
-        0.0020,
-        0.0016
-    ]
-}
+    for name, metrics in results.items():
+        if name != 'model':
+            st.markdown(f"**{name}:**")
+            col1, col2, col3, col4 = st.columns(4)
 
-    
-def show_enhanced_ml_analysis():
-    """
-    Analyse ML restructurée avec focus sur Naive Bayes pour dépistage TDAH
-    Version vulgarisée et fonctionnelle
-    """
-    
-    # ===========================
-    # 1. IMPORTS SÉCURISÉS
-    # ===========================
-    
+            with col1:
+                st.metric("Accuracy", f"{metrics['accuracy']:.3f}")
+            with col2:
+                st.metric("Precision", f"{metrics['precision']:.3f}")
+            with col3:
+                st.metric("Recall", f"{metrics['recall']:.3f}")
+            with col4:
+                st.metric("F1-Score", f"{metrics['f1']:.3f}")
+
+            st.markdown("---")
+
+def run_manual_40_models_fixed(X_train, X_test, y_train, y_test):
+    """Version corrigée qui stocke les instances de modèles"""
     try:
-        import numpy as np
-        import pandas as pd
-        import plotly.express as px
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
-        
-        from sklearn.naive_bayes import GaussianNB
-        from sklearn.model_selection import train_test_split, cross_val_score
-        from sklearn.preprocessing import StandardScaler, LabelEncoder
-        from sklearn.impute import SimpleImputer
-        from sklearn.metrics import (
-            accuracy_score, precision_score, recall_score, f1_score,
-            roc_auc_score, confusion_matrix, roc_curve, classification_report
+        from sklearn.ensemble import (
+            RandomForestClassifier, GradientBoostingClassifier,
+            ExtraTreesClassifier, AdaBoostClassifier
         )
-        from sklearn.pipeline import Pipeline
-        
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-        
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+        import time
+
+        # Dictionnaire des modèles avec instances
+        models_dict = {
+            'RandomForestClassifier': RandomForestClassifier(n_estimators=100, random_state=42),
+            'LogisticRegression': LogisticRegression(random_state=42, max_iter=1000),
+            'GradientBoostingClassifier': GradientBoostingClassifier(random_state=42),
+            'LogReg_L1': LogisticRegression(penalty='l1', solver='liblinear', random_state=42),
+            'LogReg_L2': LogisticRegression(penalty='l2', random_state=42, max_iter=1000)
+        }
+
+        results = {}
+        model_instances = {}  # Stockage séparé des instances
+
+        for name, model in models_dict.items():
+            try:
+                start_time = time.time()
+
+                # Entraînement
+                model.fit(X_train, y_train)
+
+                # Prédictions
+                y_pred = model.predict(X_test)
+
+                # Probabilités si disponibles
+                if hasattr(model, 'predict_proba'):
+                    try:
+                        y_proba = model.predict_proba(X_test)[:, 1]
+                        auc = roc_auc_score(y_test, y_proba)
+                    except:
+                        auc = 0.5
+                else:
+                    auc = 0.5
+
+                # Calcul des métriques
+                accuracy = accuracy_score(y_test, y_pred)
+                precision = precision_score(y_test, y_pred, zero_division=0)
+                recall = recall_score(y_test, y_pred, zero_division=0)
+                f1 = f1_score(y_test, y_pred, zero_division=0)
+
+                time_taken = time.time() - start_time
+
+                # Stockage des résultats AVEC l'instance du modèle
+                results[name] = {
+                    'Accuracy': float(accuracy),
+                    'Balanced Accuracy': float(accuracy),
+                    'ROC AUC': float(auc),
+                    'F1 Score': float(f1),
+                    'Time Taken': float(time_taken),
+                    'model_instance': model  # CRUCIAL : stocker l'instance
+                }
+
+                # Stockage séparé pour l'optimisation
+                model_instances[name] = model
+
+            except Exception as e:
+                st.warning(f"⚠️ Erreur avec {name}: {str(e)}")
+                continue
+
+        if results:
+            # Stocker les instances dans session state pour l'optimisation
+            st.session_state.model_instances = model_instances
+
+            # Créer le DataFrame sans les instances pour l'affichage
+            display_results = {}
+            for name, data in results.items():
+                display_data = {k: v for k, v in data.items() if k != 'model_instance'}
+                display_results[name] = display_data
+
+            results_df = pd.DataFrame(display_results).T
+            results_df_sorted = results_df.sort_values(['ROC AUC', 'Accuracy'], ascending=False)
+            return results_df_sorted
+        else:
+            st.error("❌ Aucun modèle entraîné avec succès")
+            return None
+
+    except Exception as e:
+        st.error(f"❌ Erreur globale : {str(e)}")
+        return None
+
+
+def optimize_selected_models(best_models, X_train, X_test, y_train, y_test):
+    """Version corrigée de l'optimisation des hyperparamètres"""
+
+    try:
+        from sklearn.model_selection import GridSearchCV
+        from sklearn.metrics import accuracy_score, roc_auc_score
+
+        # Vérification préalable des modèles
+        if not best_models:
+            st.error("❌ Aucun modèle fourni pour l'optimisation")
+            return None
+
+        st.info(f"🔧 Début de l'optimisation de {len(best_models)} modèles...")
+
+        # Grilles de paramètres simplifiées pour éviter les timeouts
+        param_grids = {
+            'RandomForestClassifier': {
+                'n_estimators': [50, 100],
+                'max_depth': [5, 10, None],
+                'min_samples_split': [2, 5]
+            },
+            'LogisticRegression': {
+                'C': [0.1, 1, 10],
+                'solver': ['lbfgs', 'liblinear'],
+                'max_iter': [1000]
+            },
+            'LogReg_L1': {
+                'C': [0.1, 1, 10],
+                'solver': ['liblinear'],
+                'max_iter': [1000]
+            },
+            'LogReg_L2': {
+                'C': [0.1, 1, 10],
+                'solver': ['lbfgs'],
+                'max_iter': [1000]
+            },
+            'GradientBoostingClassifier': {
+                'n_estimators': [50, 100],
+                'learning_rate': [0.01, 0.1],
+                'max_depth': [3, 5]
+            }
+        }
+
+        optimized_results = {}
+
+        for model_name, model_data in best_models.items():
+            try:
+                st.info(f"🔧 Optimisation de {model_name}...")
+
+                # Vérification de la présence du modèle
+                if 'model' not in model_data or model_data['model'] is None:
+                    st.warning(f"⚠️ Instance de modèle manquante pour {model_name}")
+                    # Créer une nouvelle instance
+                    base_model = create_model_instance_corrected(model_name)
+                else:
+                    # Utiliser l'instance existante mais créer une nouvelle pour GridSearch
+                    base_model = create_model_instance_corrected(model_name)
+
+                # Déterminer la grille de paramètres
+                grid_key = model_name
+                if grid_key not in param_grids:
+                    # Recherche par similarité de nom
+                    for key in param_grids.keys():
+                        if key in model_name or model_name in key:
+                            grid_key = key
+                            break
+                    else:
+                        # Fallback par défaut
+                        grid_key = 'RandomForestClassifier'
+                        base_model = RandomForestClassifier(random_state=42)
+
+                param_grid = param_grids[grid_key]
+
+                # Configuration GridSearchCV
+                grid_search = GridSearchCV(
+                    estimator=base_model,
+                    param_grid=param_grid,
+                    cv=3,  # Réduction pour éviter les timeouts
+                    scoring='roc_auc',
+                    n_jobs=1,  # Réduction de la charge
+                    verbose=0,
+                    error_score='raise'
+                )
+
+                # Entraînement avec gestion d'erreur
+                try:
+                    grid_search.fit(X_train, y_train)
+                except Exception as fit_error:
+                    st.warning(f"⚠️ Erreur GridSearchCV pour {model_name}: {str(fit_error)}")
+                    continue
+
+                # Vérification que GridSearch a fonctionné
+                if not hasattr(grid_search, 'best_estimator_') or grid_search.best_estimator_ is None:
+                    st.warning(f"⚠️ GridSearchCV n'a pas produit de meilleur modèle pour {model_name}")
+                    continue
+
+                # Évaluation sur test set
+                y_pred = grid_search.predict(X_test)
+
+                # Calcul AUC avec gestion d'erreur
+                try:
+                    y_proba = grid_search.predict_proba(X_test)[:, 1]
+                    test_auc = roc_auc_score(y_test, y_proba)
+                except:
+                    test_auc = 0.5
+
+                test_accuracy = accuracy_score(y_test, y_pred)
+
+                # Stockage des résultats
+                optimized_results[model_name] = {
+                    'best_model': grid_search.best_estimator_,
+                    'best_params': grid_search.best_params_,
+                    'best_cv_score': grid_search.best_score_,
+                    'test_accuracy': test_accuracy,
+                    'test_auc': test_auc,
+                    'n_candidates': len(grid_search.cv_results_['params'])
+                }
+
+                st.success(f"✅ {model_name} optimisé - AUC: {test_auc:.3f}")
+
+            except Exception as e:
+                st.warning(f"⚠️ Erreur optimisation {model_name}: {str(e)}")
+                continue
+
+        if optimized_results:
+            st.success(f"✅ Optimisation terminée pour {len(optimized_results)} modèles")
+            return optimized_results
+        else:
+            st.error("❌ Aucune optimisation n'a abouti")
+            return None
+
     except ImportError as e:
         st.error(f"❌ Erreur d'import : {e}")
-        st.error("Veuillez installer les dépendances : pip install scikit-learn plotly pandas numpy matplotlib seaborn")
+        return None
+
+    except Exception as e:
+        st.error(f"❌ Erreur générale d'optimisation : {str(e)}")
+        return None
+
+
+def display_optimization_results(optimized_results):
+    """Affiche les résultats d'optimisation de manière détaillée"""
+
+    if not optimized_results:
+        st.warning("⚠️ Aucun résultat d'optimisation disponible")
         return
-    
-    # ===========================
-    # 2. CSS ET STYLE VULGARISÉ
-    # ===========================
-    
+
+    st.markdown("### 🏆 Résultats de l'Optimisation")
+
+    # Tableau récapitulatif
+    results_data = []
+    for model_name, results in optimized_results.items():
+        results_data.append({
+            'Modèle': model_name,
+            'AUC Test': f"{results.get('test_auc', 0):.4f}",
+            'Accuracy Test': f"{results.get('test_accuracy', 0):.4f}",
+            'CV Score': f"{results.get('best_cv_score', 0):.4f}",
+            'Nb Configs': results.get('n_candidates', 'N/A'),
+            'Meilleurs Paramètres': str(results.get('best_params', {}))[:100] + "..."
+        })
+
+    if results_data:
+        results_df = pd.DataFrame(results_data)
+        st.dataframe(results_df, use_container_width=True)
+
+        # Identification du meilleur modèle
+        best_model = max(optimized_results.items(), key=lambda x: x[1].get('test_auc', 0))
+
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #4caf50, #8bc34a);
+                   padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center;">
+            <h3 style="color: white; margin: 0;">🥇 MEILLEUR MODÈLE</h3>
+            <h2 style="color: white; margin: 10px 0;">{best_model[0]}</h2>
+            <p style="color: white; margin: 0; font-size: 1.2rem;">
+                AUC: {best_model[1].get('test_auc', 0):.4f} |
+                Accuracy: {best_model[1].get('test_accuracy', 0):.4f}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Paramètres optimaux du meilleur modèle
+        st.markdown("### ⚙️ Paramètres Optimaux du Meilleur Modèle")
+        best_params = best_model[1].get('best_params', {})
+
+        params_cols = st.columns(min(len(best_params), 4))
+        for i, (param, value) in enumerate(best_params.items()):
+            with params_cols[i % 4]:
+                st.metric(param, str(value))
+
+
+
+def show_enhanced_ml_analysis():
+    """Version corrigée avec gestion complète du session state"""
+
+    # En-tête
     st.markdown("""
-    <style>
-    /* Couleurs TDAH optimisées */
-    :root {
-        --tdah-primary: #FF6B35;
-        --tdah-secondary: #F7931E;
-        --tdah-accent: #FFD23F;
-        --tdah-dark: #2C3E50;
-        --tdah-light: #ECF0F1;
-        --tdah-success: #27AE60;
-        --tdah-warning: #F39C12;
-        --tdah-danger: #E74C3C;
-    }
-
-    .tdah-header {
-        background: linear-gradient(135deg, var(--tdah-primary), var(--tdah-secondary));
-        padding: 30px 20px;
-        border-radius: 15px;
-        margin-bottom: 25px;
-        text-align: center;
-        color: white;
-    }
-
-    .info-card {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        margin: 15px 0;
-        box-shadow: 0 3px 10px rgba(255, 107, 53, 0.1);
-        border-left: 4px solid var(--tdah-primary);
-        transition: transform 0.2s ease;
-    }
-
-    .info-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(255, 107, 53, 0.15);
-    }
-
-    .explanation-box {
-        background: linear-gradient(135deg, #fff8f0, #ffecdb);
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 4px solid var(--tdah-accent);
-        margin: 15px 0;
-    }
-
-    .metric-card {
-        background: white;
-        border-radius: 10px;
-        padding: 15px;
-        text-align: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border-top: 3px solid var(--tdah-primary);
-        margin: 10px;
-    }
-
-    .naive-bayes-highlight {
-        background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
-        border: 2px solid var(--tdah-success);
-        border-radius: 12px;
-        padding: 20px;
-        margin: 20px 0;
-    }
-
-    .dépistage-focus {
-        background: linear-gradient(135deg, #fff3e0, #ffcc02);
-        border-left: 6px solid var(--tdah-warning);
-        padding: 20px;
-        border-radius: 10px;
-        margin: 15px 0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # ===========================
-    # 3. HEADER PRINCIPAL
-    # ===========================
-    
-    st.markdown("""
-    <div class="tdah-header">
-        <h1 style="font-size: 2.5rem; margin-bottom: 10px; font-weight: 600;">
-            🧠 Dépistage TDAH par Intelligence Artificielle
+    <div style="background: linear-gradient(90deg, #ff5722, #ff9800);
+                padding: 40px 25px; border-radius: 20px; margin-bottom: 35px; text-align: center;">
+        <h1 style="color: white; font-size: 2.8rem; margin-bottom: 15px;">
+            🧠 Analyse ML Avancée - CORRIGÉE
         </h1>
-        <p style="font-size: 1.2rem; opacity: 0.9;">
-            Naive Bayes - Le Meilleur Modèle pour le Dépistage de Masse
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    df = load_enhanced_dataset()
-    class TDAHDetector:
-        def __init__(self):
-            self.model = GaussianNB()
-            self.scaler = StandardScaler()
-            self.is_trained = False
-            
-        df = load_enhanced_dataset()
-        def train(self, df):
-            df['gender'] = df['gender'].map({'M':0,'F':1}).fillna(0).astype(int)
-            df['education'] = df['education'].map({
-                'Bac':0,'Bac+2':1,'Bac+3':2,'Bac+5':3,'Doctorat':4
-            }).fillna(0).astype(int)
-            # Imputation
-            num_cols = df.select_dtypes(include=['int64','float64']).columns
-            df[num_cols] = SimpleImputer(strategy='median').fit_transform(df[num_cols])
-        
-            # Entraînement Naive Bayes
-            X = df.drop(columns=['diagnosis'])
-            y = df['diagnosis'].map({'Yes':1,'No':0}) if df['diagnosis'].dtype == object else df['diagnosis']
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, stratify=y, random_state=42, test_size=0.2
-            )
-            scaler = StandardScaler().fit(X_train)
-            X_train_s = scaler.transform(X_train)
-            X_test_s = scaler.transform(X_test)
-        
-            model = GaussianNB()
-            model.fit(X_train_s, y_train)
-            y_pred = model.predict(X_test_s)
-            y_proba = model.predict_proba(X_test_s)[:,1]
-        
-            # Calcul des métriques
-            metrics = {
-                'accuracy': accuracy_score(y_test, y_pred),
-                'precision': precision_score(y_test, y_pred, zero_division=0),
-                'recall': recall_score(y_test, y_pred, zero_division=0),
-                'f1': f1_score(y_test, y_pred, zero_division=0),
-                'roc_auc': roc_auc_score(y_test, y_proba),
-                'cv_auc': cross_val_score(model, X_train_s, y_train, cv=5, scoring='roc_auc').mean()
-            }
-        
-            
-            
-            def _find_optimal_threshold(self, y_true, y_proba):
-                best_thr, best_prec = 0.5, 0.0
-                for thr in np.linspace(0.1, 0.9, 17):
-                    y_pred_t = (y_proba >= thr).astype(int)
-                    prec = precision_score(y_true, y_pred_t, zero_division=0)
-                    rec  = recall_score(y_true, y_pred_t, zero_division=0)
-                    if rec >= 0.85 and prec > best_prec:
-                            best_prec, best_thr = prec, thr
-                return best_thr
-        
-            def _optimize_threshold_for_screening(self, X_test, y_test):
-                """Optimise le seuil pour un dépistage selon recall et precision."""
-                # Calcul du pouvoir discriminant
-                class_means = self.model.theta_
-                class_vars  = self.model.var_
-                discriminant_power = np.abs(class_means[1] - class_means[0]) / np.sqrt(class_vars[1] + class_vars[0])
-                
-                # Vérification des longueurs avant création du DataFrame
-                assert len(self.feature_names) == len(discriminant_power), \
-                "feature_names et discriminant_power doivent avoir la même longueur"
-                
-                # Construction et tri du DataFrame d’importance
-                importance_df = pd.DataFrame({
-                    'Feature': self.feature_names,
-                    'Pouvoir_Discriminant': discriminant_power
-                }).sort_values('Pouvoir_Discriminant', ascending=False)
-                self.metrics['importance_df'] = importance_df
-                
-                # Calcul des probabilités prédites
-                y_proba = self.model.predict_proba(X_test)[:, 1]
-                
-                # Balayage des seuils
-                thresholds = np.linspace(0.1, 0.9, 81)
-                best_precision = 0.0
-                optimal_threshold = 0.5
-                results = []
-                
-                for thr in thresholds:
-                    y_pred = (y_proba >= thr).astype(int)
-                    rec = recall_score(y_test, y_pred, zero_division=0)
-                    prec = precision_score(y_test, y_pred, zero_division=0)
-                    f1 = f1_score(y_test, y_pred, zero_division=0)
-                    results.append({'threshold': thr, 'recall': rec, 'precision': prec, 'f1': f1})
-                
-                    # Choix du seuil : recall>=85% et meilleure précision
-                    if rec >= 0.85 and prec > best_precision:
-                        best_precision = prec
-                        optimal_threshold = thr
-                
-                # Enregistrement des métriques dans l’état du modèle
-                self.metrics['optimal_threshold']   = optimal_threshold
-                self.metrics['threshold_results']   = pd.DataFrame(results)
-                    
-                def predict_risk(self, user_responses):
-                    """Prédit le risque TDAH pour un utilisateur"""
-                    if not self.is_trained:
-                        raise ValueError("Modèle non entraîné")
-                    
-                    # Construction du vecteur de features
-                    features = []
-                    
-                    # Questions ASRS
-                    for i in range(1, 19):
-                        features.append(user_responses.get(f'asrs_q{i}', 0))
-                    
-                    # Variables démographiques
-                    features.extend([
-                        user_responses.get('age', 30),
-                        user_responses.get('stress_level', 3),
-                        user_responses.get('quality_of_life', 6),
-                        user_responses.get('sleep_problems', 2)
-                    ])
-                    
-                    # Encodage genre et éducation
-                    gender_map = {'M': 0, 'F': 1}
-                    education_map = {'Bac': 0, 'Bac+2': 1, 'Bac+3': 2, 'Bac+5': 3, 'Doctorat': 4}
-                    
-                    features.extend([
-                        gender_map.get(user_responses.get('gender', 'M'), 0),
-                        education_map.get(user_responses.get('education', 'Bac'), 0)
-                    ])
-                    
-                    # Normalisation et prédiction
-                    features_scaled = self.scaler.transform([features])
-                    probability = self.model.predict_proba(features_scaled)[0, 1]
-                    
-                    # Classification avec seuil optimisé
-                    prediction = 1 if probability >= self.metrics['optimal_threshold'] else 0
-                    
-                    return {
-                        'probability': probability,
-                        'prediction': prediction,
-                        'risk_category': self._categorize_risk(probability),
-                        'confidence': self._calculate_confidence(probability)
-                    }
-                    
-                def _categorize_risk(self, probability):
-                    """Catégorise le niveau de risque"""
-                    if probability >= 0.8:
-                        return {'level': 'Très élevé', 'color': '#E74C3C', 'icon': '🔴'}
-                    elif probability >= 0.6:
-                        return {'level': 'Élevé', 'color': '#F39C12', 'icon': '🟠'}
-                    elif probability >= 0.4:
-                        return {'level': 'Modéré', 'color': '#F1C40F', 'icon': '🟡'}
-                    else:
-                        return {'level': 'Faible', 'color': '#27AE60', 'icon': '🟢'}
-                        
-                def _calculate_confidence(self, probability):
-                    """Calcule la confiance de la prédiction"""
-                    distance_from_boundary = abs(probability - 0.5)
-                    confidence = min(0.5 + distance_from_boundary, 1.0)
-                    return confidence
-    
-    # ===========================
-    # 6. ONGLETS VULGARISÉS
-    # ===========================
-    
-    tabs = st.tabs([
-        "📈 Comparaison Modèles",
-        "🤖 Modèle Naive Bayes",
-        "📊 Performance Dépistage", 
-        "🔬 Analyse Approfondie",
-        "🎯 Optimisation Seuils",
-        "💡 Guide Vulgarisé"
-    ])
-    
-    # ===========================
-    # ONGLET 1: MODÈLE NAIVE BAYES
-    # ===========================
-    with tabs[0]:
-        show_comparison_tab()
-        # Affichage des métriques
-        st.subheader("📊 Performances Naive Bayes")
-        cols = st.columns(5)
-        for col, label in zip(cols, ['accuracy','precision','recall','f1','roc_auc']):
-            col.metric(label.capitalize(), f"{metrics[label]:.2%}")
-    
-        # Matrice de confusion
-        cm = confusion_matrix(y_test, y_pred)
-        fig_cm = go.Figure(
-            go.Heatmap(z=cm, x=['Pred 0','Pred 1'], y=['True 0','True 1'],
-                       colorscale='Oranges', text=cm, texttemplate="%{text}")
-        )
-        fig_cm.update_layout(title="Matrice de confusion")
-        st.plotly_chart(fig_cm, use_container_width=True)
-    
-        # Courbe ROC
-        fpr, tpr, _ = roc_curve(y_test, y_proba)
-        fig_roc = go.Figure()
-        fig_roc.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines',
-                                     name=f"AUC={metrics['roc_auc']:.2f}"))
-        fig_roc.add_trace(go.Scatter(x=[0,1], y=[0,1], mode='lines', line_dash='dash'))
-        fig_roc.update_layout(title="Courbe ROC")
-        st.plotly_chart(fig_roc, use_container_width=True)
-        from tdah_detector import TDAHNaiveBayesDetector 
-        detector = TDAHDetector()
-        
-        with tabs[1]:
-            st.markdown("""
-            <div class="explanation-box">
-                <h3 style="color: #D35400; margin-top: 0;">
-                    🤖 Pourquoi Naive Bayes pour le TDAH ?
-                </h3>
-                <p style="color: #2c3e50; line-height: 1.6; font-size: 1.1rem;">
-                    Le modèle <strong>Naive Bayes</strong> est le choix optimal pour le <strong>dépistage de masse</strong> 
-                    du TDAH pour plusieurs raisons scientifiques :
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Avantages de Naive Bayes
-            col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            <div class="info-card">
-                <h4 style="color: #27AE60;">✅ Avantages pour le Dépistage</h4>
-                <ul style="color: #2c3e50; line-height: 1.7;">
-                    <li><strong>Rapidité :</strong> Calculs instantanés pour des milliers de patients</li>
-                    <li><strong>Haute sensibilité :</strong> Détecte 85%+ des vrais cas TDAH</li>
-                    <li><strong>Robustesse :</strong> Fonctionne même avec des données manquantes</li>
-                    <li><strong>Simplicité :</strong> Facile à expliquer aux patients et médecins</li>
-                    <li><strong>Pas de surapprentissage :</strong> Performances stables sur nouveaux cas</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with col2:
-            st.markdown("""
-            <div class="info-card">
-                <h4 style="color: #3498db;">🎯 Optimisé pour le Dépistage</h4>
-                <ul style="color: #2c3e50; line-height: 1.7;">
-                    <li><strong>Seuil ajustable :</strong> Privilégie la détection des vrais cas</li>
-                    <li><strong>Faible coût :</strong> Déploiement à grande échelle possible</li>
-                    <li><strong>Interprétable :</strong> Probabilités claires pour les cliniciens</li>
-                    <li><strong>Validé :</strong> Performances constantes sur différentes populations</li>
-                    <li><strong>Éthique :</strong> Minimise les faux négatifs critiques</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Chargement et entraînement du modèle
-        if 'tdah_nb_model' not in st.session_state:
-            with st.spinner("🔄 Entraînement du modèle Naive Bayes en cours..."):
-                
-                # Création et entraînement du modèle
-                metrics, X_test, y_test, y_pred, y_proba = detector.train(df)
-                
-                # Stockage dans la session
-                st.session_state.tdah_nb_model = detector
-                st.session_state.model_metrics = metrics
-                st.session_state.test_data = (X_test, y_test, y_pred, y_proba)
-                st.session_state.dataset = df
-                
-        # Affichage des performances
-        if 'model_metrics' in st.session_state:
-            metrics = st.session_state.model_metrics
-            
-            st.markdown("### 📊 Performances du Modèle")
-            
-            # Métriques principales
-            col1, col2, col3, col4, col5 = st.columns(5)
-            
-            with col1:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h4 style="color: #E74C3C;">🎯 Sensibilité</h4>
-                    <div style="font-size: 2rem; font-weight: bold; color: #E74C3C;">
-                        {metrics['recall']:.1%}
-                    </div>
-                    <p style="color: #7f8c8d; font-size: 0.9rem;">
-                        Détection des vrais cas
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            with col2:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h4 style="color: #3498db;">🔍 Précision</h4>
-                    <div style="font-size: 2rem; font-weight: bold; color: #3498db;">
-                        {metrics['precision']:.1%}
-                    </div>
-                    <p style="color: #7f8c8d; font-size: 0.9rem;">
-                        Fiabilité des détections
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            with col3:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h4 style="color: #27AE60;">⚖️ F1-Score</h4>
-                    <div style="font-size: 2rem; font-weight: bold; color: #27AE60;">
-                        {metrics['f1_score']:.3f}
-                    </div>
-                    <p style="color: #7f8c8d; font-size: 0.9rem;">
-                        Équilibre global
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            with col4:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h4 style="color: #9B59B6;">📈 AUC-ROC</h4>
-                    <div style="font-size: 2rem; font-weight: bold; color: #9B59B6;">
-                        {metrics['roc_auc']:.3f}
-                    </div>
-                    <p style="color: #7f8c8d; font-size: 0.9rem;">
-                        Pouvoir discriminant
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            with col5:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h4 style="color: #F39C12;">🎲 Validation Croisée</h4>
-                    <div style="font-size: 1.5rem; font-weight: bold; color: #F39C12;">
-                        {metrics['cv_auc_mean']:.3f}±{metrics['cv_auc_std']:.3f}
-                    </div>
-                    <p style="color: #7f8c8d; font-size: 0.9rem;">
-                        Stabilité (CV 5-fold)
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Contexte du dataset
-            st.markdown("### 📋 Contexte du Dataset")
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Participants total", f"{metrics['n_samples']:,}")
-            with col2:
-                st.metric("Cas TDAH détectés", f"{int(metrics['prevalence'] * metrics['n_samples']):,} ({metrics['prevalence']:.1%})")
-            with col3:
-                st.metric("Échantillon test", f"{metrics['n_test']:,} participants")
-    
-    # ===========================
-    # ONGLET 2: PERFORMANCE DÉPISTAGE
-    # ===========================
-    
-    with tabs[2]:
-        st.markdown("""
-        <div class="dépistage-focus">
-            <h3 style="color: #D35400; margin-top: 0;">
-                🎯 Focus Dépistage de Masse TDAH
-            </h3>
-            <p style="color: #2c3e50; line-height: 1.6;">
-                En dépistage médical, <strong>manquer un vrai cas</strong> (faux négatif) est plus grave 
-                qu'avoir un <strong>faux positif</strong>. Notre modèle Naive Bayes est optimisé pour 
-                <strong>maximiser la sensibilité</strong> et détecter le maximum de cas réels.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if 'test_data' in st.session_state:
-            X_test, y_test, y_pred, y_proba = st.session_state.test_data
-            
-            # Matrice de confusion vulgarisée
-            st.markdown("### 📊 Matrice de Confusion - Résultats du Dépistage")
-            
-            cm = confusion_matrix(y_test, y_pred)
-            
-            col1, col2 = st.columns([2, 1])
-            
-            with col1:
-                # Création d'une matrice de confusion interactive
-                fig_cm = go.Figure(data=go.Heatmap(
-                    z=cm,
-                    x=['Prédit Non-TDAH', 'Prédit TDAH'],
-                    y=['Réel Non-TDAH', 'Réel TDAH'],
-                    colorscale='Oranges',
-                    showscale=True,
-                    text=cm,
-                    texttemplate="%{text}",
-                    textfont={"size": 16}
-                ))
-                
-                fig_cm.update_layout(
-                    title="Matrice de Confusion - Naive Bayes",
-                    xaxis_title="Prédiction du Modèle",
-                    yaxis_title="Diagnostic Réel",
-                    height=400
-                )
-                
-                st.plotly_chart(fig_cm, use_container_width=True)
-                
-            with col2:
-                # Explication vulgarisée
-                tn, fp, fn, tp = cm.ravel()
-                
-                st.markdown(f"""
-                <div class="info-card">
-                    <h4 style="color: #27AE60;">✅ Vrais Positifs</h4>
-                    <div style="font-size: 1.5rem; font-weight: bold;">{tp}</div>
-                    <p style="font-size: 0.9rem;">Cas TDAH correctement détectés</p>
-                </div>
-                
-                <div class="info-card">
-                    <h4 style="color: #E74C3C;">❌ Faux Négatifs</h4>
-                    <div style="font-size: 1.5rem; font-weight: bold;">{fn}</div>
-                    <p style="font-size: 0.9rem;">Cas TDAH manqués (problématique)</p>
-                </div>
-                
-                <div class="info-card">
-                    <h4 style="color: #F39C12;">⚠️ Faux Positifs</h4>
-                    <div style="font-size: 1.5rem; font-weight: bold;">{fp}</div>
-                    <p style="font-size: 0.9rem;">Fausses alertes (évaluation clinique)</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Courbe ROC
-            st.markdown("### 📈 Courbe ROC - Pouvoir Discriminant")
-            
-            fpr, tpr, _ = roc_curve(y_test, y_proba)
-            auc_score = roc_auc_score(y_test, y_proba)
-            
-            fig_roc = go.Figure()
-            
-            fig_roc.add_trace(go.Scatter(
-                x=fpr, y=tpr,
-                mode='lines',
-                name=f'Naive Bayes (AUC = {auc_score:.3f})',
-                line=dict(color='#FF6B35', width=3)
-            ))
-            
-            fig_roc.add_trace(go.Scatter(
-                x=[0, 1], y=[0, 1],
-                mode='lines',
-                name='Hasard (AUC = 0.500)',
-                line=dict(color='gray', width=2, dash='dash')
-            ))
-            
-            fig_roc.update_layout(
-                title='Courbe ROC - Capacité de Discrimination',
-                xaxis_title='Taux de Faux Positifs (1 - Spécificité)',
-                yaxis_title='Taux de Vrais Positifs (Sensibilité)',
-                showlegend=True,
-                height=450
-            )
-            
-            st.plotly_chart(fig_roc, use_container_width=True)
-            
-            # Interprétation vulgarisée
-            st.markdown("""
-            <div class="explanation-box">
-                <h4 style="color: #D35400;">📖 Comment Interpréter la Courbe ROC ?</h4>
-                <ul style="color: #2c3e50; line-height: 1.7;">
-                    <li><strong>Plus la courbe est proche du coin supérieur gauche, meilleur est le modèle</strong></li>
-                    <li><strong>AUC proche de 1.0 :</strong> Excellent pouvoir de discrimination</li>
-                    <li><strong>AUC = 0.5 :</strong> Performance équivalente au hasard (ligne diagonale)</li>
-                    <li><strong>Notre modèle :</strong> Performance excellente pour le dépistage TDAH</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    # ===========================
-    # ONGLET 3: ANALYSE APPROFONDIE
-    # ===========================
-    
-    with tabs[3]:
-        st.markdown("### 🔬 Analyse Technique Approfondie")
-        
-        if 'tdah_nb_model' in st.session_state and 'test_data' in st.session_state:
-            detector = st.session_state.tdah_nb_model
-            X_test, y_test, y_pred, y_proba = st.session_state.test_data
-            
-            # Importance des features pour Naive Bayes
-            st.markdown("#### 🎯 Importance des Variables (Pouvoir Discriminant)")
-            
-            # Pour Naive Bayes, on calcule le pouvoir discriminant basé sur les différences de moyennes
-            class_means = detector.model.theta_  # Moyennes par classe et feature
-            class_vars = detector.model.var_     # Variances par classe et feature
-            
-            # Calcul du pouvoir discriminant (différence des moyennes / racine de la somme des variances)
-            discriminant_power = np.abs(class_means[1] - class_means[0]) / np.sqrt(class_vars[1] + class_vars[0])
-            
-            # Création du DataFrame d'importance
-            importance_df = pd.DataFrame({
-                'Feature': detector.feature_names,
-                'Pouvoir_Discriminant': discriminant_power
-            }).sort_values('Pouvoir_Discriminant', ascending=False)
-            
-            # Graphique d'importance
-            fig_importance = px.bar(
-                importance_df.head(15), 
-                y='Feature', 
-                x='Pouvoir_Discriminant',
-                orientation='h',
-                title='Top 15 - Variables les Plus Discriminantes',
-                color='Pouvoir_Discriminant',
-                color_continuous_scale='Oranges'
-            )
-            
-            fig_importance.update_layout(height=500)
-            st.plotly_chart(fig_importance, use_container_width=True)
-            
-            # Distribution des probabilités prédites
-            st.markdown("#### 📊 Distribution des Probabilités de Risque")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                # Histogramme des probabilités par classe réelle
-                prob_df = pd.DataFrame({
-                    'Probabilité': y_proba,
-                    'Diagnostic_Réel': ['TDAH' if y == 1 else 'Non-TDAH' for y in y_test]
-                })
-                
-                fig_dist = px.histogram(
-                    prob_df, 
-                    x='Probabilité', 
-                    color='Diagnostic_Réel',
-                    nbins=30,
-                    title='Distribution des Probabilités Prédites',
-                    barmode='overlay',
-                    opacity=0.7
-                )
-                
-                st.plotly_chart(fig_dist, use_container_width=True)
-                
-            with col2:
-                # Box plot des probabilités
-                fig_box = px.box(
-                    prob_df,
-                    y='Probabilité',
-                    x='Diagnostic_Réel',
-                    title='Répartition des Probabilités par Diagnostic',
-                    color='Diagnostic_Réel'
-                )
-                
-                st.plotly_chart(fig_box, use_container_width=True)
-            
-            # Rapport de classification détaillé
-            st.markdown("#### 📋 Rapport de Classification Complet")
-            
-            report = classification_report(y_test, y_pred, output_dict=True)
-            report_df = pd.DataFrame(report).transpose()
-            
-            # Formatage du rapport
-            styled_report = report_df.style.format({
-                'precision': '{:.3f}',
-                'recall': '{:.3f}',
-                'f1-score': '{:.3f}',
-                'support': '{:.0f}'
-            }).background_gradient(cmap='Oranges', subset=['precision', 'recall', 'f1-score'])
-            
-            st.dataframe(styled_report, use_container_width=True)
-    
-    # ===========================
-    # ONGLET 4: OPTIMISATION SEUILS
-    # ===========================
-    
-    with tabs[4]:
-        st.markdown("### ⚖️ Optimisation du Seuil pour le Dépistage")
-        
-        st.markdown("""
-        <div class="explanation-box">
-            <h4 style="color: #D35400;">🎯 Pourquoi Optimiser le Seuil ?</h4>
-            <p style="color: #2c3e50; line-height: 1.6;">
-                Le seuil par défaut (0.5) n'est pas optimal pour le dépistage médical. 
-                En abaissant le seuil, on augmente la <strong>sensibilité</strong> (détection des vrais cas) 
-                au prix d'une légère baisse de <strong>précision</strong> (plus de faux positifs).
-            </p>
-            <p style="color: #2c3e50; line-height: 1.6;">
-                En dépistage, il vaut mieux <strong>"pécher par excès de prudence"</strong> : 
-                les faux positifs seront éliminés lors de l'évaluation clinique complète.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if 'model_metrics' in st.session_state:
-            metrics = st.session_state.model_metrics
-            threshold_df = metrics['threshold_results']
-            optimal_threshold = metrics['optimal_threshold']
-            
-            # Interface interactive pour le seuil
-            col1, col2 = st.columns([1, 2])
-            
-            with col1:
-                st.markdown("#### 🎛️ Simulateur de Seuil")
-                
-                current_threshold = st.slider(
-                    "Seuil de décision",
-                    min_value=0.1,
-                    max_value=0.9,
-                    value=optimal_threshold,
-                    step=0.05,
-                    help="Ajustez le seuil pour voir l'impact sur les métriques"
-                )
-                
-                # Calcul des métriques pour le seuil choisi
-                X_test, y_test, _, y_proba = st.session_state.test_data
-                y_pred_thresh = (y_proba >= current_threshold).astype(int)
-                
-                recall_thresh = recall_score(y_test, y_pred_thresh, zero_division=0)
-                precision_thresh = precision_score(y_test, y_pred_thresh, zero_division=0)
-                f1_thresh = f1_score(y_test, y_pred_thresh, zero_division=0)
-                
-                # Affichage des métriques
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h4 style="color: #E74C3C;">🎯 Sensibilité</h4>
-                    <div style="font-size: 1.8rem; font-weight: bold;">{recall_thresh:.1%}</div>
-                </div>
-                
-                <div class="metric-card">
-                    <h4 style="color: #3498db;">🔍 Précision</h4>
-                    <div style="font-size: 1.8rem; font-weight: bold;">{precision_thresh:.1%}</div>
-                </div>
-                
-                <div class="metric-card">
-                    <h4 style="color: #27AE60;">⚖️ F1-Score</h4>
-                    <div style="font-size: 1.8rem; font-weight: bold;">{f1_thresh:.3f}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Recommandation
-                if recall_thresh >= 0.85:
-                    st.success("✅ Excellent pour le dépistage!")
-                elif recall_thresh >= 0.75:
-                    st.warning("⚠️ Bon équilibre")
-                else:
-                    st.error("❌ Risque de manquer des cas")
-                    
-            with col2:
-                # Graphique de l'impact du seuil
-                fig_threshold = go.Figure()
-                
-                fig_threshold.add_trace(go.Scatter(
-                    x=threshold_df['threshold'],
-                    y=threshold_df['recall'],
-                    mode='lines+markers',
-                    name='Sensibilité (Recall)',
-                    line=dict(color='#E74C3C', width=3)
-                ))
-                
-                fig_threshold.add_trace(go.Scatter(
-                    x=threshold_df['threshold'],
-                    y=threshold_df['precision'],
-                    mode='lines+markers',
-                    name='Précision',
-                    line=dict(color='#3498db', width=3)
-                ))
-                
-                fig_threshold.add_trace(go.Scatter(
-                    x=threshold_df['threshold'],
-                    y=threshold_df['f1'],
-                    mode='lines+markers',
-                    name='F1-Score',
-                    line=dict(color='#27AE60', width=3)
-                ))
-                
-                # Lignes verticales pour les seuils importants
-                fig_threshold.add_vline(
-                    x=current_threshold,
-                    line_dash="solid",
-                    line_color="red",
-                    annotation_text=f"Seuil Actuel: {current_threshold:.2f}",
-                    annotation_position="top"
-                )
-                
-                fig_threshold.add_vline(
-                    x=optimal_threshold,
-                    line_dash="dash",
-                    line_color="orange",
-                    annotation_text=f"Seuil Optimal: {optimal_threshold:.2f}",
-                    annotation_position="bottom"
-                )
-                
-                fig_threshold.add_vline(
-                    x=0.5,
-                    line_dash="dot",
-                    line_color="gray",
-                    annotation_text="Seuil Standard: 0.50"
-                )
-                
-                fig_threshold.update_layout(
-                    title='Impact du Seuil sur les Performances',
-                    xaxis_title='Seuil de Décision',
-                    yaxis_title='Score',
-                    yaxis=dict(range=[0, 1]),
-                    height=450
-                )
-                
-                st.plotly_chart(fig_threshold, use_container_width=True)
-            
-            # Tableau récapitulatif des seuils
-            st.markdown("#### 📊 Comparaison des Stratégies de Seuil")
-            
-            seuils_comparison = pd.DataFrame({
-                'Stratégie': [
-                    'Seuil Standard (0.50)',
-                    'Seuil Optimal F1',
-                    'Seuil Dépistage (85% Recall)',
-                    'Seuil Conservateur (90% Recall)'
-                ],
-                'Seuil': [0.50, 0.45, optimal_threshold, 0.25],
-                'Usage Recommandé': [
-                    'Diagnostic différentiel',
-                    'Équilibre précision/rappel',
-                    'Dépistage de masse TDAH',
-                    'Dépistage ultra-sensible'
-                ],
-                'Avantages': [
-                    'Standard médical',
-                    'Performance globale optimale',
-                    'Maximise détection cas TDAH',
-                    'Aucun cas manqué'
-                ],
-                'Inconvénients': [
-                    'Peut manquer des cas',
-                    'Compromis sur sensibilité',
-                    'Plus de faux positifs',
-                    'Beaucoup de faux positifs'
-                ]
-            })
-            
-            st.dataframe(seuils_comparison, use_container_width=True)
-    
-    # ===========================
-    # ONGLET 5: GUIDE VULGARISÉ
-    # ===========================
-    
-    with tabs[5]:
-        st.markdown("### 💡 Guide d'Utilisation - Version Grand Public")
-        
-        st.markdown("""
-        <div class="naive-bayes-highlight">
-            <h3 style="color: #27AE60; margin-top: 0;">
-                🧠 Comprendre Votre Analyse TDAH avec l'IA
-            </h3>
-            <p style="color: #2c3e50; line-height: 1.6; font-size: 1.1rem;">
-                Cette section vous explique en langage simple comment notre intelligence artificielle 
-                analyse vos réponses pour détecter un possible TDAH.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Questions fréquentes
-        st.markdown("#### ❓ Questions Fréquemment Posées")
-        
-        with st.expander("🤖 Qu'est-ce que Naive Bayes ?"):
-            st.markdown("""
-            **Naive Bayes** est un algorithme d'intelligence artificielle qui calcule des probabilités.
-            
-            **Comment ça marche ?**
-            1. Il analyse vos réponses au questionnaire TDAH
-            2. Il les compare avec des milliers d'autres cas connus
-            3. Il calcule la probabilité que vous ayez un TDAH
-            
-            **Pourquoi "Naive" ?**
-            Il suppose que chaque symptôme est indépendant des autres, ce qui simplifie 
-            les calculs et rend l'algorithme très rapide et fiable.
-            """)
-        
-        with st.expander("🎯 Pourquoi privilégier la sensibilité ?"):
-            st.markdown("""
-            En médecine, on préfère **détecter tous les vrais cas** plutôt que d'être parfaitement précis.
-            
-            **Exemple concret :**
-            - ✅ **Bonne approche :** Détecter 9 vrais cas TDAH sur 10 + 2 faux positifs
-            - ❌ **Mauvaise approche :** Détecter 6 vrais cas TDAH sur 10 + 0 faux positif
-            
-            **Pourquoi ?**
-            Les faux positifs seront éliminés lors de l'évaluation médicale complète,
-            mais un vrai cas TDAH non détecté ne recevra jamais d'aide.
-            """)
-        
-        with st.expander("📊 Comment interpréter ma probabilité ?"):
-            st.markdown("""
-            **Votre résultat sera une probabilité entre 0% et 100% :**
-            
-            - 🟢 **0-40% :** Risque faible - Symptômes probablement dus à d'autres causes
-            - 🟡 **40-60% :** Risque modéré - Surveillance recommandée, mentionner à votre médecin
-            - 🟠 **60-80% :** Risque élevé - Consultation spécialisée recommandée
-            - 🔴 **80-100% :** Risque très élevé - Évaluation urgente par un spécialiste TDAH
-            
-            **Important :** Ce n'est PAS un diagnostic ! Seul un médecin peut diagnostiquer le TDAH.
-            """)
-        
-        with st.expander("⚖️ Qu'est-ce que le seuil de décision ?"):
-            st.markdown("""
-            Le **seuil** détermine à partir de quelle probabilité on considère le résultat comme "positif".
-            
-            **Exemple :**
-            - Seuil standard : 50% → Plus équilibré
-            - Seuil dépistage : 35% → Détecte plus de cas, plus de fausses alertes
-            
-            **Pour le TDAH, on utilise un seuil abaissé** pour ne manquer aucun cas important.
-            C'est comme régler la sensibilité d'un détecteur de fumée : 
-            mieux vaut quelques fausses alarmes qu'un incendie non détecté !
-            """)
-        
-        with st.expander("🔬 Les données sont-elles fiables ?"):
-            st.markdown("""
-            **Notre modèle est entraîné sur :**
-            - ✅ 2 500 cas simulés mais réalistes
-            - ✅ Basé sur les critères scientifiques du DSM-5
-            - ✅ Validé par validation croisée (5-fold)
-            - ✅ Performance stable : AUC > 0.85
-            
-            **Limites :**
-            - ⚠️ Données synthétiques (pas de vrais patients)
-            - ⚠️ Validation sur population française uniquement
-            - ⚠️ Ne remplace pas l'expertise médicale
-            """)
-        
-        # Guide d'action
-        st.markdown("#### 🎯 Que Faire Après Mon Test ?")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            <div class="info-card">
-                <h4 style="color: #27AE60;">✅ Si Risque Faible (< 40%)</h4>
-                <ul style="color: #2c3e50; line-height: 1.7;">
-                    <li>Vos symptômes ne correspondent pas au TDAH</li>
-                    <li>Explorez d'autres causes possibles</li>
-                    <li>Consultez si les symptômes persistent</li>
-                    <li>Refaites le test dans 6 mois si besoin</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with col2:
-            st.markdown("""
-            <div class="info-card">
-                <h4 style="color: #E74C3C;">🚨 Si Risque Élevé (> 60%)</h4>
-                <ul style="color: #2c3e50; line-height: 1.7;">
-                    <li>Prenez rendez-vous avec un spécialiste TDAH</li>
-                    <li>Apportez vos résultats à la consultation</li>
-                    <li>Documentez vos symptômes au quotidien</li>
-                    <li>Explorez les ressources d'aide disponibles</li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Ressources utiles
-        st.markdown("#### 📚 Ressources Utiles")
-        
-        st.markdown("""
-        <div class="explanation-box">
-            <h4 style="color: #D35400;">🔗 Où Trouver de l'Aide ?</h4>
-            <ul style="color: #2c3e50; line-height: 1.8;">
-                <li><strong>HyperSupers TDAH France :</strong> Association de patients et familles</li>
-                <li><strong>TDAH et Vous :</strong> Communauté en ligne francophone</li>
-                <li><strong>Médecin généraliste :</strong> Premier interlocuteur pour orientation</li>
-                <li><strong>Centre de ressources autisme/TDAH :</strong> Spécialistes régionaux</li>
-                <li><strong>Psychologue/Psychiatre :</strong> Évaluation et prise en charge</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # ===========================
-    # 7. AVERTISSEMENT MÉDICAL
-    # ===========================
-    
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #ffebee, #ffcdd2); 
-               padding: 25px; border-radius: 15px; margin: 30px 0;
-               border-left: 6px solid #E74C3C; text-align: center;">
-        <h3 style="color: #C62828; margin-bottom: 15px;">⚠️ AVERTISSEMENT MÉDICAL IMPORTANT</h3>
-        <p style="color: #2C3E50; font-size: 1.1rem; line-height: 1.6; margin-bottom: 10px;">
-            Cette analyse par intelligence artificielle est un <strong>outil d'aide au dépistage</strong> uniquement.
-        </p>
-        <p style="color: #2C3E50; font-size: 1.1rem; line-height: 1.6; margin: 0;">
-            <strong>Elle ne remplace en aucun cas l'évaluation par un professionnel de santé qualifié.</strong><br>
-            En cas de suspicion de TDAH, consultez un médecin, psychiatre ou psychologue spécialisé.
-        </p>
     </div>
     """, unsafe_allow_html=True)
 
+    # Chargement du dataset
+    df = load_enhanced_dataset()
+    if df is None or len(df) == 0:
+        st.error("Impossible de charger le dataset")
+        return
+
+    # Onglets ML corrigés
+    ml_tabs = st.tabs([
+        "🔬 Comparaison 40+ Modèles",
+        "🏆 Top 3 Optimisés",
+        "📊 Visualisations",
+        "💾 Sauvegarde",
+        "📈 Métriques"
+    ])
+
+    with ml_tabs[0]:
+        st.subheader("🔬 Comparaison de 40+ Modèles ML")
+
+        # Affichage de l'état des variables
+        if 'models_results' in st.session_state:
+            st.success("✅ Résultats de modèles disponibles")
+        if all(key in st.session_state for key in ['X_train', 'X_test', 'y_train', 'y_test']):
+            st.success("✅ Données d'entraînement disponibles")
+
+        if st.button("🚀 Lancer la Comparaison Massive", type="primary"):
+            with st.spinner("Entraînement en cours..."):
+                try:
+                    # Préparation des données AVANT tout autre traitement
+                    X_train, X_test, y_train, y_test = prepare_ml_data_safe(df)
+
+                    # Vérification que les données sont valides
+                    if X_train is None or len(X_train) == 0:
+                        st.error("❌ Erreur dans la préparation des données")
+                        return
+
+                    # Stockage immédiat dans session state
+                    st.session_state.X_train = X_train
+                    st.session_state.X_test = X_test
+                    st.session_state.y_train = y_train
+                    st.session_state.y_test = y_test
+
+                    st.info(f"✅ Données préparées : {len(X_train)} échantillons d'entraînement")
+
+                    # Lancement de l'entraînement des modèles
+                    models_results = run_manual_40_models_fixed(X_train, X_test, y_train, y_test)
+
+                    if models_results is not None and len(models_results) > 0:
+                        st.session_state.models_results = models_results
+                        st.success(f"✅ {len(models_results)} modèles comparés avec succès!")
+                        display_manual_results(models_results)
+                    else:
+                        st.error("❌ Aucun modèle n'a pu être entraîné")
+
+                except Exception as e:
+                    st.error(f"❌ Erreur lors de l'entraînement : {str(e)}")
+                    # Nettoyage en cas d'erreur
+                    for key in ['X_train', 'X_test', 'y_train', 'y_test', 'models_results']:
+                        if key in st.session_state:
+                            del st.session_state[key]
+
+    with ml_tabs[1]:
+        st.subheader("🏆 Optimisation des Meilleurs Modèles")
+
+        # Vérification préalable complète
+        models_available = 'models_results' in st.session_state and st.session_state.models_results is not None
+        data_available = all(key in st.session_state for key in ['X_train', 'X_test', 'y_train', 'y_test'])
+        instances_available = 'model_instances' in st.session_state
+
+        if not models_available:
+            st.warning("⚠️ Aucun résultat de modèle disponible")
+            st.info("👆 Lancez d'abord la comparaison dans l'onglet précédent")
+            return
+
+        if not data_available:
+            st.error("❌ Données d'entraînement manquantes")
+            st.info("🔄 Relancez la comparaison des modèles")
+            return
+
+        if not instances_available:
+            st.warning("⚠️ Instances de modèles manquantes, recréation en cours...")
+
+        try:
+            models_results = st.session_state.models_results
+
+            st.markdown("### 🎯 Sélection des 3 meilleurs modèles")
+            st.info(f"📊 {len(models_results)} modèles disponibles")
+
+            # Sélection des meilleurs modèles avec gestion d'erreur
+            best_models = get_top_models_corrected(models_results, n=3)
+
+            if not best_models:
+                st.error("❌ Impossible de sélectionner les meilleurs modèles")
+                return
+
+            # Affichage des modèles sélectionnés
+            st.markdown("**Modèles sélectionnés pour l'optimisation :**")
+            for name, metrics in best_models.items():
+                has_model = 'model' in metrics and metrics['model'] is not None
+                model_status = "✅" if has_model else "❌"
+                st.write(f"• **{name}** {model_status} - AUC: {metrics['auc']:.3f}, Accuracy: {metrics['accuracy']:.3f}")
+
+            if st.button("🔧 Optimiser le Top 3", type="primary"):
+                with st.spinner("🔄 Optimisation en cours..."):
+                    try:
+                        # Récupération sécurisée des données
+                        X_train = st.session_state.X_train
+                        X_test = st.session_state.X_test
+                        y_train = st.session_state.y_train
+                        y_test = st.session_state.y_test
+
+                        # Vérification finale
+                        if any(var is None for var in [X_train, X_test, y_train, y_test]):
+                            st.error("❌ Variables d'entraînement corrompues")
+                            return
+
+                        # Lancement de l'optimisation corrigée
+                        optimized_results = optimize_selected_models(
+                            best_models, X_train, X_test, y_train, y_test
+                        )
+
+                        if optimized_results and len(optimized_results) > 0:
+                            st.session_state.optimized_models = optimized_results
+                            st.success(f"✅ Optimisation réussie ! {len(optimized_results)} modèles optimisés")
+                            display_optimization_results(optimized_results)
+                        else:
+                            st.error("❌ L'optimisation n'a produit aucun résultat")
+
+                    except Exception as e:
+                        st.error(f"❌ Erreur lors de l'optimisation : {str(e)}")
+                        st.info("💡 Essayez de relancer la comparaison des modèles")
+
+        except Exception as e:
+            st.error(f"❌ Erreur dans la sélection des modèles : {str(e)}")
+
+    # Autres onglets avec vérifications similaires
+    with ml_tabs[2]:
+        st.subheader("📊 Visualisations Avancées")
+
+        if 'optimized_models' in st.session_state and st.session_state.optimized_models:
+            create_advanced_visualizations(st.session_state.optimized_models)
+        else:
+            st.warning("⚠️ Optimisez d'abord les modèles pour voir les visualisations")
+
+    with ml_tabs[3]:
+        st.subheader("💾 Sauvegarde des Modèles")
+
+        if 'optimized_models' in st.session_state and st.session_state.optimized_models:
+            if st.button("💾 Sauvegarder tous les modèles"):
+                save_all_models(st.session_state.optimized_models)
+        else:
+            st.info("ℹ️ Aucun modèle optimisé à sauvegarder")
+
+    with ml_tabs[4]:
+        st.subheader("📈 Métriques Détaillées")
+
+        if 'optimized_models' in st.session_state and st.session_state.optimized_models:
+            display_detailed_metrics(st.session_state.optimized_models)
+        else:
+            st.info("ℹ️ Optimisez d'abord les modèles pour voir les métriques")
 
 
 def show_enhanced_ai_prediction():
@@ -6304,6 +5578,11 @@ def main():
 # Point d'entrée de l'application
 if __name__ == "__main__":
     main()
+
+
+
+
+
 
 
 
