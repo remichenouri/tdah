@@ -3023,10 +3023,8 @@ def simple_ml_analysis(X_train, X_test, y_train, y_test):
         return None
 
 
-def show_comparison_tab():
-    import pandas as pd
-    import numpy as np
-    import streamlit as st
+def show_comparison_tab(df):
+    df = load_enhanced_dataset()
 
     st.header("📈 Comparaison des modèles")
     
@@ -3198,7 +3196,8 @@ def show_enhanced_ml_analysis():
         </p>
     </div>
     """, unsafe_allow_html=True)
-    
+    df = load_enhanced_dataset()
+    show_comparison_tab(df)
     class TDAHNaiveBayesDetector:
         """Détecteur TDAH optimisé avec Naive Bayes pour dépistage de masse"""
         
