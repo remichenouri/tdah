@@ -3197,7 +3197,7 @@ def show_enhanced_ml_analysis():
     </div>
     """, unsafe_allow_html=True)
     df = load_enhanced_dataset()
-    show_comparison_tab(df)
+    show_comparison_tab()
     class TDAHNaiveBayesDetector:
         """Détecteur TDAH optimisé avec Naive Bayes pour dépistage de masse"""
         
