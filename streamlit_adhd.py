@@ -3025,19 +3025,129 @@ def simple_ml_analysis(X_train, X_test, y_train, y_test):
 
 def show_comparison_tab():
     st.header("📈 Comparaison des modèles")
-    url = 'https://drive.google.com/file/d/1RcR4zRToSAVSa6h5T6ZmONenJcRm6-bi/view?usp=drive_link'
-    file_id = url.split('/d/')[1].split('/')[0]
-    download_url = f'https://drive.google.com/uc?export=download&id={file_id}'
-    # Chargement du dataset avec gestion d'erreur
-    results_df = pd.read_csv(download_url)
-    results_df = results_df.sort_values(by="recall", ascending=False)
-    st.dataframe(results_df.style.format({
-            "accuracy": "{:.4f}",
-            "precision": "{:.4f}",
-            "recall": "{:.4f}",
-            "f1_score": "{:.4f}",
-            "roc_auc": "{:.4f}"
-        }))
+    metrics = {
+    'model': [
+        'LogisticRegression',
+        'RandomForest',
+        'DecisionTree',
+        'SVM',
+        'NaiveBayes',
+        'XGBoost',
+        'LightGBM',
+        'CatBoost',
+        'AdaBoost',
+        'ExtraTrees',
+        'KNeighbors',
+        'MLP',
+        'Voting'
+    ],
+    'accuracy': [
+        0.9492,
+        0.9409,
+        0.9014,
+        0.7952,
+        0.2372,
+        0.9348,
+        0.8563,
+        0.8153,
+        0.9470,
+        0.9384,
+        0.9363,
+        0.9420,
+        0.9409
+    ],
+    'precision': [
+        0.7708,
+        0.5294,
+        0.2199,
+        0.1964,
+        0.0723,
+        0.4167,
+        0.2411,
+        0.2267,
+        0.7500,
+        0.4524,
+        0.4306,
+        0.5366,
+        0.5246
+    ],
+    'recall': [
+        0.2216,
+        0.1617,
+        0.2515,
+        0.7784,
+        0.9880,
+        0.2096,
+        0.6467,
+        0.6108,
+        0.1796,
+        0.1138,
+        0.1856,
+        0.2635,
+        0.1916
+    ],
+    'f1': [
+        0.3442,
+        0.2477,
+        0.2344,
+        0.3136,
+        0.1347,
+        0.2788,
+        0.3513,
+        0.3306,
+        0.2899,
+        0.1818,
+        0.2594,
+        0.3534,
+        0.2807
+    ],
+    'auc': [
+        0.8762,
+        0.8146,
+        0.5972,
+        0.8457,
+        0.8644,
+        0.8209,
+        0.8410,
+        0.8463,
+        0.8704,
+        0.8165,
+        0.7053,
+        0.8312,
+        0.8396
+    ],
+    'cv_mean': [
+        0.9448,
+        0.8239,
+        0.9102,
+        0.7980,
+        0.3691,
+        0.9939,
+        0.8699,
+        0.8692,
+        0.9436,
+        0.9396,
+        0.9377,
+        0.9378,
+        0.9427
+    ],
+    'cv_std': [
+        0.0010,
+        0.0019,
+        0.0042,
+        0.0072,
+        0.0286,
+        0.0102,
+        0.0036,
+        0.0102,
+        0.0013,
+        0.0055,
+        0.0042,
+        0.0020,
+        0.0016
+    ]
+}
+
     
 def show_enhanced_ml_analysis():
     """
