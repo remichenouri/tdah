@@ -3276,185 +3276,162 @@ def show_enhanced_ml_analysis():
         </p>
     </div>
     """, unsafe_allow_html=True)
-
-    from tdah_detector import TDAHNaiveBayesDetector 
-    
-    # Chargement du dataset
     df = load_enhanced_dataset()
-    # Instanciation du détecteur
-    detector = TDAHNaiveBayesDetector()
-    # Chargement et préparation du dataset
-    df = load_enhanced_dataset()  # Fonction existante pour charger les données
-    # Encodages
-    df['gender'] = df['gender'].map({'M':0,'F':1}).fillna(0).astype(int)
-    df['education'] = df['education'].map({
-        'Bac':0,'Bac+2':1,'Bac+3':2,'Bac+5':3,'Doctorat':4
-    }).fillna(0).astype(int)
-    # Imputation
-    num_cols = df.select_dtypes(include=['int64','float64']).columns
-    df[num_cols] = SimpleImputer(strategy='median').fit_transform(df[num_cols])
-
-    # Entraînement Naive Bayes
-    X = df.drop(columns=['diagnosis'])
-    y = df['diagnosis'].map({'Yes':1,'No':0}) if df['diagnosis'].dtype == object else df['diagnosis']
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, stratify=y, random_state=42, test_size=0.2
-    )
-    scaler = StandardScaler().fit(X_train)
-    X_train_s = scaler.transform(X_train)
-    X_test_s = scaler.transform(X_test)
-
-    model = GaussianNB()
-    model.fit(X_train_s, y_train)
-    y_pred = model.predict(X_test_s)
-    y_proba = model.predict_proba(X_test_s)[:,1]
-
-    # Calcul des métriques
-    metrics = {
-        'accuracy': accuracy_score(y_test, y_pred),
-        'precision': precision_score(y_test, y_pred, zero_division=0),
-        'recall': recall_score(y_test, y_pred, zero_division=0),
-        'f1': f1_score(y_test, y_pred, zero_division=0),
-        'roc_auc': roc_auc_score(y_test, y_proba),
-        'cv_auc': cross_val_score(model, X_train_s, y_train, cv=5, scoring='roc_auc').mean()
-    }
-
-    # Affichage des métriques
-    st.subheader("📊 Performances Naive Bayes")
-    cols = st.columns(5)
-    for col, label in zip(cols, ['accuracy','precision','recall','f1','roc_auc']):
-        col.metric(label.capitalize(), f"{metrics[label]:.2%}")
-
-    # Matrice de confusion
-    cm = confusion_matrix(y_test, y_pred)
-    fig_cm = go.Figure(
-        go.Heatmap(z=cm, x=['Pred 0','Pred 1'], y=['True 0','True 1'],
-                   colorscale='Oranges', text=cm, texttemplate="%{text}")
-    )
-    fig_cm.update_layout(title="Matrice de confusion")
-    st.plotly_chart(fig_cm, use_container_width=True)
-
-    # Courbe ROC
-    fpr, tpr, _ = roc_curve(y_test, y_proba)
-    fig_roc = go.Figure()
-    fig_roc.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines',
-                                 name=f"AUC={metrics['roc_auc']:.2f}"))
-    fig_roc.add_trace(go.Scatter(x=[0,1], y=[0,1], mode='lines', line_dash='dash'))
-    fig_roc.update_layout(title="Courbe ROC")
-    st.plotly_chart(fig_roc, use_container_width=True)
-    
-    def _find_optimal_threshold(self, y_true, y_proba):
-        best_thr, best_prec = 0.5, 0.0
-        for thr in np.linspace(0.1, 0.9, 17):
-            y_pred_t = (y_proba >= thr).astype(int)
-            prec = precision_score(y_true, y_pred_t, zero_division=0)
-            rec  = recall_score(y_true, y_pred_t, zero_division=0)
-            if rec >= 0.85 and prec > best_prec:
-                    best_prec, best_thr = prec, thr
-        return best_thr
-
-    def _optimize_threshold_for_screening(self, X_test, y_test):
-        """Optimise le seuil pour un dépistage selon recall et precision."""
-        # Calcul du pouvoir discriminant
-        class_means = self.model.theta_
-        class_vars  = self.model.var_
-        discriminant_power = np.abs(class_means[1] - class_means[0]) / np.sqrt(class_vars[1] + class_vars[0])
+    class TDAHDetector:
+        def __init__(self):
+            self.model = GaussianNB()
+            self.scaler = StandardScaler()
+            self.is_trained = False
+            
+        df = load_enhanced_dataset()
+        def train(self, df):
+            df['gender'] = df['gender'].map({'M':0,'F':1}).fillna(0).astype(int)
+            df['education'] = df['education'].map({
+                'Bac':0,'Bac+2':1,'Bac+3':2,'Bac+5':3,'Doctorat':4
+            }).fillna(0).astype(int)
+            # Imputation
+            num_cols = df.select_dtypes(include=['int64','float64']).columns
+            df[num_cols] = SimpleImputer(strategy='median').fit_transform(df[num_cols])
         
-        # Vérification des longueurs avant création du DataFrame
-        assert len(self.feature_names) == len(discriminant_power), \
-        "feature_names et discriminant_power doivent avoir la même longueur"
+            # Entraînement Naive Bayes
+            X = df.drop(columns=['diagnosis'])
+            y = df['diagnosis'].map({'Yes':1,'No':0}) if df['diagnosis'].dtype == object else df['diagnosis']
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, stratify=y, random_state=42, test_size=0.2
+            )
+            scaler = StandardScaler().fit(X_train)
+            X_train_s = scaler.transform(X_train)
+            X_test_s = scaler.transform(X_test)
         
-        # Construction et tri du DataFrame d’importance
-        importance_df = pd.DataFrame({
-            'Feature': self.feature_names,
-            'Pouvoir_Discriminant': discriminant_power
-        }).sort_values('Pouvoir_Discriminant', ascending=False)
-        self.metrics['importance_df'] = importance_df
+            model = GaussianNB()
+            model.fit(X_train_s, y_train)
+            y_pred = model.predict(X_test_s)
+            y_proba = model.predict_proba(X_test_s)[:,1]
         
-        # Calcul des probabilités prédites
-        y_proba = self.model.predict_proba(X_test)[:, 1]
-        
-        # Balayage des seuils
-        thresholds = np.linspace(0.1, 0.9, 81)
-        best_precision = 0.0
-        optimal_threshold = 0.5
-        results = []
-        
-        for thr in thresholds:
-            y_pred = (y_proba >= thr).astype(int)
-            rec = recall_score(y_test, y_pred, zero_division=0)
-            prec = precision_score(y_test, y_pred, zero_division=0)
-            f1 = f1_score(y_test, y_pred, zero_division=0)
-            results.append({'threshold': thr, 'recall': rec, 'precision': prec, 'f1': f1})
-        
-            # Choix du seuil : recall>=85% et meilleure précision
-            if rec >= 0.85 and prec > best_precision:
-                best_precision = prec
-                optimal_threshold = thr
-        
-        # Enregistrement des métriques dans l’état du modèle
-        self.metrics['optimal_threshold']   = optimal_threshold
-        self.metrics['threshold_results']   = pd.DataFrame(results)
-            
-        def predict_risk(self, user_responses):
-            """Prédit le risque TDAH pour un utilisateur"""
-            if not self.is_trained:
-                raise ValueError("Modèle non entraîné")
-            
-            # Construction du vecteur de features
-            features = []
-            
-            # Questions ASRS
-            for i in range(1, 19):
-                features.append(user_responses.get(f'asrs_q{i}', 0))
-            
-            # Variables démographiques
-            features.extend([
-                user_responses.get('age', 30),
-                user_responses.get('stress_level', 3),
-                user_responses.get('quality_of_life', 6),
-                user_responses.get('sleep_problems', 2)
-            ])
-            
-            # Encodage genre et éducation
-            gender_map = {'M': 0, 'F': 1}
-            education_map = {'Bac': 0, 'Bac+2': 1, 'Bac+3': 2, 'Bac+5': 3, 'Doctorat': 4}
-            
-            features.extend([
-                gender_map.get(user_responses.get('gender', 'M'), 0),
-                education_map.get(user_responses.get('education', 'Bac'), 0)
-            ])
-            
-            # Normalisation et prédiction
-            features_scaled = self.scaler.transform([features])
-            probability = self.model.predict_proba(features_scaled)[0, 1]
-            
-            # Classification avec seuil optimisé
-            prediction = 1 if probability >= self.metrics['optimal_threshold'] else 0
-            
-            return {
-                'probability': probability,
-                'prediction': prediction,
-                'risk_category': self._categorize_risk(probability),
-                'confidence': self._calculate_confidence(probability)
+            # Calcul des métriques
+            metrics = {
+                'accuracy': accuracy_score(y_test, y_pred),
+                'precision': precision_score(y_test, y_pred, zero_division=0),
+                'recall': recall_score(y_test, y_pred, zero_division=0),
+                'f1': f1_score(y_test, y_pred, zero_division=0),
+                'roc_auc': roc_auc_score(y_test, y_proba),
+                'cv_auc': cross_val_score(model, X_train_s, y_train, cv=5, scoring='roc_auc').mean()
             }
+        
             
-        def _categorize_risk(self, probability):
-            """Catégorise le niveau de risque"""
-            if probability >= 0.8:
-                return {'level': 'Très élevé', 'color': '#E74C3C', 'icon': '🔴'}
-            elif probability >= 0.6:
-                return {'level': 'Élevé', 'color': '#F39C12', 'icon': '🟠'}
-            elif probability >= 0.4:
-                return {'level': 'Modéré', 'color': '#F1C40F', 'icon': '🟡'}
-            else:
-                return {'level': 'Faible', 'color': '#27AE60', 'icon': '🟢'}
+            
+            def _find_optimal_threshold(self, y_true, y_proba):
+                best_thr, best_prec = 0.5, 0.0
+                for thr in np.linspace(0.1, 0.9, 17):
+                    y_pred_t = (y_proba >= thr).astype(int)
+                    prec = precision_score(y_true, y_pred_t, zero_division=0)
+                    rec  = recall_score(y_true, y_pred_t, zero_division=0)
+                    if rec >= 0.85 and prec > best_prec:
+                            best_prec, best_thr = prec, thr
+                return best_thr
+        
+            def _optimize_threshold_for_screening(self, X_test, y_test):
+                """Optimise le seuil pour un dépistage selon recall et precision."""
+                # Calcul du pouvoir discriminant
+                class_means = self.model.theta_
+                class_vars  = self.model.var_
+                discriminant_power = np.abs(class_means[1] - class_means[0]) / np.sqrt(class_vars[1] + class_vars[0])
                 
-        def _calculate_confidence(self, probability):
-            """Calcule la confiance de la prédiction"""
-            distance_from_boundary = abs(probability - 0.5)
-            confidence = min(0.5 + distance_from_boundary, 1.0)
-            return confidence
+                # Vérification des longueurs avant création du DataFrame
+                assert len(self.feature_names) == len(discriminant_power), \
+                "feature_names et discriminant_power doivent avoir la même longueur"
+                
+                # Construction et tri du DataFrame d’importance
+                importance_df = pd.DataFrame({
+                    'Feature': self.feature_names,
+                    'Pouvoir_Discriminant': discriminant_power
+                }).sort_values('Pouvoir_Discriminant', ascending=False)
+                self.metrics['importance_df'] = importance_df
+                
+                # Calcul des probabilités prédites
+                y_proba = self.model.predict_proba(X_test)[:, 1]
+                
+                # Balayage des seuils
+                thresholds = np.linspace(0.1, 0.9, 81)
+                best_precision = 0.0
+                optimal_threshold = 0.5
+                results = []
+                
+                for thr in thresholds:
+                    y_pred = (y_proba >= thr).astype(int)
+                    rec = recall_score(y_test, y_pred, zero_division=0)
+                    prec = precision_score(y_test, y_pred, zero_division=0)
+                    f1 = f1_score(y_test, y_pred, zero_division=0)
+                    results.append({'threshold': thr, 'recall': rec, 'precision': prec, 'f1': f1})
+                
+                    # Choix du seuil : recall>=85% et meilleure précision
+                    if rec >= 0.85 and prec > best_precision:
+                        best_precision = prec
+                        optimal_threshold = thr
+                
+                # Enregistrement des métriques dans l’état du modèle
+                self.metrics['optimal_threshold']   = optimal_threshold
+                self.metrics['threshold_results']   = pd.DataFrame(results)
+                    
+                def predict_risk(self, user_responses):
+                    """Prédit le risque TDAH pour un utilisateur"""
+                    if not self.is_trained:
+                        raise ValueError("Modèle non entraîné")
+                    
+                    # Construction du vecteur de features
+                    features = []
+                    
+                    # Questions ASRS
+                    for i in range(1, 19):
+                        features.append(user_responses.get(f'asrs_q{i}', 0))
+                    
+                    # Variables démographiques
+                    features.extend([
+                        user_responses.get('age', 30),
+                        user_responses.get('stress_level', 3),
+                        user_responses.get('quality_of_life', 6),
+                        user_responses.get('sleep_problems', 2)
+                    ])
+                    
+                    # Encodage genre et éducation
+                    gender_map = {'M': 0, 'F': 1}
+                    education_map = {'Bac': 0, 'Bac+2': 1, 'Bac+3': 2, 'Bac+5': 3, 'Doctorat': 4}
+                    
+                    features.extend([
+                        gender_map.get(user_responses.get('gender', 'M'), 0),
+                        education_map.get(user_responses.get('education', 'Bac'), 0)
+                    ])
+                    
+                    # Normalisation et prédiction
+                    features_scaled = self.scaler.transform([features])
+                    probability = self.model.predict_proba(features_scaled)[0, 1]
+                    
+                    # Classification avec seuil optimisé
+                    prediction = 1 if probability >= self.metrics['optimal_threshold'] else 0
+                    
+                    return {
+                        'probability': probability,
+                        'prediction': prediction,
+                        'risk_category': self._categorize_risk(probability),
+                        'confidence': self._calculate_confidence(probability)
+                    }
+                    
+                def _categorize_risk(self, probability):
+                    """Catégorise le niveau de risque"""
+                    if probability >= 0.8:
+                        return {'level': 'Très élevé', 'color': '#E74C3C', 'icon': '🔴'}
+                    elif probability >= 0.6:
+                        return {'level': 'Élevé', 'color': '#F39C12', 'icon': '🟠'}
+                    elif probability >= 0.4:
+                        return {'level': 'Modéré', 'color': '#F1C40F', 'icon': '🟡'}
+                    else:
+                        return {'level': 'Faible', 'color': '#27AE60', 'icon': '🟢'}
+                        
+                def _calculate_confidence(self, probability):
+                    """Calcule la confiance de la prédiction"""
+                    distance_from_boundary = abs(probability - 0.5)
+                    confidence = min(0.5 + distance_from_boundary, 1.0)
+                    return confidence
     
     # ===========================
     # 6. ONGLETS VULGARISÉS
@@ -3474,22 +3451,47 @@ def show_enhanced_ml_analysis():
     # ===========================
     with tabs[0]:
         show_comparison_tab()
+        # Affichage des métriques
+        st.subheader("📊 Performances Naive Bayes")
+        cols = st.columns(5)
+        for col, label in zip(cols, ['accuracy','precision','recall','f1','roc_auc']):
+            col.metric(label.capitalize(), f"{metrics[label]:.2%}")
+    
+        # Matrice de confusion
+        cm = confusion_matrix(y_test, y_pred)
+        fig_cm = go.Figure(
+            go.Heatmap(z=cm, x=['Pred 0','Pred 1'], y=['True 0','True 1'],
+                       colorscale='Oranges', text=cm, texttemplate="%{text}")
+        )
+        fig_cm.update_layout(title="Matrice de confusion")
+        st.plotly_chart(fig_cm, use_container_width=True)
+    
+        # Courbe ROC
+        fpr, tpr, _ = roc_curve(y_test, y_proba)
+        fig_roc = go.Figure()
+        fig_roc.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines',
+                                     name=f"AUC={metrics['roc_auc']:.2f}"))
+        fig_roc.add_trace(go.Scatter(x=[0,1], y=[0,1], mode='lines', line_dash='dash'))
+        fig_roc.update_layout(title="Courbe ROC")
+        st.plotly_chart(fig_roc, use_container_width=True)
+        from tdah_detector import TDAHNaiveBayesDetector 
+        detector = TDAHDetector()
         
-    with tabs[1]:
-        st.markdown("""
-        <div class="explanation-box">
-            <h3 style="color: #D35400; margin-top: 0;">
-                🤖 Pourquoi Naive Bayes pour le TDAH ?
-            </h3>
-            <p style="color: #2c3e50; line-height: 1.6; font-size: 1.1rem;">
-                Le modèle <strong>Naive Bayes</strong> est le choix optimal pour le <strong>dépistage de masse</strong> 
-                du TDAH pour plusieurs raisons scientifiques :
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Avantages de Naive Bayes
-        col1, col2 = st.columns(2)
+        with tabs[1]:
+            st.markdown("""
+            <div class="explanation-box">
+                <h3 style="color: #D35400; margin-top: 0;">
+                    🤖 Pourquoi Naive Bayes pour le TDAH ?
+                </h3>
+                <p style="color: #2c3e50; line-height: 1.6; font-size: 1.1rem;">
+                    Le modèle <strong>Naive Bayes</strong> est le choix optimal pour le <strong>dépistage de masse</strong> 
+                    du TDAH pour plusieurs raisons scientifiques :
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Avantages de Naive Bayes
+            col1, col2 = st.columns(2)
         
         with col1:
             st.markdown("""
@@ -3524,7 +3526,6 @@ def show_enhanced_ml_analysis():
             with st.spinner("🔄 Entraînement du modèle Naive Bayes en cours..."):
                 
                 # Création et entraînement du modèle
-                detector = TDAHNaiveBayesDetector()
                 metrics, X_test, y_test, y_pred, y_proba = detector.train(df)
                 
                 # Stockage dans la session
