@@ -3023,7 +3023,7 @@ def simple_ml_analysis(X_train, X_test, y_train, y_test):
         return None
 
 
- def show_comparison_tab():
+def show_comparison_tab():
     import pandas as pd  # Import correct
     import numpy as np
     st.header("📈 Comparaison des modèles")
